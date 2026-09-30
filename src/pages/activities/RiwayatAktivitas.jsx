@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import MainLayout from '../components/layouts/MainLayout';
-import { Clock, Filter, Trash2, Search } from 'lucide-react';
+import { Clock, Filter, Trash2, Search, ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 
 export default function RiwayatAktivitas() {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -12,13 +12,9 @@ export default function RiwayatAktivitas() {
   const [loading, setLoading] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterTanggal, setFilterTanggal] = useState('');
-  const [filterSales, setFilterSales] = useState('');
-  const [filterCustomer, setFilterCustomer] = useState('');
-  const [filterSite, setFilterSite] = useState('');
-  const [filterJenis, setFilterJenis] = useState('');
-  const [filterDitemui, setFilterDitemui] = useState('');
-  const [filterCatatan, setFilterCatatan] = useState('');
+  const [sortConfig, setSortConfig] = useState({ key: 'tanggal', direction: 'desc' });
+  const [filters, setFilters] = useState({});
+  const [openFilter, setOpenFilter] = useState(null);
 
   useEffect(() => {
     fetchActivities();
@@ -74,30 +70,146 @@ export default function RiwayatAktivitas() {
 
   const formatDate = (dateString) => new Date(dateString).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'});
 
-  const uniqueTanggal = [...new Set(activities.map(a => formatDate(a.tanggal)).filter(Boolean))];
-  const uniqueSales = [...new Set(activities.map(a => a.user_name).filter(Boolean))];
-  const uniqueCustomer = [...new Set(activities.map(a => a.nama_customer).filter(Boolean))];
-  const uniqueSite = [...new Set(activities.map(a => a.site_kota).filter(Boolean))];
-  const uniqueJenis = [...new Set(activities.map(a => a.jenis_aktivitas).filter(Boolean))];
-  const uniqueDitemui = [...new Set(activities.map(a => getDitemuiText(a)).filter(Boolean))];
-  const uniqueCatatan = [...new Set(activities.map(a => a.catatan).filter(Boolean))];
+  const requestSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
 
-  const filteredActivities = activities.filter(act => {
-    const matchesSearch = 
-       (act.nama_customer?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-       (act.catatan?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-       (getDitemuiText(act).toLowerCase()).includes(searchTerm.toLowerCase());
+  const handleFilterChange = (columnKey, value) => {
+    setFilters(prev => ({ ...prev, [columnKey]: value }));
+  };
+
+  const uniqueOptions = React.useMemo(() => {
+    const opts = {
+      tanggal: new Set(),
+      user_name: new Set(),
+      nama_customer: new Set(),
+      site_kota: new Set(),
+      jenis_aktivitas: new Set(),
+      ditemui: new Set(),
+      catatan: new Set(),
+    };
     
-    const matchesTanggal = filterTanggal === '' || formatDate(act.tanggal) === filterTanggal;
-    const matchesSales = filterSales === '' || act.user_name === filterSales;
-    const matchesCustomer = filterCustomer === '' || act.nama_customer === filterCustomer;
-    const matchesSite = filterSite === '' || act.site_kota === filterSite;
-    const matchesJenis = filterJenis === '' || act.jenis_aktivitas === filterJenis;
-    const matchesDitemui = filterDitemui === '' || getDitemuiText(act) === filterDitemui;
-    const matchesCatatan = filterCatatan === '' || act.catatan === filterCatatan;
+    activities.forEach(a => {
+      opts.tanggal.add(formatDate(a.tanggal));
+      if (a.user_name) opts.user_name.add(a.user_name);
+      if (a.nama_customer) opts.nama_customer.add(a.nama_customer);
+      if (a.site_kota) opts.site_kota.add(a.site_kota);
+      if (a.jenis_aktivitas) opts.jenis_aktivitas.add(a.jenis_aktivitas);
+      
+      const dText = getDitemuiText(a);
+      if (dText) opts.ditemui.add(dText);
+      if (a.catatan) opts.catatan.add(a.catatan);
+    });
 
-    return matchesSearch && matchesTanggal && matchesSales && matchesCustomer && matchesSite && matchesJenis && matchesDitemui && matchesCatatan;
-  });
+    return {
+      tanggal: Array.from(opts.tanggal).sort(),
+      user_name: Array.from(opts.user_name).sort(),
+      nama_customer: Array.from(opts.nama_customer).sort(),
+      site_kota: Array.from(opts.site_kota).sort(),
+      jenis_aktivitas: Array.from(opts.jenis_aktivitas).sort(),
+      ditemui: Array.from(opts.ditemui).sort(),
+      catatan: Array.from(opts.catatan).sort(),
+    };
+  }, [activities]);
+
+  const filteredAndSortedActivities = React.useMemo(() => {
+    let result = [...activities];
+    
+    if (searchTerm) {
+      const s = searchTerm.toLowerCase();
+      result = result.filter(act => 
+         (act.nama_customer?.toLowerCase() || '').includes(s) ||
+         (act.catatan?.toLowerCase() || '').includes(s) ||
+         (getDitemuiText(act).toLowerCase()).includes(s)
+      );
+    }
+    
+    result = result.filter(act => {
+      if (filters.tanggal && formatDate(act.tanggal) !== filters.tanggal) return false;
+      if (filters.user_name && act.user_name !== filters.user_name) return false;
+      if (filters.nama_customer && act.nama_customer !== filters.nama_customer) return false;
+      if (filters.site_kota && act.site_kota !== filters.site_kota) return false;
+      if (filters.jenis_aktivitas && act.jenis_aktivitas !== filters.jenis_aktivitas) return false;
+      if (filters.ditemui && getDitemuiText(act) !== filters.ditemui) return false;
+      if (filters.catatan && act.catatan !== filters.catatan) return false;
+      return true;
+    });
+
+    if (sortConfig) {
+      result.sort((a, b) => {
+        let aVal = '', bVal = '';
+        if (sortConfig.key === 'tanggal') { 
+          aVal = new Date(a.tanggal).getTime(); bVal = new Date(b.tanggal).getTime(); 
+        } else if (sortConfig.key === 'user_name') { aVal = a.user_name || ''; bVal = b.user_name || ''; }
+        else if (sortConfig.key === 'nama_customer') { aVal = a.nama_customer || ''; bVal = b.nama_customer || ''; }
+        else if (sortConfig.key === 'site_kota') { aVal = a.site_kota || ''; bVal = b.site_kota || ''; }
+        else if (sortConfig.key === 'jenis_aktivitas') { aVal = a.jenis_aktivitas || ''; bVal = b.jenis_aktivitas || ''; }
+        else if (sortConfig.key === 'ditemui') { aVal = getDitemuiText(a); bVal = getDitemuiText(b); }
+        else if (sortConfig.key === 'catatan') { aVal = a.catatan || ''; bVal = b.catatan || ''; }
+        
+        if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+    
+    return result;
+  }, [activities, filters, sortConfig, searchTerm]);
+
+  const SortIcon = ({ columnKey }) => {
+    if (sortConfig?.key !== columnKey) return <ArrowUpDown className="w-3 h-3 ml-1 opacity-40 inline" />;
+    return sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 ml-1 inline text-blue-600" /> : <ArrowDown className="w-3 h-3 ml-1 inline text-blue-600" />;
+  };
+
+  const FilterHeader = ({ columnKey, label }) => {
+    const isActive = !!filters[columnKey];
+    return (
+      <th className="py-3 px-4 font-semibold text-sm text-gray-700 relative whitespace-nowrap group align-middle">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex-1 cursor-pointer hover:text-gray-900 flex items-center gap-1" onClick={() => requestSort(columnKey)}>
+            {label} <SortIcon columnKey={columnKey} />
+          </div>
+          <div 
+            className={`cursor-pointer p-1.5 rounded transition-colors ${isActive ? 'text-blue-600 bg-blue-50' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-200'}`}
+            onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === columnKey ? null : columnKey); }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill={isActive ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+          </div>
+        </div>
+        {openFilter === columnKey && (
+          <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 shadow-xl rounded-md z-[60] w-48 font-normal normal-case text-gray-700">
+            <div className="px-3 py-2 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-md">
+              <span className="font-semibold text-xs text-gray-600">Filter {label}</span>
+              <button onClick={(e) => { e.stopPropagation(); setOpenFilter(null); }} className="text-gray-400 hover:text-gray-600 text-lg leading-none">&times;</button>
+            </div>
+            <div className="max-h-48 overflow-y-auto">
+              <div 
+                className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${!isActive ? 'bg-blue-50 text-blue-600 font-medium' : ''}`}
+                onClick={(e) => { e.stopPropagation(); handleFilterChange(columnKey, ''); setOpenFilter(null); }}
+              >
+                Semua
+              </div>
+              {uniqueOptions[columnKey].map(o => (
+                <div 
+                  key={o}
+                  className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${filters[columnKey] === o ? 'bg-blue-50 text-blue-600 font-medium' : ''}`}
+                  onClick={(e) => { e.stopPropagation(); handleFilterChange(columnKey, o); setOpenFilter(null); }}
+                >
+                  {o}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </th>
+    );
+  };
 
   return (
     <MainLayout>
@@ -110,7 +222,10 @@ export default function RiwayatAktivitas() {
         </p>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden relative">
+        {openFilter && (
+          <div className="fixed inset-0 z-50" onClick={() => setOpenFilter(null)} />
+        )}
         <div className="p-4 border-b border-gray-100 flex flex-wrap gap-4 items-center justify-between">
            <div className="flex gap-2 w-full max-w-md">
              <div className="relative w-full">
@@ -128,82 +243,17 @@ export default function RiwayatAktivitas() {
            </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto min-h-[400px]">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100 text-sm">
-                <th className="py-3 px-4 font-semibold text-gray-700 whitespace-nowrap">
-                  <select 
-                    value={filterTanggal} 
-                    onChange={(e) => setFilterTanggal(e.target.value)}
-                    className="bg-transparent font-semibold text-gray-700 focus:outline-none cursor-pointer hover:text-blue-600"
-                  >
-                    <option value="">Semua Tanggal</option>
-                    {uniqueTanggal.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </th>
-                {canSeeAll && (
-                  <th className="py-3 px-4 font-semibold text-gray-700 whitespace-nowrap">
-                    <select 
-                      value={filterSales} 
-                      onChange={(e) => setFilterSales(e.target.value)}
-                      className="bg-transparent font-semibold text-gray-700 focus:outline-none cursor-pointer hover:text-blue-600"
-                    >
-                      <option value="">Semua Sales</option>
-                      {uniqueSales.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </th>
-                )}
-                <th className="py-3 px-4 font-semibold text-gray-700 whitespace-nowrap">
-                  <select 
-                    value={filterCustomer} 
-                    onChange={(e) => setFilterCustomer(e.target.value)}
-                    className="bg-transparent font-semibold text-gray-700 focus:outline-none cursor-pointer hover:text-blue-600"
-                  >
-                    <option value="">Semua Customer</option>
-                    {uniqueCustomer.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </th>
-                <th className="py-3 px-4 font-semibold text-gray-700 whitespace-nowrap">
-                  <select 
-                    value={filterSite} 
-                    onChange={(e) => setFilterSite(e.target.value)}
-                    className="bg-transparent font-semibold text-gray-700 focus:outline-none cursor-pointer hover:text-blue-600"
-                  >
-                    <option value="">Semua Site</option>
-                    {uniqueSite.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </th>
-                <th className="py-3 px-4 font-semibold text-gray-700 whitespace-nowrap">
-                  <select 
-                    value={filterJenis} 
-                    onChange={(e) => setFilterJenis(e.target.value)}
-                    className="bg-transparent font-semibold text-gray-700 focus:outline-none cursor-pointer hover:text-blue-600"
-                  >
-                    <option value="">Semua Jenis Aktivitas</option>
-                    {uniqueJenis.map(j => <option key={j} value={j}>{j}</option>)}
-                  </select>
-                </th>
-                <th className="py-3 px-4 font-semibold text-gray-700 whitespace-nowrap">
-                  <select 
-                    value={filterDitemui} 
-                    onChange={(e) => setFilterDitemui(e.target.value)}
-                    className="bg-transparent font-semibold text-gray-700 focus:outline-none cursor-pointer hover:text-blue-600 max-w-[200px]"
-                  >
-                    <option value="">Semua Detail (Ditemui)</option>
-                    {uniqueDitemui.map(d => <option key={d} value={d}>{d}</option>)}
-                  </select>
-                </th>
-                <th className="py-3 px-4 font-semibold text-gray-700 whitespace-nowrap">
-                  <select 
-                    value={filterCatatan} 
-                    onChange={(e) => setFilterCatatan(e.target.value)}
-                    className="bg-transparent font-semibold text-gray-700 focus:outline-none cursor-pointer hover:text-blue-600 max-w-[200px]"
-                  >
-                    <option value="">Semua Catatan</option>
-                    {uniqueCatatan.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </th>
+                <FilterHeader columnKey="tanggal" label="Tanggal" />
+                {canSeeAll && <FilterHeader columnKey="user_name" label="Sales" />}
+                <FilterHeader columnKey="nama_customer" label="Customer" />
+                <FilterHeader columnKey="site_kota" label="Site/Kota" />
+                <FilterHeader columnKey="jenis_aktivitas" label="Jenis" />
+                <FilterHeader columnKey="ditemui" label="Ditemui" />
+                <FilterHeader columnKey="catatan" label="Catatan" />
                 <th className="py-3 px-4 font-semibold text-gray-700 text-center whitespace-nowrap">Aksi</th>
               </tr>
             </thead>
@@ -214,8 +264,8 @@ export default function RiwayatAktivitas() {
                        Memuat data...
                     </td>
                  </tr>
-              ) : filteredActivities.length > 0 ? (
-                filteredActivities.map(act => (
+              ) : filteredAndSortedActivities.length > 0 ? (
+                filteredAndSortedActivities.map(act => (
                   <tr key={act.id} className="border-b border-gray-50 hover:bg-gray-50/50">
                     <td className="py-3 px-4 whitespace-nowrap">
                        {formatDate(act.tanggal)}

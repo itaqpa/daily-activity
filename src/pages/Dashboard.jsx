@@ -41,6 +41,12 @@ export default function Dashboard() {
   
   const [periodType, setPeriodType] = useState('daily');
   const [sortConfig, setSortConfig] = useState({ key: 'tanggal', direction: 'desc' });
+  const [filters, setFilters] = useState({});
+  const [openFilter, setOpenFilter] = useState(null);
+
+  const handleFilterChange = (columnKey, value) => {
+    setFilters(prev => ({ ...prev, [columnKey]: value }));
+  };
   
   const [dailyValue, setDailyValue] = useState(() => {
     const d = new Date();
@@ -184,8 +190,119 @@ export default function Dashboard() {
     setSortConfig({ key, direction });
   };
 
+  const FilterHeader = ({ columnKey, label }) => {
+    const isActive = !!filters[columnKey];
+    return (
+      <th className="px-6 py-4 text-sm font-bold text-gray-500 uppercase tracking-wider relative whitespace-nowrap group align-middle">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex-1 cursor-pointer hover:text-gray-800 flex items-center gap-1" onClick={() => requestSort(columnKey)}>
+            {label} <SortIcon columnKey={columnKey} />
+          </div>
+          <div 
+            className={`cursor-pointer p-1.5 rounded transition-colors ${isActive ? 'text-blue-600 bg-blue-50' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-200'}`}
+            onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === columnKey ? null : columnKey); }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill={isActive ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+          </div>
+        </div>
+        {openFilter === columnKey && (
+          <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 shadow-xl rounded-md z-[60] w-48 font-normal normal-case text-gray-700">
+            <div className="px-3 py-2 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-md">
+              <span className="font-semibold text-xs text-gray-600">Filter {label}</span>
+              <button onClick={(e) => { e.stopPropagation(); setOpenFilter(null); }} className="text-gray-400 hover:text-gray-600 text-lg leading-none">&times;</button>
+            </div>
+            <div className="max-h-48 overflow-y-auto">
+              <div 
+                className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${!isActive ? 'bg-blue-50 text-blue-600 font-medium' : ''}`}
+                onClick={(e) => { e.stopPropagation(); handleFilterChange(columnKey, ''); setOpenFilter(null); }}
+              >
+                Semua
+              </div>
+              {uniqueOptions[columnKey].map(o => (
+                <div 
+                  key={o}
+                  className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${filters[columnKey] === o ? 'bg-blue-50 text-blue-600 font-medium' : ''}`}
+                  onClick={(e) => { e.stopPropagation(); handleFilterChange(columnKey, o); setOpenFilter(null); }}
+                >
+                  {o}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </th>
+    );
+  };
+
+  const uniqueOptions = useMemo(() => {
+    const opts = {
+      tanggal: new Set(),
+      sales: new Set(),
+      customer: new Set(),
+      jenis: new Set(),
+      detail: new Set(),
+      catatan: new Set(),
+    };
+    
+    filteredActivities.forEach(a => {
+      opts.tanggal.add(new Date(a.created_at || a.tanggal).toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'}));
+      if (a.user_name) opts.sales.add(a.user_name);
+      if (a.nama_customer) opts.customer.add(a.nama_customer);
+      
+      const typeInfo = ACTIVITY_TYPES.find(t => t.key === a.jenis_aktivitas) || ACTIVITY_TYPES[0];
+      if (typeInfo) opts.jenis.add(typeInfo.short);
+      
+      const detailStr = getDitemuiText(a);
+      if (detailStr) opts.detail.add(detailStr);
+      
+      if (a.catatan) opts.catatan.add(a.catatan);
+    });
+
+    return {
+      tanggal: Array.from(opts.tanggal).sort(),
+      sales: Array.from(opts.sales).sort(),
+      customer: Array.from(opts.customer).sort(),
+      jenis: Array.from(opts.jenis).sort(),
+      detail: Array.from(opts.detail).sort(),
+      catatan: Array.from(opts.catatan).sort(),
+    };
+  }, [filteredActivities]);
+
   const sortedActivities = useMemo(() => {
     let sortableItems = [...filteredActivities];
+
+    // Apply column filters
+    sortableItems = sortableItems.filter(a => {
+      let match = true;
+      if (filters.tanggal) {
+        const dateStr = new Date(a.created_at || a.tanggal).toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'}).toLowerCase();
+        if (dateStr !== filters.tanggal.toLowerCase()) match = false;
+      }
+      if (filters.sales && canSeeAll) {
+        const salesName = (a.user_name || '').toLowerCase();
+        if (salesName !== filters.sales.toLowerCase()) match = false;
+      }
+      if (filters.customer) {
+        const custName = (a.nama_customer || '').toLowerCase();
+        if (custName !== filters.customer.toLowerCase()) match = false;
+      }
+      if (filters.jenis) {
+        const typeInfo = ACTIVITY_TYPES.find(t => t.key === a.jenis_aktivitas) || ACTIVITY_TYPES[0];
+        if (typeInfo.short.toLowerCase() !== filters.jenis.toLowerCase()) match = false;
+      }
+      if (filters.detail) {
+        const detailStr = (getDitemuiText(a) || '').toLowerCase();
+        if (detailStr !== filters.detail.toLowerCase()) match = false;
+      }
+      if (filters.catatan) {
+        const cat = (a.catatan || '').toLowerCase();
+        if (cat !== filters.catatan.toLowerCase()) match = false;
+      }
+      return match;
+    });
+
     if (sortConfig !== null) {
       sortableItems.sort((a, b) => {
         let aValue = '', bValue = '';
@@ -215,7 +332,7 @@ export default function Dashboard() {
       });
     }
     return sortableItems;
-  }, [filteredActivities, sortConfig]);
+  }, [filteredActivities, sortConfig, filters, canSeeAll]);
 
   const SortIcon = ({ columnKey }) => {
     if (sortConfig?.key !== columnKey) return <ArrowUpDown className="w-3 h-3 ml-1 opacity-40 inline" />;
@@ -424,43 +541,46 @@ export default function Dashboard() {
          </div>
       )}
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden relative">
+        {openFilter && (
+          <div className="fixed inset-0 z-50" onClick={() => setOpenFilter(null)} />
+        )}
         <div className="p-5 border-b border-gray-100">
           <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider">Aktivitas Terbaru</h3>
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto min-h-[400px]">
           <table className="w-full text-left">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-5 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => requestSort('tanggal')}>Tanggal <SortIcon columnKey="tanggal" /></th>
-                {canSeeAll && <th className="px-5 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => requestSort('sales')}>Sales <SortIcon columnKey="sales" /></th>}
-                <th className="px-5 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => requestSort('customer')}>Customer <SortIcon columnKey="customer" /></th>
-                <th className="px-5 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => requestSort('jenis')}>Jenis <SortIcon columnKey="jenis" /></th>
-                <th className="px-5 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => requestSort('detail')}>Detail <SortIcon columnKey="detail" /></th>
-                <th className="px-5 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => requestSort('catatan')}>Catatan <SortIcon columnKey="catatan" /></th>
+                <FilterHeader columnKey="tanggal" label="Tanggal" />
+                {canSeeAll && <FilterHeader columnKey="sales" label="Sales" />}
+                <FilterHeader columnKey="customer" label="Customer" />
+                <FilterHeader columnKey="jenis" label="Jenis" />
+                <FilterHeader columnKey="detail" label="Detail" />
+                <FilterHeader columnKey="catatan" label="Catatan" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 text-sm">
+            <tbody className="divide-y divide-gray-100 text-base">
                {sortedActivities.length > 0 ? (
                   sortedActivities
                     .map(act => {
                      const typeInfo = ACTIVITY_TYPES.find(t => t.key === act.jenis_aktivitas) || ACTIVITY_TYPES[0];
                      return (
                      <tr key={act.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-5 py-4 whitespace-nowrap text-gray-600">{new Date(act.tanggal).toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'})}</td>
-                        {canSeeAll && <td className="px-5 py-4 text-gray-800">{act.user_name || '—'}</td>}
-                        <td className="px-5 py-4">
+                        <td className="px-6 py-5 whitespace-nowrap text-gray-600">{new Date(act.tanggal).toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'})}</td>
+                        {canSeeAll && <td className="px-6 py-5 text-gray-800">{act.user_name || '—'}</td>}
+                        <td className="px-6 py-5">
                            <div className="font-semibold text-gray-900">{act.nama_customer || '—'}</div>
-                           {act.site_kota && <div className="text-xs text-gray-500 mt-0.5">{act.site_kota}</div>}
+                           {act.site_kota && <div className="text-sm text-gray-500 mt-0.5">{act.site_kota}</div>}
                         </td>
-                        <td className="px-5 py-4 whitespace-nowrap">
-                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold" style={{backgroundColor: typeInfo.bg, color: typeInfo.color}}>
-                              <span className="w-2 h-2 rounded-full" style={{backgroundColor: typeInfo.color}}></span>
+                        <td className="px-6 py-5 whitespace-nowrap">
+                           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor: typeInfo.bg, color: typeInfo.color}}>
+                              <span className="w-2.5 h-2.5 rounded-full" style={{backgroundColor: typeInfo.color}}></span>
                               {typeInfo.short}
                            </span>
                         </td>
-                        <td className="px-5 py-4 text-gray-500 text-xs max-w-xs">{getDitemuiText(act) || '—'}</td>
-                        <td className="px-5 py-4 text-gray-500 max-w-xs truncate" title={act.catatan}>{act.catatan || '—'}</td>
+                        <td className="px-6 py-5 text-gray-600 text-sm max-w-xs">{getDitemuiText(act) || '—'}</td>
+                        <td className="px-6 py-5 text-gray-600 max-w-xs truncate" title={act.catatan}>{act.catatan || '—'}</td>
                      </tr>
                   )})
                ) : (

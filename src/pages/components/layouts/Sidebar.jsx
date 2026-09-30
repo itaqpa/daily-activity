@@ -68,28 +68,19 @@ export default function Sidebar({ isOpen, setIsOpen }) {
   }, []);
 
   const handleInstallClick = async () => {
-    // Check if it's iOS
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-    
-    if (isIOS) {
-      alert('Untuk menginstal aplikasi di iOS: ketuk tombol Share (Bagikan) di menu bawah, lalu pilih "Add to Home Screen" (Tambahkan ke Layar Utama).');
-      return;
-    }
-
     if (deferredPrompt) {
-      // Show the install prompt
+      // Tampilkan prompt bawaan OS/Browser
       deferredPrompt.prompt();
-      // Wait for the user to respond to the prompt
+      
       const { outcome } = await deferredPrompt.userChoice;
       if (outcome === 'accepted') {
         console.log('User accepted the install prompt');
       } else {
         console.log('User dismissed the install prompt');
       }
-      // We've used the prompt, and can't use it again, throw it away
+      
+      // Prompt hanya bisa dipakai 1 kali
       setDeferredPrompt(null);
-    } else {
-      alert('Aplikasi sudah terinstal atau browser Anda tidak mendukung fitur ini.');
     }
   };
 

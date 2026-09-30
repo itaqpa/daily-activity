@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import MainLayout from '../components/layouts/MainLayout';
-import { Plus, Edit2, Trash2, Search, X } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, X, ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import Select from 'react-select';
 import CreatableSelect from 'react-select/creatable';
 
@@ -12,6 +12,11 @@ export default function DataCustomer() {
   const [salesList, setSalesList] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  
+  const [sortConfig, setSortConfig] = useState(null);
+  const [filters, setFilters] = useState({});
+  const [openFilter, setOpenFilter] = useState(null);
+  const [globalSearch, setGlobalSearch] = useState('');
   
   const [formData, setFormData] = useState({
     id: null,
@@ -158,6 +163,128 @@ export default function DataCustomer() {
     }
   };
 
+  const requestSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const handleFilterChange = (columnKey, value) => {
+    setFilters(prev => ({ ...prev, [columnKey]: value }));
+  };
+
+  const uniqueOptions = React.useMemo(() => {
+    const opts = {
+      no_akun: new Set(),
+      nama_customer: new Set(),
+      site_kota: new Set(),
+      sales: new Set(),
+    };
+    
+    customers.forEach(c => {
+      if (c.no_akun) opts.no_akun.add(c.no_akun);
+      if (c.nama_customer) opts.nama_customer.add(c.nama_customer);
+      if (c.site_kota) c.site_kota.forEach(s => opts.site_kota.add(s));
+      if (c.assigned_sales) c.assigned_sales.forEach(s => opts.sales.add(s.name));
+    });
+
+    return {
+      no_akun: Array.from(opts.no_akun).sort(),
+      nama_customer: Array.from(opts.nama_customer).sort(),
+      site_kota: Array.from(opts.site_kota).sort(),
+      sales: Array.from(opts.sales).sort(),
+    };
+  }, [customers]);
+
+  const filteredAndSortedCustomers = React.useMemo(() => {
+    let result = [...customers];
+    
+    if (globalSearch) {
+      const s = globalSearch.toLowerCase();
+      result = result.filter(c => 
+        (c.no_akun && c.no_akun.toLowerCase().includes(s)) ||
+        (c.nama_customer && c.nama_customer.toLowerCase().includes(s))
+      );
+    }
+    
+    result = result.filter(c => {
+      if (filters.no_akun && c.no_akun !== filters.no_akun) return false;
+      if (filters.nama_customer && c.nama_customer !== filters.nama_customer) return false;
+      if (filters.site_kota && (!c.site_kota || !c.site_kota.includes(filters.site_kota))) return false;
+      if (filters.sales && (!c.assigned_sales || !c.assigned_sales.some(s => s.name === filters.sales))) return false;
+      return true;
+    });
+
+    if (sortConfig) {
+      result.sort((a, b) => {
+        let aVal = '', bVal = '';
+        if (sortConfig.key === 'no_akun') { aVal = a.no_akun || ''; bVal = b.no_akun || ''; }
+        else if (sortConfig.key === 'nama_customer') { aVal = a.nama_customer || ''; bVal = b.nama_customer || ''; }
+        else if (sortConfig.key === 'site_kota') { aVal = (a.site_kota||[]).join(', '); bVal = (b.site_kota||[]).join(', '); }
+        else if (sortConfig.key === 'sales') { aVal = (a.assigned_sales||[]).map(s=>s.name).join(', '); bVal = (b.assigned_sales||[]).map(s=>s.name).join(', '); }
+        
+        if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+    
+    return result;
+  }, [customers, filters, sortConfig, globalSearch]);
+
+  const SortIcon = ({ columnKey }) => {
+    if (sortConfig?.key !== columnKey) return <ArrowUpDown className="w-3 h-3 ml-1 opacity-40 inline" />;
+    return sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 ml-1 inline text-blue-600" /> : <ArrowDown className="w-3 h-3 ml-1 inline text-blue-600" />;
+  };
+
+  const FilterHeader = ({ columnKey, label }) => {
+    const isActive = !!filters[columnKey];
+    return (
+      <th className="p-4 font-semibold text-sm text-gray-600 relative whitespace-nowrap group align-middle">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex-1 cursor-pointer hover:text-gray-900 flex items-center gap-1" onClick={() => requestSort(columnKey)}>
+            {label} <SortIcon columnKey={columnKey} />
+          </div>
+          <div 
+            className={`cursor-pointer p-1.5 rounded transition-colors ${isActive ? 'text-blue-600 bg-blue-50' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-200'}`}
+            onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === columnKey ? null : columnKey); }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill={isActive ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+          </div>
+        </div>
+        {openFilter === columnKey && (
+          <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 shadow-xl rounded-md z-[60] w-48 font-normal normal-case text-gray-700">
+            <div className="px-3 py-2 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-md">
+              <span className="font-semibold text-xs text-gray-600">Filter {label}</span>
+              <button onClick={(e) => { e.stopPropagation(); setOpenFilter(null); }} className="text-gray-400 hover:text-gray-600 text-lg leading-none">&times;</button>
+            </div>
+            <div className="max-h-48 overflow-y-auto">
+              <div 
+                className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${!isActive ? 'bg-blue-50 text-blue-600 font-medium' : ''}`}
+                onClick={(e) => { e.stopPropagation(); handleFilterChange(columnKey, ''); setOpenFilter(null); }}
+              >
+                Semua
+              </div>
+              {uniqueOptions[columnKey].map(o => (
+                <div 
+                  key={o}
+                  className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${filters[columnKey] === o ? 'bg-blue-50 text-blue-600 font-medium' : ''}`}
+                  onClick={(e) => { e.stopPropagation(); handleFilterChange(columnKey, o); setOpenFilter(null); }}
+                >
+                  {o}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </th>
+    );
+  };
+
   return (
     <MainLayout>
       <div className="flex justify-between items-center mb-8">
@@ -176,34 +303,39 @@ export default function DataCustomer() {
         )}
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        {/* Search Bar (Visual Only) */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden relative">
+        {openFilter && (
+          <div className="fixed inset-0 z-50" onClick={() => setOpenFilter(null)} />
+        )}
+        {/* Search Bar */}
         <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
           <div className="relative w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <input 
               type="text" 
               placeholder="Cari customer..." 
+              value={globalSearch}
+              onChange={e => setGlobalSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
             />
           </div>
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto min-h-[400px]">
           <table className="w-full text-left">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200 text-gray-600">
-                <th className="p-4 font-semibold text-sm">No. Akun</th>
-                <th className="p-4 font-semibold text-sm">Nama Customer</th>
-                <th className="p-4 font-semibold text-sm">Site / Kota</th>
-                <th className="p-4 font-semibold text-sm">Sales</th>
-                <th className="p-4 font-semibold text-sm">Aktivitas</th>
-                <th className="p-4 font-semibold text-sm text-right w-24">Aksi</th>
+                <FilterHeader columnKey="no_akun" label="No. Akun" />
+                <FilterHeader columnKey="nama_customer" label="Nama Customer" />
+                <FilterHeader columnKey="site_kota" label="Site / Kota" />
+                <FilterHeader columnKey="sales" label="Sales" />
+                <th className="p-4 font-semibold text-sm whitespace-nowrap">Aktivitas</th>
+                <th className="p-4 font-semibold text-sm text-right w-24 whitespace-nowrap">Aksi</th>
               </tr>
             </thead>
             <tbody>
-              {customers.length > 0 ? customers.map((c) => (
+              {filteredAndSortedCustomers.length > 0 ? filteredAndSortedCustomers.map((c) => (
                 <tr key={c.id} className="border-b border-gray-100 hover:bg-gray-50/50">
                   <td className="p-4 text-sm text-gray-800 font-medium">{c.no_akun || '-'}</td>
                   <td className="p-4 text-sm text-gray-800 font-medium">{c.nama_customer}</td>
