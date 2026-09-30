@@ -105,6 +105,17 @@ export default function CatatAktivitas() {
         user_id: user.id
       };
 
+      if (!navigator.onLine) {
+        // Save to offline queue
+        const offlineQueue = JSON.parse(localStorage.getItem('offlineActivities') || '[]');
+        offlineQueue.push({ ...payload, _offline_id: Date.now() });
+        localStorage.setItem('offlineActivities', JSON.stringify(offlineQueue));
+        
+        setSuccess('Anda sedang offline. Aktivitas berhasil disimpan lokal dan akan disinkronisasi saat online!');
+        resetFormAndRedirect();
+        return;
+      }
+
       const response = await fetch('http://localhost:8000/api/activities', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -117,27 +128,42 @@ export default function CatatAktivitas() {
       }
 
       setSuccess('Aktivitas berhasil disimpan!');
-      // Reset form
-      setFormData({
-        customer_id: '',
-        site_kota: '',
-        jenis_aktivitas: '',
-        ditemui: [],
-        ditemui_lainnya: '',
-        tanggal: new Date().toISOString().split('T')[0],
-        catatan: ''
-      });
-      
-      // Optionally redirect to riwayat
-      setTimeout(() => {
-        navigate('/activities');
-      }, 2000);
+      resetFormAndRedirect();
 
     } catch (err) {
-      setError(err.message);
+      if (err.message === 'Failed to fetch') {
+        // Network error (server down or no internet even though navigator.onLine was true)
+        const payload = { ...formData, user_id: user.id };
+        const offlineQueue = JSON.parse(localStorage.getItem('offlineActivities') || '[]');
+        offlineQueue.push({ ...payload, _offline_id: Date.now() });
+        localStorage.setItem('offlineActivities', JSON.stringify(offlineQueue));
+        
+        setSuccess('Server tidak dapat dijangkau. Aktivitas disimpan lokal dan akan disinkronisasi nanti!');
+        resetFormAndRedirect();
+      } else {
+        setError(err.message);
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  const resetFormAndRedirect = () => {
+    // Reset form
+    setFormData({
+      customer_id: '',
+      site_kota: '',
+      jenis_aktivitas: '',
+      ditemui: [],
+      ditemui_lainnya: '',
+      tanggal: new Date().toISOString().split('T')[0],
+      catatan: ''
+    });
+    
+    // Optionally redirect to riwayat
+    setTimeout(() => {
+      navigate('/activities');
+    }, 2000);
   };
 
   const selectedCustomerObj = customers.find(c => c.id.toString() === formData.customer_id);

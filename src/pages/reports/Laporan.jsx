@@ -423,9 +423,9 @@ export default function Laporan() {
 
       {/* CAKUPAN CUSTOMER UI */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-6">
-        <div className="flex flex-col md:flex-row md:justify-between md:items-start mb-4 gap-4">
+        <div className="flex flex-col md:flex-row md:justify-between items-start md:items-center mb-4 gap-4">
           <h3 className="font-bold text-lg text-gray-800">Cakupan Customer — {periodStrUI}</h3>
-          <button onClick={handleDownloadCoveragePdf} className="flex items-center gap-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-1.5 rounded text-sm font-medium transition-colors shadow-sm whitespace-nowrap">
+          <button onClick={handleDownloadCoveragePdf} className="flex items-center justify-center gap-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-1.5 rounded text-sm font-medium transition-colors shadow-sm whitespace-nowrap w-fit">
             <Download size={16} /> Unduh PDF
           </button>
         </div>
@@ -505,7 +505,7 @@ export default function Laporan() {
             {canSeeAll ? (reportScope === 'all' ? 'Seluruh Tim Sales' : (uniqueSales.find(s => s.id.toString() === reportScope)?.name || '')) : user.name}
           </p>
         </div>
-        <button onClick={handleDownloadActivityPdf} className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm whitespace-nowrap">
+        <button onClick={handleDownloadActivityPdf} className="flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm whitespace-nowrap w-fit">
           <Download size={16} /> Unduh PDF
         </button>
       </div>

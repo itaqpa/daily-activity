@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import MainLayout from './components/layouts/MainLayout';
-import { Clock } from 'lucide-react';
+import { Clock, ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -40,6 +40,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   
   const [periodType, setPeriodType] = useState('daily');
+  const [sortConfig, setSortConfig] = useState({ key: 'tanggal', direction: 'desc' });
   
   const [dailyValue, setDailyValue] = useState(() => {
     const d = new Date();
@@ -95,7 +96,7 @@ export default function Dashboard() {
       return { 
         start: dailyValue, 
         end: dailyValue, 
-        label: isNaN(d) ? dailyValue : d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) 
+        label: isNaN(d) ? dailyValue : d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' }) 
       };
     }
     if (periodType === 'weekly') {
@@ -175,6 +176,52 @@ export default function Dashboard() {
     }
   };
 
+  const requestSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedActivities = useMemo(() => {
+    let sortableItems = [...filteredActivities];
+    if (sortConfig !== null) {
+      sortableItems.sort((a, b) => {
+        let aValue = '', bValue = '';
+        if (sortConfig.key === 'tanggal') {
+          aValue = new Date(a.created_at || a.tanggal).getTime();
+          bValue = new Date(b.created_at || b.tanggal).getTime();
+        } else if (sortConfig.key === 'sales') {
+          aValue = a.user_name || '';
+          bValue = b.user_name || '';
+        } else if (sortConfig.key === 'customer') {
+          aValue = a.nama_customer || '';
+          bValue = b.nama_customer || '';
+        } else if (sortConfig.key === 'jenis') {
+          aValue = a.jenis_aktivitas || '';
+          bValue = b.jenis_aktivitas || '';
+        } else if (sortConfig.key === 'detail') {
+          aValue = getDitemuiText(a) || '';
+          bValue = getDitemuiText(b) || '';
+        } else if (sortConfig.key === 'catatan') {
+          aValue = a.catatan || '';
+          bValue = b.catatan || '';
+        }
+
+        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+    return sortableItems;
+  }, [filteredActivities, sortConfig]);
+
+  const SortIcon = ({ columnKey }) => {
+    if (sortConfig?.key !== columnKey) return <ArrowUpDown className="w-3 h-3 ml-1 opacity-40 inline" />;
+    return sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 ml-1 inline text-blue-600" /> : <ArrowDown className="w-3 h-3 ml-1 inline text-blue-600" />;
+  };
+
   const chartData = {
     labels: ACTIVITY_TYPES.map(t => t.short),
     datasets: [{
@@ -241,8 +288,9 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6 flex flex-wrap gap-4 items-center">
-        <div className="inline-flex bg-gray-100 p-1 rounded-lg gap-1">
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6 flex flex-col md:flex-row justify-between gap-4 items-start md:items-center">
+        {/* Area 1: Tabs */}
+        <div className="flex bg-gray-100 p-1 rounded-lg gap-1 overflow-x-auto w-full md:w-auto hide-scrollbar">
           {[
             { id: 'daily', label: 'Harian' },
             { id: 'weekly', label: 'Mingguan' },
@@ -252,27 +300,31 @@ export default function Dashboard() {
             <button 
               key={opt.id}
               onClick={() => setPeriodType(opt.id)}
-              className={`px-3 py-1.5 text-sm font-semibold rounded-md transition-colors ${periodType === opt.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:bg-gray-200'}`}
+              className={`whitespace-nowrap px-3 py-1.5 text-sm font-semibold rounded-md transition-colors ${periodType === opt.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:bg-gray-200'}`}
             >
               {opt.label}
             </button>
           ))}
         </div>
-        <div className="w-48">
-          {periodType === 'daily' && (
-             <input type="date" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" value={dailyValue} onChange={e => setDailyValue(e.target.value)} />
-          )}
-          {periodType === 'weekly' && (
-             <input type="week" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" value={weeklyValue} onChange={e => setWeeklyValue(e.target.value)} />
-          )}
-          {periodType === 'monthly' && (
-             <input type="month" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" value={monthlyValue} onChange={e => setMonthlyValue(e.target.value)} />
-          )}
-          {periodType === 'yearly' && (
-             <input type="number" min="2020" max="2100" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" value={yearlyValue} onChange={e => setYearlyValue(e.target.value)} />
-          )}
+        
+        {/* Area 2: Input + Label */}
+        <div className="flex items-center gap-3 w-full md:w-auto mt-2 md:mt-0">
+          <div className="flex-1 md:flex-none md:w-48">
+            {periodType === 'daily' && (
+               <input type="date" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" value={dailyValue} onChange={e => setDailyValue(e.target.value)} />
+            )}
+            {periodType === 'weekly' && (
+               <input type="week" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" value={weeklyValue} onChange={e => setWeeklyValue(e.target.value)} />
+            )}
+            {periodType === 'monthly' && (
+               <input type="month" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" value={monthlyValue} onChange={e => setMonthlyValue(e.target.value)} />
+            )}
+            {periodType === 'yearly' && (
+               <input type="number" min="2020" max="2100" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" value={yearlyValue} onChange={e => setYearlyValue(e.target.value)} />
+            )}
+          </div>
+          <div className="text-sm font-semibold text-gray-500 whitespace-nowrap">{range.label}</div>
         </div>
-        <div className="text-sm font-semibold text-gray-500">{range.label}</div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-6">
@@ -304,18 +356,18 @@ export default function Dashboard() {
           <div className="py-8 text-center text-gray-500">Belum ada customer pada cakupan ini.</div>
         ) : (
           <>
-            <div className="flex items-center gap-6 mb-6">
-              <div className="min-w-[100px]">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 mb-6">
+              <div className="min-w-[100px] flex flex-row sm:flex-col items-baseline sm:items-start gap-2 sm:gap-0">
                  <div className="text-4xl font-bold text-green-600 mb-1" style={{fontFamily:"'Space Grotesk', sans-serif"}}>{customerStats.pct}%</div>
                  <div className="text-xs font-semibold text-gray-500">Terprogress</div>
               </div>
-              <div className="flex-1">
+              <div className="flex-1 w-full">
                  <div className="h-3 bg-red-100 rounded-full overflow-hidden flex">
                     <div className="h-full bg-green-500" style={{width: `${customerStats.pct}%`}}></div>
                  </div>
-                 <div className="flex justify-between mt-3 text-xs text-gray-500">
-                    <div><span className="inline-block w-2 h-2 rounded-full bg-green-500 mr-1"></span> Terprogress: <span className="font-bold text-gray-800">{customerStats.progressed}</span> dari {customerStats.total} customer</div>
-                    <div><span className="inline-block w-2 h-2 rounded-full bg-red-500 mr-1"></span> Belum Ada Aktivitas: <span className="font-bold text-gray-800">{customerStats.notProgressed}</span> customer</div>
+                 <div className="flex flex-col lg:flex-row lg:justify-between mt-3 gap-2 text-xs text-gray-500">
+                    <div><span className="inline-block w-2 h-2 rounded-full bg-green-500 mr-1 flex-shrink-0"></span> Terprogress: <span className="font-bold text-gray-800">{customerStats.progressed}</span> dari {customerStats.total} customer</div>
+                    <div><span className="inline-block w-2 h-2 rounded-full bg-red-500 mr-1 flex-shrink-0"></span> Belum Ada Aktivitas: <span className="font-bold text-gray-800">{customerStats.notProgressed}</span> customer</div>
                  </div>
               </div>
             </div>
@@ -380,19 +432,17 @@ export default function Dashboard() {
           <table className="w-full text-left">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-5 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Tanggal</th>
-                {canSeeAll && <th className="px-5 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Sales</th>}
-                <th className="px-5 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Customer</th>
-                <th className="px-5 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Jenis</th>
-                <th className="px-5 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Detail</th>
-                <th className="px-5 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Catatan</th>
+                <th className="px-5 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => requestSort('tanggal')}>Tanggal <SortIcon columnKey="tanggal" /></th>
+                {canSeeAll && <th className="px-5 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => requestSort('sales')}>Sales <SortIcon columnKey="sales" /></th>}
+                <th className="px-5 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => requestSort('customer')}>Customer <SortIcon columnKey="customer" /></th>
+                <th className="px-5 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => requestSort('jenis')}>Jenis <SortIcon columnKey="jenis" /></th>
+                <th className="px-5 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => requestSort('detail')}>Detail <SortIcon columnKey="detail" /></th>
+                <th className="px-5 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => requestSort('catatan')}>Catatan <SortIcon columnKey="catatan" /></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 text-sm">
-               {filteredActivities.length > 0 ? (
-                  [...filteredActivities]
-                    .sort((a,b) => new Date(b.created_at || b.tanggal) - new Date(a.created_at || a.tanggal))
-                    .slice(0, 8)
+               {sortedActivities.length > 0 ? (
+                  sortedActivities
                     .map(act => {
                      const typeInfo = ACTIVITY_TYPES.find(t => t.key === act.jenis_aktivitas) || ACTIVITY_TYPES[0];
                      return (

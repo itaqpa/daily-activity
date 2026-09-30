@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { 
   LogOut, 
@@ -13,7 +13,8 @@ import {
   UserCircle,
   FileText,
   List,
-  Edit3
+  Edit3,
+  Download
 } from 'lucide-react';
 
 export default function Sidebar({ isOpen, setIsOpen }) {
@@ -37,9 +38,60 @@ export default function Sidebar({ isOpen, setIsOpen }) {
   // Cek apakah user adalah Staff (bukan SPV) di divisi Sales
   const isStaffSales = isSales && (user.jabatan?.toLowerCase() === 'staff' || user.jabatan_id === 5);
   
-  // Cek apakah user adalah SPV
   const isSPV = user.jabatan?.toLowerCase().includes('spv') || user.jabatan?.toLowerCase().includes('supervisor');
   const canViewTimSales = isSuperAdmin || isSPV;
+
+  // PWA Install Prompt State
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  
+  // Online/Offline State
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    // Check if it's iOS
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    
+    if (isIOS) {
+      alert('Untuk menginstal aplikasi di iOS: ketuk tombol Share (Bagikan) di menu bawah, lalu pilih "Add to Home Screen" (Tambahkan ke Layar Utama).');
+      return;
+    }
+
+    if (deferredPrompt) {
+      // Show the install prompt
+      deferredPrompt.prompt();
+      // Wait for the user to respond to the prompt
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        console.log('User accepted the install prompt');
+      } else {
+        console.log('User dismissed the install prompt');
+      }
+      // We've used the prompt, and can't use it again, throw it away
+      setDeferredPrompt(null);
+    } else {
+      alert('Aplikasi sudah terinstal atau browser Anda tidak mendukung fitur ini.');
+    }
+  };
 
 
   const handleLogout = () => {
@@ -221,7 +273,16 @@ export default function Sidebar({ isOpen, setIsOpen }) {
             </Link>
           </nav>
           
-          <div className="p-4 border-t border-gray-200 shrink-0">
+          <div className="p-4 border-t border-gray-200 shrink-0 space-y-2">
+            {/* Tombol Install App (Hanya Tampil di Mobile) */}
+            <button
+              onClick={handleInstallClick}
+              className="md:hidden flex items-center gap-3 text-blue-600 hover:bg-blue-50 w-full px-4 py-3 rounded-lg transition-colors"
+            >
+              <Download className="w-5 h-5" />
+              <span className="font-medium">Install App</span>
+            </button>
+
             <button
               onClick={handleLogout}
               className="flex items-center gap-3 text-red-600 hover:bg-red-50 w-full px-4 py-3 rounded-lg transition-colors"
