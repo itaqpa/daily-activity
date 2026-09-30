@@ -1,0 +1,2138 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>AQPA Indonesia — Daily Sales Activity (Copy)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+  :root {
+    --bg: #F4F5F7;
+    --surface: #FFFFFF;
+    --surface-2: #ECEEF1;
+    --ink: #1A1D23;
+    --muted: #6B7280;
+    --border: #E4E7EB;
+    --primary: #1E3A5F;
+    --primary-dark: #12253C;
+    --primary-tint: #E8EEF5;
+    --accent: #D98F16;
+    --accent-tint: #FBF0DC;
+    --danger: #C4432B;
+    --danger-tint: #FBEAE6;
+    --ok: #1E7A5F;
+
+    --t-kunjungan: #2563EB;    --t-kunjungan-bg: #EEF3FE;
+    --t-survey: #7C3AED;       --t-survey-bg: #F4F0FE;
+    --t-quotation: #B8790F;    --t-quotation-bg: #FBF0DC;
+    --t-meetingtender: #BE185D; --t-meetingtender-bg: #FCE8F1;
+    --t-meetingpo: #15803D;    --t-meetingpo-bg: #E9F6EE;
+    --t-halo: #0D9488;         --t-halo-bg: #E8F8F6;
+
+    --shadow: 0 1px 2px rgba(20,24,30,0.04), 0 4px 14px rgba(20,24,30,0.06);
+    --radius: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14181F;
+      --surface: #1B212B;
+      --surface-2: #232A35;
+      --ink: #EDEFF2;
+      --muted: #96A0AC;
+      --border: #2C3542;
+      --primary: #3E6C9E;
+      --primary-dark: #1E3A5F;
+      --primary-tint: #1E2C3B;
+      --accent: #E8A73A;
+      --accent-tint: #3A2E15;
+      --danger: #E0705A;
+      --danger-tint: #3A2119;
+      --ok: #3FAE8B;
+      --t-kunjungan-bg: #172038;
+      --t-survey-bg: #211A38;
+      --t-quotation-bg: #332911;
+      --t-meetingtender-bg: #341623;
+      --t-meetingpo-bg: #122A1B;
+      --t-halo-bg: #0F2A27;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14181F; --surface: #1B212B; --surface-2: #232A35; --ink: #EDEFF2; --muted: #96A0AC;
+    --border: #2C3542; --primary: #3E6C9E; --primary-dark: #1E3A5F; --primary-tint: #1E2C3B;
+    --accent: #E8A73A; --accent-tint: #3A2E15; --danger: #E0705A; --danger-tint: #3A2119; --ok: #3FAE8B;
+    --t-kunjungan-bg: #172038; --t-survey-bg: #211A38; --t-quotation-bg: #332911;
+    --t-meetingtender-bg: #341623; --t-meetingpo-bg: #122A1B; --t-halo-bg: #0F2A27;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  h1,h2,h3, .display { font-family: "Space Grotesk", "Inter", sans-serif; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; }
+
+  a { color: inherit; }
+  button { font-family: inherit; }
+  input, select, textarea { font-family: inherit; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 9px 16px; border-radius: 9px; font-size: 13.5px; font-weight: 600;
+    border: 1px solid transparent; cursor: pointer; transition: background .15s, border-color .15s, opacity .15s;
+    white-space: nowrap;
+  }
+  .btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-accent { background: var(--accent); color: #221604; }
+  .btn-accent:hover { filter: brightness(0.95); }
+  .btn-ghost { background: transparent; color: var(--ink); border-color: var(--border); }
+  .btn-ghost:hover { background: var(--surface-2); }
+  .btn-danger { background: var(--danger-tint); color: var(--danger); }
+  .btn-danger:hover { filter: brightness(0.96); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-sm { padding: 6px 10px; font-size: 12.5px; border-radius: 7px; }
+  .icon { width: 18px; height: 18px; flex-shrink: 0; }
+
+  .field-label { font-size: 12.5px; font-weight: 600; color: var(--muted); margin-bottom: 6px; display:block; }
+  .input {
+    width: 100%; padding: 9px 12px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--ink); font-size: 14px;
+  }
+  .input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-tint); }
+  textarea.input { resize: vertical; min-height: 70px; }
+
+  .badge { display:inline-flex; align-items:center; gap:6px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+  .type-pill { display:inline-flex; align-items:center; gap:6px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+  .dot { width: 8px; height: 8px; border-radius: 999px; flex-shrink:0; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th { text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 700; padding: 10px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td { padding: 11px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  .table-wrap { overflow-x: auto; border-radius: var(--radius); }
+
+  #app-shell { display: flex; min-height: 100vh; }
+  #sidebar {
+    width: 248px; flex-shrink: 0; background: var(--primary); color: #fff;
+    display: flex; flex-direction: column; padding: 22px 16px;
+    position: fixed; top:0; bottom:0; left:0; z-index: 40;
+    transform: translateX(-100%); transition: transform .2s ease;
+    padding-top: calc(22px + env(safe-area-inset-top, 0px));
+  }
+  #sidebar.open { transform: translateX(0); }
+  @media (min-width: 900px) {
+    #sidebar { position: static; transform: none; }
+    #sidebar-backdrop { display: none !important; }
+  }
+  #sidebar-backdrop { position: fixed; inset:0; background: rgba(10,14,20,0.45); z-index: 30; display:none; }
+  #sidebar-backdrop.show { display:block; }
+
+  .brand { padding: 4px 8px 20px 8px; }
+  .brand .name { font-family:"Space Grotesk"; font-weight:700; font-size: 16.5px; letter-spacing: .01em; }
+  .brand .sub { font-size: 12px; color: #B9C6D6; margin-top: 2px; }
+
+  .nav-item {
+    display:flex; align-items:center; gap: 11px; padding: 10px 12px; border-radius: 9px;
+    color: #CFDAE8; font-size: 14px; font-weight: 600; cursor:pointer; margin-bottom: 2px;
+  }
+  .nav-item:hover { background: rgba(255,255,255,0.06); color:#fff; }
+  .nav-item.active { background: rgba(255,255,255,0.14); color:#fff; }
+  .nav-section-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: #7D91A8; font-weight:700; margin: 16px 8px 6px; }
+
+  .user-chip { margin-top:auto; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.12); display:flex; align-items:center; gap:10px; }
+  .avatar { width: 34px; height:34px; border-radius:999px; background: var(--accent); color:#221604; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; flex-shrink:0; }
+
+  #main { flex: 1; min-width: 0; margin-left: 0; }
+  @media (min-width: 900px) { #main { margin-left: 248px; } }
+
+  #topbar {
+    position: sticky; top:0; z-index: 20; background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 14px 20px; display:flex; align-items:center; gap: 14px;
+    padding-top: calc(14px + env(safe-area-inset-top, 0px));
+  }
+  #hamburger { display:flex; }
+  @media (min-width: 900px) { #hamburger { display:none; } }
+
+  #content { padding: 20px; max-width: 1180px; margin: 0 auto; }
+  @media (min-width: 640px) { #content { padding: 28px; } }
+
+  .stat-card { padding: 16px 18px; }
+  .stat-num { font-family:"Space Grotesk"; font-size: 30px; font-weight: 700; line-height:1; }
+  .stat-label { font-size: 12.5px; color: var(--muted); margin-top: 8px; font-weight: 600; }
+
+  .modal-backdrop { position: fixed; inset:0; background: rgba(15,20,26,0.5); z-index: 60; display:flex; align-items:flex-start; justify-content:center; overflow-y:auto; padding: 5vh 16px; }
+  .modal-box { background: var(--surface); border-radius: 14px; max-width: 620px; width:100%; box-shadow: 0 20px 60px rgba(0,0,0,0.3); margin-bottom: 40px; }
+  .modal-head { padding: 18px 22px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+  .modal-body { padding: 20px 22px; }
+  .modal-foot { padding: 16px 22px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:10px; }
+
+  .toast-wrap { position: fixed; bottom: calc(20px + env(safe-area-inset-bottom,0px)); left:50%; transform:translateX(-50%); z-index: 80; display:flex; flex-direction:column; gap:8px; align-items:center; }
+  .toast { background: var(--ink); color: var(--bg); padding: 10px 18px; border-radius: 999px; font-size: 13.5px; font-weight:600; box-shadow: 0 8px 24px rgba(0,0,0,0.25); opacity:0; transform: translateY(8px); transition: all .2s; }
+  .toast.show { opacity:1; transform: translateY(0); }
+
+  .empty-state { text-align:center; padding: 48px 20px; color: var(--muted); }
+  .empty-state .icon { width:34px; height:34px; margin: 0 auto 12px; opacity:.6; }
+
+  .seg { display:inline-flex; background: var(--surface-2); padding:3px; border-radius: 9px; gap:2px; flex-wrap:wrap; }
+  .seg button { border:none; background:transparent; padding:7px 13px; border-radius:7px; font-size:13px; font-weight:600; color: var(--muted); cursor:pointer; }
+  .seg button.active { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+
+  .site-row { display:flex; gap:8px; margin-bottom:8px; align-items:flex-start; }
+  .grid-2 { display:grid; grid-template-columns: 1fr; gap: 14px; }
+  @media (min-width: 560px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
+
+  .type-toggle { display:flex; flex-wrap:wrap; gap:8px; }
+  .type-toggle .opt { border:2px solid var(--border); border-radius:10px; padding: 10px 12px; cursor:pointer; font-size:13px; font-weight:600; display:flex; align-items:center; gap:8px; background:var(--surface); }
+  .type-toggle .opt.selected { border-color: currentColor; }
+
+  .choice-row { display:flex; flex-wrap:wrap; gap:8px; }
+  .choice-opt {
+    border:1.5px solid var(--border); border-radius:9px; padding: 8px 12px; cursor:pointer;
+    font-size:13px; font-weight:600; display:flex; align-items:center; gap:7px; background:var(--surface); color: var(--ink);
+  }
+  .choice-opt:has(input:checked) { border-color: var(--primary); background: var(--primary-tint); color: var(--primary); }
+  .choice-opt input { accent-color: var(--primary); }
+
+  .mode-seg { display:inline-flex; background: var(--surface-2); padding:3px; border-radius: 9px; gap:2px; }
+  .mode-seg button { border:none; background:transparent; padding:6px 12px; border-radius:7px; font-size:12.5px; font-weight:700; color: var(--muted); cursor:pointer; }
+  .mode-seg button.active { background: var(--primary); color:#fff; }
+
+  .kv { display:flex; justify-content:space-between; padding: 9px 0; border-bottom:1px dashed var(--border); font-size:13.5px; }
+  .kv:last-child { border-bottom:none; }
+
+  .skeleton { background: linear-gradient(90deg, var(--surface-2) 25%, var(--border) 37%, var(--surface-2) 63%); background-size: 400% 100%; animation: sk 1.4s ease infinite; border-radius: 8px; }
+  @keyframes sk { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+
+  .onboard-wrap { min-height: 100vh; display:flex; align-items:center; justify-content:center; padding: 24px; background: var(--primary); }
+  .onboard-card { max-width: 460px; width:100%; }
+</style>
+</head>
+<body>
+
+<div id="root"></div>
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<script>
+/* ============================================================
+   AQPA Indonesia — Daily Sales Activity
+   Single-file published artifact. Vanilla JS, Tailwind-free
+   (hand-rolled CSS above), Chart.js + jsPDF via CDN.
+   ============================================================ */
+
+const ACTIVITY_TYPES = [
+  { key: "kunjungan",     label: "Kunjungan (Promote)",                     short: "Kunjungan",    color: "var(--t-kunjungan)",     bg: "var(--t-kunjungan-bg)" },
+  { key: "survey",        label: "Survey Potensial Order / Tender",         short: "Survey",       color: "var(--t-survey)",        bg: "var(--t-survey-bg)" },
+  { key: "quotation",     label: "Submit Quotation",                       short: "Quotation",    color: "var(--t-quotation)",     bg: "var(--t-quotation-bg)" },
+  { key: "meeting_tender",label: "Meeting Tender",                         short: "Meet. Tender", color: "var(--t-meetingtender)", bg: "var(--t-meetingtender-bg)" },
+  { key: "meeting_po",    label: "Meeting / Survey PO Diterima",           short: "PO Diterima",  color: "var(--t-meetingpo)",     bg: "var(--t-meetingpo-bg)" },
+  { key: "halo",          label: "Say Hello (Telp / WhatsApp)",            short: "Say Hello",    color: "var(--t-halo)",          bg: "var(--t-halo-bg)" },
+];
+const TYPE_BY_KEY = Object.fromEntries(ACTIVITY_TYPES.map(t => [t.key, t]));
+
+const CONTACT_ROLE_OPTIONS = ["Purchaser", "User", "Engineer", "Planner"];
+const CONTACT_ROLE_OPTIONS_WITH_OTHER = [...CONTACT_ROLE_OPTIONS, "Lainnya"];
+const PRODUCT_OPTIONS = ["Gland Packing","Gasket","EJM","EJR","EJF","Die Formed Graphite","RTI","Flexible Hose","Lainnya"];
+
+// Types that require an extra validation field before an activity can be saved.
+// - Kunjungan: "Yang Akan Ditemui" — multi-select + free-text "Lainnya".
+// - Say Hello: "Yang Dihubungi" — single-select (unchanged).
+// - Every type EXCEPT Kunjungan also requires a product-list selection.
+const TYPES_WITH_CONTACT_MULTI = ["kunjungan"];
+const TYPES_WITH_CONTACT_SINGLE = ["halo"];
+const TYPES_WITH_PRODUCT_LIST = ACTIVITY_TYPES.map(t => t.key).filter(k => k !== "kunjungan");
+
+const MONTH_NAMES = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+const MONTH_SHORT = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
+const DAY_NAMES = ["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
+
+// ---------------- state ----------------
+let state = {
+  ready: false,
+  runtimeAvailable: true,
+  viewerId: null,
+  viewerName: "",
+  role: null,        // 'sales' | 'supervisor'
+  salesId: null,
+  viewMode: "supervisor", // 'supervisor' | 'sales' — only meaningful when role === 'supervisor'
+  onboarding: false,
+  sales: [],         // all sales-slot docs {id, name, claimedByUserId, active}
+  customers: [],     // all customer docs
+  activities: [],    // all activity docs
+  roles: [],         // all role docs (for team mgmt display)
+  tab: "dashboard",
+  modalOpen: null,   // string key of open modal, or null
+  modalCtx: null,
+  sidebarOpen: false,
+  dirty: false,
+  period: { type: "monthly", ref: monthStr(new Date()) },
+  reportScope: "all", // 'all' | salesId  (supervisor only)
+  reportFilter: { type: "all", customerId: "all" },
+  reportSort: { field: "date", dir: "asc" },
+  activityFilter: { type: "all", salesId: "all", customerId: "all", from: "", to: "" },
+  customerSearch: "",
+  loadingClaim: false,
+};
+
+let db = null, userCap = null, downloadsCap = null;
+let unsub = [];
+
+// ---------------- date utils ----------------
+function pad2(n){ return String(n).padStart(2,"0"); }
+function todayStr(){ return toDateStr(new Date()); }
+function toDateStr(d){ return d.getFullYear()+"-"+pad2(d.getMonth()+1)+"-"+pad2(d.getDate()); }
+function monthStr(d){ return d.getFullYear()+"-"+pad2(d.getMonth()+1); }
+function parseDateStr(s){ const [y,m,d]=s.split("-").map(Number); return new Date(y,m-1,d); }
+function startOfWeek(d){ const day=d.getDay(); const diff=(day===0?-6:1-day); const m=new Date(d); m.setDate(d.getDate()+diff); return m; }
+function fmtDateLabel(s){ if(!s) return ""; const d=parseDateStr(s); return d.getDate()+" "+MONTH_SHORT[d.getMonth()]+" "+d.getFullYear(); }
+function fmtDateLong(s){ if(!s) return ""; const d=parseDateStr(s); return DAY_NAMES[d.getDay()]+", "+d.getDate()+" "+MONTH_NAMES[d.getMonth()]+" "+d.getFullYear(); }
+function nowIso(){ return new Date().toISOString(); }
+
+function getPeriodRange(type, ref){
+  if(type === "daily"){
+    return { start: ref, end: ref, label: fmtDateLong(ref) };
+  }
+  if(type === "weekly"){
+    const d = parseDateStr(ref);
+    const mon = startOfWeek(d);
+    const sun = new Date(mon); sun.setDate(mon.getDate()+6);
+    const s = toDateStr(mon), e = toDateStr(sun);
+    return { start: s, end: e, label: fmtDateLabel(s)+" – "+fmtDateLabel(e) };
+  }
+  if(type === "monthly"){
+    const [y,m] = ref.split("-").map(Number);
+    const start = y+"-"+pad2(m)+"-01";
+    const lastDay = new Date(y, m, 0).getDate();
+    const end = y+"-"+pad2(m)+"-"+pad2(lastDay);
+    return { start, end, label: MONTH_NAMES[m-1]+" "+y };
+  }
+  if(type === "yearly"){
+    return { start: ref+"-01-01", end: ref+"-12-31", label: String(ref) };
+  }
+  return { start: ref, end: ref, label: ref };
+}
+
+function esc(s){
+  return String(s==null?"":s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+function initials(name){
+  if(!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  return ((parts[0]?.[0]||"") + (parts[1]?.[0]||"")).toUpperCase() || name[0].toUpperCase();
+}
+
+// ---------------- toast ----------------
+function toast(msg){
+  const wrap = document.getElementById("toast-wrap");
+  const el = document.createElement("div");
+  el.className = "toast";
+  el.textContent = msg;
+  wrap.appendChild(el);
+  requestAnimationFrame(()=> el.classList.add("show"));
+  setTimeout(()=>{ el.classList.remove("show"); setTimeout(()=>el.remove(), 250); }, 3200);
+}
+
+// ---------------- icons ----------------
+const ICONS = {
+  grid: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>`,
+  users: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+  "plus-circle": `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>`,
+  clock: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>`,
+  file: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>`,
+  shield: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg>`,
+  menu: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>`,
+  x: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>`,
+  search: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>`,
+  download: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>`,
+  trash: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg>`,
+  edit: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`,
+  building: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v18"/><path d="M6 12H4a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h2m12-10h2a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-2M10 6h1m3 0h1m-5 4h1m3 0h1m-5 4h1m3 0h1m-5 4h1m3 0h1"/></svg>`,
+  mappin: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>`,
+  logout: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>`,
+};
+function icon(name){ return ICONS[name] || ""; }
+
+// ============================================================
+// BOOTSTRAP
+// ============================================================
+async function waitForClaudeRuntime(){
+  if (window.claude && typeof window.claude.use === "function") return window.claude;
+  return null;
+}
+
+async function init(){
+  renderRoot(); // initial loading shell
+
+  const c = await waitForClaudeRuntime();
+  if (!c){
+    state.runtimeAvailable = false;
+    renderRoot();
+    return;
+  }
+
+  const [dbNs, userNs, dlNs] = await Promise.all([
+    c.use("db"), c.use("user"), c.use("downloads")
+  ]);
+  db = dbNs; userCap = userNs; downloadsCap = dlNs;
+
+  if (!db || !userCap){
+    state.runtimeAvailable = false;
+    renderRoot();
+    return;
+  }
+
+  const viewerId = await userCap.id();
+  state.viewerId = viewerId;
+
+  if (!viewerId){
+    state.runtimeAvailable = "no-identity";
+    renderRoot();
+    return;
+  }
+
+  const me = await userCap.me();
+  state.viewerName = me.name || "";
+
+  await bootstrapRole();
+  subscribeAll();
+}
+
+async function bootstrapRole(){
+  const roleDoc = await db.doc("roles/"+state.viewerId).get();
+  if (roleDoc.exists){
+    const d = roleDoc.data();
+    state.role = d.role;
+    state.salesId = d.salesId || null;
+    state.viewerName = d.name || state.viewerName;
+    state.viewMode = "supervisor"; // always start in Supervisor view; they can switch to Sales manually
+    state.onboarding = false;
+    return;
+  }
+  const isOwner = await userCap.isOwner();
+  if (isOwner){
+    const name = state.viewerName || "Supervisor";
+    await db.doc("roles/"+state.viewerId).set({
+      role: "supervisor", name, salesId: null, createdAt: nowIso()
+    });
+    state.role = "supervisor";
+    state.viewMode = "supervisor";
+    state.onboarding = false;
+    return;
+  }
+  state.onboarding = true;
+}
+
+// Effective mode drives which nav/tabs/filters are shown right now.
+// A Supervisor can switch into "sales" mode to act as their own Sales identity;
+// a plain Sales user is always in "sales" mode.
+function effectiveMode(){
+  if (state.role === "supervisor") return state.viewMode || "supervisor";
+  return "sales";
+}
+
+function subscribeAll(){
+  unsub.push(db.collection("sales").orderBy("name","asc").onSnapshot(snap=>{
+    state.sales = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+    onDataChange();
+  }, err=>console.error("sales sub", err)));
+
+  unsub.push(db.collection("customers").onSnapshot(snap=>{
+    state.customers = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+    onDataChange();
+  }, err=>console.error("customers sub", err)));
+
+  unsub.push(db.collection("activities").onSnapshot(snap=>{
+    state.activities = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+    onDataChange();
+  }, err=>console.error("activities sub", err)));
+
+  unsub.push(db.collection("roles").onSnapshot(snap=>{
+    state.roles = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+    onDataChange();
+  }, err=>console.error("roles sub", err)));
+}
+
+function onDataChange(){
+  state.ready = true;
+  if (state.modalOpen){ state.dirty = true; return; }
+  renderRoot();
+}
+
+// ============================================================
+// CLAIM / ONBOARDING ACTIONS
+// ============================================================
+async function claimSlot(slotId, chosenName){
+  if (state.loadingClaim) return;
+  state.loadingClaim = true; renderRoot();
+  try {
+    const ref = db.doc("sales/"+slotId);
+    const lease = await ref.acquire({ holder: state.viewerId, ttlMs: 6000 });
+    if (!lease.acquired){
+      toast("Slot sedang diproses orang lain, coba lagi.");
+      return;
+    }
+    const snap = await ref.get();
+    const data = snap.data();
+    if (data && data.claimedByUserId){
+      toast("Nama ini sudah diklaim orang lain.");
+      return;
+    }
+    const finalName = chosenName || (data && data.name) || "Sales";
+    await ref.set({ ...(data||{}), name: finalName, claimedByUserId: state.viewerId, active: true, updatedAt: nowIso() });
+
+    if (state.role === "supervisor"){
+      // Supervisor is additionally claiming a Sales identity for themselves (dual-role).
+      await db.doc("roles/"+state.viewerId).update({ salesId: slotId });
+      state.salesId = slotId; state.viewMode = "sales";
+      toast("Mode Sales aktif sebagai "+finalName+".");
+    } else {
+      await db.doc("roles/"+state.viewerId).set({ role:"sales", salesId: slotId, name: finalName, createdAt: nowIso() });
+      state.role = "sales"; state.salesId = slotId; state.viewerName = finalName; state.onboarding = false;
+      toast("Selamat datang, "+finalName+"!");
+    }
+    if (state.modalOpen === "become-sales"){ state.modalOpen = null; closeModalLayer(); }
+  } catch(e){
+    console.error(e); toast("Gagal klaim, coba lagi.");
+  } finally {
+    state.loadingClaim = false;
+    renderRoot();
+  }
+}
+
+async function selfAddAndClaim(name){
+  if (!name || !name.trim()) { toast("Nama tidak boleh kosong"); return; }
+  if (state.loadingClaim) return;
+  state.loadingClaim = true; renderRoot();
+  try {
+    const ref = await db.collection("sales").add({ name: name.trim(), claimedByUserId: state.viewerId, active:true, createdAt: nowIso() });
+
+    if (state.role === "supervisor"){
+      await db.doc("roles/"+state.viewerId).update({ salesId: ref.id });
+      state.salesId = ref.id; state.viewMode = "sales";
+      toast("Mode Sales aktif sebagai "+name.trim()+".");
+    } else {
+      await db.doc("roles/"+state.viewerId).set({ role:"sales", salesId: ref.id, name: name.trim(), createdAt: nowIso() });
+      state.role="sales"; state.salesId = ref.id; state.viewerName = name.trim(); state.onboarding=false;
+      toast("Selamat datang, "+name.trim()+"!");
+    }
+    if (state.modalOpen === "become-sales"){ state.modalOpen = null; closeModalLayer(); }
+  } catch(e){ console.error(e); toast("Gagal mendaftar."); }
+  finally { state.loadingClaim=false; renderRoot(); }
+}
+
+// ============================================================
+// SALES TEAM (supervisor) actions
+// ============================================================
+async function addSalesSlot(name){
+  if (!name || !name.trim()) return;
+  await db.collection("sales").add({ name:name.trim(), claimedByUserId:null, active:true, createdAt: nowIso() });
+  toast("Slot sales ditambahkan.");
+}
+async function renameSalesSlot(slotId, name){
+  if (!name || !name.trim()) return;
+  await db.doc("sales/"+slotId).update({ name:name.trim(), updatedAt: nowIso() });
+  const sales = state.sales.find(s=>s.id===slotId);
+  if (sales && sales.claimedByUserId){
+    await db.doc("roles/"+sales.claimedByUserId).update({ name:name.trim() }).catch(()=>{});
+  }
+  toast("Nama diperbarui.");
+}
+async function resetClaim(slotId){
+  const slot = state.sales.find(s=>s.id===slotId);
+  if (!slot) return;
+  if (slot.claimedByUserId){
+    const roleSnap = await db.doc("roles/"+slot.claimedByUserId).get();
+    const rd = roleSnap.data();
+    if (rd && rd.role === "supervisor"){
+      // Dual-role supervisor: only drop their Sales identity, keep their Supervisor role intact.
+      await db.doc("roles/"+slot.claimedByUserId).update({ salesId: null }).catch(()=>{});
+    } else {
+      await db.doc("roles/"+slot.claimedByUserId).delete().catch(()=>{});
+    }
+    // If the current viewer just reset their own claim, drop back to Supervisor mode locally.
+    if (slot.claimedByUserId === state.viewerId){
+      state.salesId = null; state.viewMode = "supervisor";
+    }
+  }
+  await db.doc("sales/"+slotId).update({ claimedByUserId:null, updatedAt: nowIso() });
+  toast("Klaim direset. Slot bisa diklaim ulang.");
+}
+async function promoteSupervisor(userId, name){
+  // update() (not set()) so an existing Sales identity (salesId) is preserved — the
+  // promoted person keeps acting as Sales too, becoming dual-role automatically.
+  await db.doc("roles/"+userId).update({ role:"supervisor" });
+  toast((name||"Sales ini")+" dipromosikan jadi Supervisor.");
+}
+
+// ============================================================
+// CUSTOMERS
+// ============================================================
+function mySales(){ return state.sales.find(s=>s.id===state.salesId); }
+function salesName(id){ const s=state.sales.find(x=>x.id===id); return s? s.name : "—"; }
+
+function visibleCustomers(){
+  if (effectiveMode() === "supervisor") return state.customers;
+  return state.customers.filter(c=>c.salesId === state.salesId);
+}
+function visibleActivities(){
+  if (effectiveMode() === "supervisor") return state.activities;
+  return state.activities.filter(a=>a.salesId === state.salesId);
+}
+
+// ---------------- customer progress (coverage) stats ----------------
+// "Terprogress" = has at least one activity logged within the given set of activities
+// (already period/scope-filtered by the caller). "Belum ada aktivitas" = the rest.
+function customerProgressStats(customersList, actsInScope){
+  const withActivity = new Set(actsInScope.map(a=>a.customerId));
+  const byName = (a,b) => (a.name||"").localeCompare(b.name||"");
+  const progressedCustomers = customersList.filter(c=>withActivity.has(c.id)).slice().sort(byName);
+  const notProgressedCustomers = customersList.filter(c=>!withActivity.has(c.id)).slice().sort(byName);
+  const total = customersList.length;
+  const progressed = progressedCustomers.length;
+  const notProgressed = notProgressedCustomers.length;
+  const pct = total > 0 ? Math.round((progressed/total)*100) : 0;
+  return { total, progressed, notProgressed, pct, progressedCustomers, notProgressedCustomers };
+}
+
+function progressCardHtml(stats, periodLabel, context){
+  const listItem = (c) => `
+    <div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px dashed var(--border);font-size:12.5px;">
+      <span style="color:var(--muted);white-space:nowrap;">${esc(c.accountNo||"—")}</span>
+      <span style="font-weight:600;text-align:right;">${esc(c.name)}</span>
+    </div>`;
+  return `
+  <div class="card" style="padding:18px;margin-top:18px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+      <h3 style="margin:0;font-size:14.5px;">Cakupan Customer — ${esc(periodLabel)}</h3>
+      ${stats.total>0 ? `<button class="btn btn-ghost btn-sm" data-action="download-progress-pdf" data-context="${esc(context)}">${icon("download")} Unduh PDF</button>` : ``}
+    </div>
+    ${stats.total === 0 ? `<div class="empty-state" style="padding:10px 0;">Belum ada customer pada cakupan ini.</div>` : `
+    <div style="display:flex;align-items:center;gap:22px;flex-wrap:wrap;margin-bottom:18px;">
+      <div style="flex-shrink:0;min-width:90px;">
+        <div class="stat-num" style="color:var(--ok);font-size:32px;">${stats.pct}%</div>
+        <div class="stat-label">Terprogress</div>
+      </div>
+      <div style="flex:1;min-width:220px;">
+        <div style="background:var(--danger-tint);border-radius:999px;height:12px;overflow:hidden;display:flex;">
+          <div style="width:${stats.pct}%;background:var(--ok);height:100%;"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:10px;font-size:12.5px;color:var(--muted);flex-wrap:wrap;gap:8px;">
+          <span><span class="dot" style="background:var(--ok);display:inline-block;"></span> Terprogress: <b style="color:var(--ink);">${stats.progressed}</b> dari ${stats.total} customer</span>
+          <span><span class="dot" style="background:var(--danger);display:inline-block;"></span> Belum Ada Aktivitas: <b style="color:var(--ink);">${stats.notProgressed}</b> customer</span>
+        </div>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--ok);margin-bottom:6px;">SUDAH ADA AKTIVITAS (${stats.progressed})</div>
+        <div style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:0 10px;">
+          ${stats.progressedCustomers.length? stats.progressedCustomers.map(listItem).join("") : `<div style="padding:14px 0;color:var(--muted);font-size:12.5px;">Tidak ada.</div>`}
+        </div>
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--danger);margin-bottom:6px;">BELUM ADA AKTIVITAS (${stats.notProgressed})</div>
+        <div style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:0 10px;">
+          ${stats.notProgressedCustomers.length? stats.notProgressedCustomers.map(listItem).join("") : `<div style="padding:14px 0;color:var(--muted);font-size:12.5px;">Tidak ada.</div>`}
+        </div>
+      </div>
+    </div>`}
+  </div>`;
+}
+
+// Builds and downloads a PDF listing customers with/without activity in the
+// current period, for either the Dashboard or the Reports tab context.
+async function handleDownloadProgressPdf(context){
+  let stats, periodLabel, scopeLabel;
+  if (context === "reports"){
+    const rd = getReportData();
+    stats = rd.progress; periodLabel = rd.range.label; scopeLabel = rd.scopeLabel;
+  } else {
+    const range = getPeriodRange(state.period.type, state.period.ref);
+    const acts = visibleActivities().filter(a=> a.date >= range.start && a.date <= range.end);
+    stats = customerProgressStats(visibleCustomers(), acts);
+    periodLabel = range.label;
+    scopeLabel = effectiveMode()==="supervisor" ? "Seluruh Tim Sales" : state.viewerName;
+  }
+  await exportProgressPdf({ periodLabel, scopeLabel, stats });
+}
+
+async function exportProgressPdf({ periodLabel, scopeLabel, stats }){
+  if (!downloadsCap){ toast("Fitur unduh tidak tersedia di tampilan ini."); return; }
+  if (!window.jspdf || !window.jspdf.jsPDF){ toast("Pustaka PDF belum siap termuat, coba lagi sebentar."); return; }
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+
+    const footer = () => {
+      doc.setFontSize(8.5); doc.setTextColor(150,150,150);
+      doc.text("Halaman "+doc.internal.getNumberOfPages(), pageWidth - 90, pageHeight - 20);
+      doc.text("Dicetak "+fmtDateLabel(todayStr()), 40, pageHeight - 20);
+    };
+
+    doc.setFillColor(30, 58, 95);
+    doc.rect(0, 0, pageWidth, 64, "F");
+    doc.setTextColor(255,255,255);
+    doc.setFont("helvetica","bold"); doc.setFontSize(15);
+    doc.text("AQPA Indonesia", 40, 28);
+    doc.setFont("helvetica","normal"); doc.setFontSize(10.5);
+    doc.text("Laporan Cakupan Customer", 40, 45);
+
+    doc.setTextColor(26,29,35);
+    doc.setFont("helvetica","bold"); doc.setFontSize(13);
+    doc.text("Cakupan Customer — "+periodLabel, 40, 90);
+    doc.setFont("helvetica","normal"); doc.setFontSize(10);
+    doc.setTextColor(107,114,128);
+    doc.text(scopeLabel, 40, 106);
+
+    doc.setFontSize(9.5); doc.setTextColor(26,29,35);
+    doc.text(
+      "Terprogress: "+stats.progressed+" dari "+stats.total+" customer ("+stats.pct+"%)   ·   Belum Ada Aktivitas: "+stats.notProgressed+" customer",
+      40, 122
+    );
+
+    let y = 142;
+    doc.setFontSize(11); doc.setFont("helvetica","bold"); doc.setTextColor(21,128,61);
+    doc.text("Sudah Ada Aktivitas ("+stats.progressed+")", 40, y);
+    y += 8;
+
+    const progressedRows = stats.progressedCustomers.length
+      ? stats.progressedCustomers.map(c=>[c.accountNo||"—", c.name||"—"])
+      : [["—","Tidak ada customer pada kelompok ini"]];
+
+    doc.autoTable({
+      startY: y,
+      head: [["No. Akun", "Nama Customer"]],
+      body: progressedRows,
+      styles: { font: "helvetica", fontSize: 8.5, cellPadding: 5, textColor: [26,29,35], lineColor: [228,231,235] },
+      headStyles: { fillColor: [233,246,238], textColor: [21,128,61], fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [249,250,251] },
+      margin: { left: 40, right: 40 },
+      didDrawPage: footer,
+    });
+
+    let y2 = doc.lastAutoTable.finalY + 26;
+    if (y2 > pageHeight - 120){ doc.addPage(); y2 = 60; }
+    doc.setFontSize(11); doc.setFont("helvetica","bold"); doc.setTextColor(196,67,43);
+    doc.text("Belum Ada Aktivitas ("+stats.notProgressed+")", 40, y2);
+    y2 += 8;
+
+    const notProgressedRows = stats.notProgressedCustomers.length
+      ? stats.notProgressedCustomers.map(c=>[c.accountNo||"—", c.name||"—"])
+      : [["—","Tidak ada customer pada kelompok ini"]];
+
+    doc.autoTable({
+      startY: y2,
+      head: [["No. Akun", "Nama Customer"]],
+      body: notProgressedRows,
+      styles: { font: "helvetica", fontSize: 8.5, cellPadding: 5, textColor: [26,29,35], lineColor: [228,231,235] },
+      headStyles: { fillColor: [251,234,230], textColor: [196,67,43], fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [249,250,251] },
+      margin: { left: 40, right: 40 },
+      didDrawPage: footer,
+    });
+
+    const blob = doc.output("blob");
+    const fileName = "Cakupan-Customer-"+scopeLabel.replace(/\s+/g,"-")+"-"+todayStr()+".pdf";
+    const res = await downloadsCap.save({ filename: fileName, data: blob });
+    if (res.status === "saved") toast("PDF berhasil diunduh.");
+  } catch(e){
+    console.error(e);
+    if (e && e.code === "declined") return;
+    toast("Gagal membuat PDF.");
+  }
+}
+
+// Shared computation for the Reports tab: scope + period filter, then column
+// filter/sort, plus the customer set for coverage stats. Used by both the
+// on-screen table and the PDF export so they always match what's on screen.
+function getReportData(){
+  const isSup = effectiveMode() === "supervisor";
+  const range = getPeriodRange(state.period.type, state.period.ref);
+
+  let actsAll = visibleActivities();
+  if (isSup && state.reportScope !== "all") actsAll = actsAll.filter(a=>a.salesId===state.reportScope);
+  actsAll = actsAll.filter(a=> a.date >= range.start && a.date <= range.end);
+
+  let acts = actsAll;
+  if (state.reportFilter.type !== "all") acts = acts.filter(a=>a.type===state.reportFilter.type);
+  if (state.reportFilter.customerId !== "all") acts = acts.filter(a=>a.customerId===state.reportFilter.customerId);
+
+  const dir = state.reportSort.dir === "desc" ? -1 : 1;
+  const field = state.reportSort.field;
+  acts = [...acts].sort((a,b)=>{
+    let av, bv;
+    if (field === "sales"){ av=salesName(a.salesId); bv=salesName(b.salesId); }
+    else if (field === "customer"){ av=a.customerName||""; bv=b.customerName||""; }
+    else if (field === "site"){ av=a.siteCity||""; bv=b.siteCity||""; }
+    else if (field === "type"){ av=(TYPE_BY_KEY[a.type]||{}).short||a.type; bv=(TYPE_BY_KEY[b.type]||{}).short||b.type; }
+    else { av=a.date; bv=b.date; }
+    if (av < bv) return -1*dir;
+    if (av > bv) return 1*dir;
+    return (a.createdAt||"").localeCompare(b.createdAt||"") * dir;
+  });
+
+  const counts = Object.fromEntries(ACTIVITY_TYPES.map(t=>[t.key,0]));
+  actsAll.forEach(a=>{ if(counts[a.type]!==undefined) counts[a.type]++; });
+
+  const customers = (function(){
+    if (!isSup) return visibleCustomers();
+    if (state.reportScope === "all") return state.customers;
+    return state.customers.filter(c=>c.salesId===state.reportScope);
+  })();
+  const progress = customerProgressStats(customers, actsAll);
+  const scopeLabel = isSup ? (state.reportScope==="all" ? "Seluruh Tim Sales" : salesName(state.reportScope)) : state.viewerName;
+
+  return { isSup, range, actsAll, acts, counts, customers, progress, scopeLabel };
+}
+
+function sortArrow(field){
+  if (state.reportSort.field !== field) return "";
+  return state.reportSort.dir === "asc" ? " ▲" : " ▼";
+}
+
+async function saveCustomer(payload, existingId){
+  if (existingId){
+    await db.doc("customers/"+existingId).set({ ...payload, updatedAt: nowIso() });
+    toast("Customer diperbarui.");
+  } else {
+    await db.collection("customers").add({ ...payload, createdAt: nowIso() });
+    toast("Customer ditambahkan.");
+  }
+}
+async function deleteCustomer(id){
+  await db.doc("customers/"+id).delete();
+  toast("Customer dihapus.");
+}
+
+async function bulkImportCustomers(text, forcedSalesId){
+  const lines = text.split("\n").map(l=>l.trim()).filter(Boolean);
+  let ok=0, fail=0;
+  for (const line of lines){
+    const parts = line.split("|").map(p=>p.trim());
+    try {
+      let accountNo, name, salesLabel, sitesRaw;
+      if (forcedSalesId){
+        [accountNo, name, sitesRaw] = parts;
+      } else {
+        [accountNo, name, salesLabel, sitesRaw] = parts;
+      }
+      if (!name) { fail++; continue; }
+      let salesId = forcedSalesId;
+      if (!salesId && salesLabel){
+        const found = state.sales.find(s=>s.name.toLowerCase() === salesLabel.toLowerCase());
+        salesId = found ? found.id : null;
+      }
+      const sites = (sitesRaw||"").split(";").map(s=>s.trim()).filter(Boolean).map(city=>({ id: cryptoId(), city }));
+      await db.collection("customers").add({
+        accountNo: accountNo||"", name, salesId: salesId||null,
+        sites: sites.length? sites : [{ id: cryptoId(), city:"—" }],
+        createdAt: nowIso()
+      });
+      ok++;
+    } catch(e){ fail++; }
+  }
+  toast(ok+" customer berhasil diimpor"+(fail? ", "+fail+" gagal":"")+".");
+}
+function cryptoId(){ return "s"+Math.random().toString(36).slice(2,10); }
+
+// ============================================================
+// ACTIVITIES
+// ============================================================
+async function logActivity(payload){
+  await db.collection("activities").add({ ...payload, createdAt: nowIso() });
+  toast("Aktivitas tersimpan.");
+}
+async function deleteActivity(id){
+  await db.doc("activities/"+id).delete();
+  toast("Aktivitas dihapus.");
+}
+
+// ============================================================
+// PDF EXPORT
+// ============================================================
+async function exportPdf({ title, subtitle, rows, columns, totalsLine, extraSummaryLines, fileName }){
+  if (!downloadsCap){ toast("Fitur unduh tidak tersedia di tampilan ini."); return; }
+  if (!window.jspdf || !window.jspdf.jsPDF){ toast("Pustaka PDF belum siap termuat, coba lagi sebentar."); return; }
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    doc.setFillColor(30, 58, 95);
+    doc.rect(0, 0, pageWidth, 64, "F");
+    doc.setTextColor(255,255,255);
+    doc.setFont("helvetica","bold"); doc.setFontSize(15);
+    doc.text("AQPA Indonesia", 40, 28);
+    doc.setFont("helvetica","normal"); doc.setFontSize(10.5);
+    doc.text("Laporan Daily Sales Activity", 40, 45);
+
+    doc.setTextColor(26,29,35);
+    doc.setFont("helvetica","bold"); doc.setFontSize(13);
+    doc.text(title, 40, 90);
+    doc.setFont("helvetica","normal"); doc.setFontSize(10);
+    doc.setTextColor(107,114,128);
+    doc.text(subtitle, 40, 106);
+
+    let startY = 122;
+    if (totalsLine && totalsLine.length){
+      doc.setFontSize(9.5);
+      const colWidth = 92;
+      let x = 40;
+      totalsLine.forEach(t=>{
+        if (x + colWidth > pageWidth - 40){ x = 40; startY += 16; }
+        doc.setTextColor(107,114,128);
+        doc.text(t.label+":", x, startY);
+        doc.setTextColor(26,29,35);
+        doc.setFont("helvetica","bold");
+        doc.text(String(t.value), x + doc.getTextWidth(t.label+":  "), startY);
+        doc.setFont("helvetica","normal");
+        x += colWidth;
+      });
+      startY += 18;
+    }
+
+    if (extraSummaryLines && extraSummaryLines.length){
+      doc.setFontSize(9.5);
+      doc.setTextColor(26,29,35);
+      extraSummaryLines.forEach(line=>{
+        doc.text(line, 40, startY);
+        startY += 14;
+      });
+      startY += 6;
+    }
+
+    doc.autoTable({
+      startY: startY,
+      head: [columns],
+      body: rows,
+      styles: { font: "helvetica", fontSize: 8.5, cellPadding: 5, textColor: [26,29,35], lineColor: [228,231,235] },
+      headStyles: { fillColor: [232,238,245], textColor: [30,58,95], fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [249,250,251] },
+      margin: { left: 40, right: 40 },
+      didDrawPage: (data)=>{
+        const str = "Halaman " + doc.internal.getNumberOfPages();
+        doc.setFontSize(8.5); doc.setTextColor(150,150,150);
+        doc.text(str, pageWidth - 90, doc.internal.pageSize.getHeight() - 20);
+        doc.text("Dicetak "+fmtDateLabel(todayStr()), 40, doc.internal.pageSize.getHeight() - 20);
+      }
+    });
+
+    const blob = doc.output("blob");
+    const res = await downloadsCap.save({ filename: fileName, data: blob });
+    if (res.status === "saved") toast("PDF berhasil diunduh.");
+  } catch(e){
+    console.error(e);
+    if (e && e.code === "declined") return;
+    toast("Gagal membuat PDF.");
+  }
+}
+
+// ============================================================
+// RENDER — ROOT ROUTER
+// ============================================================
+function renderRoot(){
+  const root = document.getElementById("root");
+  if (!state.runtimeAvailable){
+    root.innerHTML = renderRuntimeUnavailable();
+    return;
+  }
+  if (state.runtimeAvailable === "no-identity"){
+    root.innerHTML = renderNoIdentity();
+    return;
+  }
+  if (!state.ready){
+    root.innerHTML = renderLoadingShell();
+    return;
+  }
+  if (state.onboarding){
+    root.innerHTML = renderOnboarding();
+    return;
+  }
+  root.innerHTML = renderApp();
+  afterRender();
+}
+
+function renderRuntimeUnavailable(){
+  return `
+  <div class="onboard-wrap">
+    <div class="card onboard-card" style="padding:28px;">
+      <h1 style="font-size:19px;margin:0 0 8px;">Buka lewat Claude</h1>
+      <p style="color:var(--muted);font-size:14px;line-height:1.6;margin:0;">
+        Aplikasi Daily Sales Activity ini perlu dibuka sebagai Artifact di claude.ai (atau app Claude) agar data tersimpan dan bisa disinkronkan antar sales &amp; supervisor.
+      </p>
+    </div>
+  </div>`;
+}
+function renderNoIdentity(){
+  return `
+  <div class="onboard-wrap">
+    <div class="card onboard-card" style="padding:28px;">
+      <h1 style="font-size:19px;margin:0 0 8px;">Masuk diperlukan</h1>
+      <p style="color:var(--muted);font-size:14px;line-height:1.6;margin:0;">
+        Kami tidak dapat mengenali akun Anda di percakapan ini. Pastikan Anda membuka artifact ini dalam keadaan sudah masuk (sign in) ke akun Claude Anda.
+      </p>
+    </div>
+  </div>`;
+}
+function renderLoadingShell(){
+  return `
+  <div class="onboard-wrap">
+    <div style="text-align:center;color:#fff;">
+      <div style="width:38px;height:38px;border:3px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:999px;margin:0 auto 14px;animation:spin 0.8s linear infinite;"></div>
+      <div style="font-size:14px;font-weight:600;">Memuat AQPA Sales Activity…</div>
+    </div>
+  </div>
+  <style>@keyframes spin{to{transform:rotate(360deg)}}</style>`;
+}
+
+function renderOnboarding(){
+  const unclaimed = state.sales.filter(s=> !s.claimedByUserId);
+  return `
+  <div class="onboard-wrap">
+    <div class="card onboard-card" style="padding:26px;">
+      <div style="font-family:'Space Grotesk';font-weight:700;font-size:12px;letter-spacing:.06em;color:var(--accent);margin-bottom:6px;">AQPA INDONESIA</div>
+      <h1 style="font-size:20px;margin:0 0 6px;">Siapa Anda?</h1>
+      <p style="color:var(--muted);font-size:13.5px;margin:0 0 18px;line-height:1.55;">
+        Pilih nama Anda dari daftar tim sales di bawah untuk mulai mencatat aktivitas harian.
+      </p>
+
+      ${unclaimed.length ? `
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:18px;">
+        ${unclaimed.map(s=>`
+          <button class="btn btn-ghost" style="justify-content:space-between;width:100%;" data-action="claim-slot" data-id="${esc(s.id)}" ${state.loadingClaim?"disabled":""}>
+            <span style="display:flex;align-items:center;gap:10px;"><span class="avatar" style="width:26px;height:26px;font-size:11px;background:var(--primary-tint);color:var(--primary);">${esc(initials(s.name))}</span>${esc(s.name)}</span>
+            <span style="color:var(--muted);font-size:12px;">Ini saya →</span>
+          </button>
+        `).join("")}
+      </div>` : `
+      <div class="empty-state" style="padding:20px 0;">
+        <p style="font-size:13.5px;">Belum ada slot sales yang tersedia. Tunggu Supervisor menyiapkan daftar tim, atau daftarkan nama Anda sendiri di bawah.</p>
+      </div>`}
+
+      <div style="border-top:1px solid var(--border);padding-top:16px;">
+        <label class="field-label">Nama saya tidak ada di daftar</label>
+        <div style="display:flex;gap:8px;">
+          <input id="self-name-input" class="input" placeholder="Ketik nama Anda" />
+          <button class="btn btn-primary" data-action="self-add" ${state.loadingClaim?"disabled":""}>Daftar</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ---------------- app shell ----------------
+function navItems(){
+  if (effectiveMode() === "supervisor"){
+    return [
+      { key:"dashboard", label:"Dashboard", icon:"grid" },
+      { key:"customers", label:"Semua Customer", icon:"building" },
+      { key:"activities", label:"Semua Aktivitas", icon:"clock" },
+      { key:"team", label:"Tim Sales", icon:"users" },
+      { key:"reports", label:"Laporan", icon:"file" },
+    ];
+  }
+  return [
+    { key:"dashboard", label:"Dashboard", icon:"grid" },
+    { key:"customers", label:"Customer Saya", icon:"building" },
+    { key:"log", label:"Catat Aktivitas", icon:"plus-circle" },
+    { key:"activities", label:"Riwayat Aktivitas", icon:"clock" },
+    { key:"reports", label:"Laporan", icon:"file" },
+  ];
+}
+
+function renderApp(){
+  const items = navItems();
+  const tabTitle = (items.find(i=>i.key===state.tab) || {}).label || "";
+  return `
+  <div id="app-shell">
+    <div id="sidebar-backdrop" class="${state.sidebarOpen?'show':''}" data-action="close-sidebar"></div>
+    <aside id="sidebar" class="${state.sidebarOpen?'open':''}">
+      <div class="brand">
+        <div class="name">AQPA Indonesia</div>
+        <div class="sub">Daily Sales Activity</div>
+      </div>
+      <nav>
+        ${items.map(it=>`
+          <div class="nav-item ${state.tab===it.key?'active':''}" data-action="go-tab" data-tab="${it.key}">
+            ${icon(it.icon)}<span>${esc(it.label)}</span>
+          </div>
+        `).join("")}
+      </nav>
+      <div class="user-chip">
+        <div class="avatar">${esc(initials(state.viewerName))}</div>
+        <div style="min-width:0;">
+          <div style="font-size:13px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px;">${esc(state.viewerName||"—")}</div>
+          <div style="font-size:11px;color:#AEC0D4;">${effectiveMode()==="supervisor"?"Supervisor":"Sales"}</div>
+        </div>
+      </div>
+    </aside>
+
+    <div id="main">
+      <div id="topbar">
+        <button id="hamburger" class="btn btn-ghost btn-sm" data-action="open-sidebar" aria-label="Menu">${icon("menu")}</button>
+        <h2 style="margin:0;font-size:17px;">${esc(tabTitle)}</h2>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:10px;">
+          ${state.role === "supervisor" ? `
+          <div class="mode-seg" title="Anda juga bisa bertindak sebagai Sales">
+            <button class="${effectiveMode()==='supervisor'?'active':''}" data-action="switch-mode" data-mode="supervisor">Supervisor</button>
+            <button class="${effectiveMode()==='sales'?'active':''}" data-action="switch-mode" data-mode="sales">Sales</button>
+          </div>` : ``}
+          <span class="badge" style="background:${effectiveMode()==='supervisor'?'var(--accent-tint)':'var(--primary-tint)'};color:${effectiveMode()==='supervisor'?'var(--accent)':'var(--primary)'};">
+            ${icon("shield")}${effectiveMode()==="supervisor"?"Supervisor":"Sales"}
+          </span>
+        </div>
+      </div>
+      <div id="content">
+        ${renderTab()}
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderTab(){
+  switch(state.tab){
+    case "dashboard": return renderDashboard();
+    case "customers": return renderCustomers();
+    case "log": return renderLog();
+    case "activities": return renderActivities();
+    case "team": return renderTeam();
+    case "reports": return renderReports();
+    default: return "";
+  }
+}
+
+// ---------------- period selector (shared) ----------------
+function periodSelectorHtml(idPrefix){
+  const p = state.period;
+  return `
+  <div class="card" style="padding:14px 16px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;">
+    <div class="seg" data-role="period-type-seg">
+      ${["daily","weekly","monthly","yearly"].map(t=>`
+        <button class="${p.type===t?'active':''}" data-action="set-period-type" data-type="${t}">${
+          t==="daily"?"Harian":t==="weekly"?"Mingguan":t==="monthly"?"Bulanan":"Tahunan"
+        }</button>
+      `).join("")}
+    </div>
+    <div style="flex:1;min-width:160px;">
+      ${periodRefInputHtml()}
+    </div>
+    <div style="font-size:13px;color:var(--muted);font-weight:600;">${esc(getPeriodRange(p.type,p.ref).label)}</div>
+  </div>`;
+}
+function periodRefInputHtml(){
+  const p = state.period;
+  if (p.type==="daily" || p.type==="weekly"){
+    return `<input type="date" class="input" id="period-ref-input" value="${p.ref}" data-action="period-ref-change" max="${todayStr()}"/>`;
+  }
+  if (p.type==="monthly"){
+    return `<input type="month" class="input" id="period-ref-input" value="${p.ref}" data-action="period-ref-change" max="${monthStr(new Date())}"/>`;
+  }
+  return `<input type="number" class="input" id="period-ref-input" value="${p.ref}" data-action="period-ref-change" min="2015" max="${new Date().getFullYear()}"/>`;
+}
+
+// ---------------- DASHBOARD ----------------
+function renderDashboard(){
+  const range = getPeriodRange(state.period.type, state.period.ref);
+  const acts = visibleActivities().filter(a=> a.date >= range.start && a.date <= range.end);
+
+  const counts = Object.fromEntries(ACTIVITY_TYPES.map(t=>[t.key,0]));
+  acts.forEach(a=>{ if(counts[a.type]!==undefined) counts[a.type]++; });
+  const total = acts.length;
+
+  const recentAll = [...visibleActivities()].sort((a,b)=> (b.date+b.createdAt).localeCompare(a.date+a.createdAt)).slice(0,8);
+
+  let leaderboardHtml = "";
+  if (effectiveMode() === "supervisor"){
+    const bySales = {};
+    acts.forEach(a=>{ bySales[a.salesId] = (bySales[a.salesId]||0)+1; });
+    const rows = state.sales.filter(s=>s.claimedByUserId || bySales[s.id]).map(s=>({ name:s.name, count: bySales[s.id]||0 }))
+      .sort((a,b)=>b.count-a.count);
+    leaderboardHtml = `
+    <div class="card" style="padding:18px;margin-top:18px;">
+      <h3 style="margin:0 0 12px;font-size:14.5px;">Leaderboard Sales — ${esc(range.label)}</h3>
+      ${rows.length? `
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        ${rows.map(r=>{
+          const max = Math.max(1, rows[0].count);
+          const pct = Math.round((r.count/max)*100);
+          return `
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+              <span style="font-weight:600;">${esc(r.name)}</span><span style="color:var(--muted);">${r.count} aktivitas</span>
+            </div>
+            <div style="background:var(--surface-2);border-radius:999px;height:8px;overflow:hidden;">
+              <div style="width:${pct}%;background:var(--primary);height:100%;border-radius:999px;"></div>
+            </div>
+          </div>`;
+        }).join("")}
+      </div>` : `<div class="empty-state">Belum ada aktivitas pada periode ini.</div>`}
+    </div>`;
+  }
+
+  return `
+  ${periodSelectorHtml()}
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-top:18px;">
+    <div class="card stat-card">
+      <div class="stat-num">${total}</div>
+      <div class="stat-label">Total Aktivitas</div>
+    </div>
+    ${ACTIVITY_TYPES.map(t=>`
+      <div class="card stat-card">
+        <div class="stat-num" style="color:${t.color};">${counts[t.key]}</div>
+        <div class="stat-label">${esc(t.short)}</div>
+      </div>
+    `).join("")}
+  </div>
+
+  <div class="card" style="padding:18px;margin-top:18px;">
+    <h3 style="margin:0 0 12px;font-size:14.5px;">Aktivitas per Jenis — ${esc(range.label)}</h3>
+    <div style="max-width:100%;height:220px;"><canvas id="chart-types"></canvas></div>
+  </div>
+
+  ${progressCardHtml(customerProgressStats(visibleCustomers(), acts), range.label, "dashboard")}
+
+  ${leaderboardHtml}
+
+  <div class="card" style="padding:0;margin-top:18px;overflow:hidden;">
+    <h3 style="margin:0;padding:16px 18px;font-size:14.5px;border-bottom:1px solid var(--border);">Aktivitas Terbaru</h3>
+    ${recentAll.length ? `
+    <div class="table-wrap"><table>
+      <thead><tr><th>Tanggal</th>${effectiveMode()==="supervisor"?"<th>Sales</th>":""}<th>Customer</th><th>Jenis</th><th>Detail</th><th>Catatan</th></tr></thead>
+      <tbody>
+        ${recentAll.map(a=>`
+          <tr>
+            <td style="white-space:nowrap;">${esc(fmtDateLabel(a.date))}</td>
+            ${effectiveMode()==="supervisor"?`<td>${esc(salesName(a.salesId))}</td>`:""}
+            <td>${esc(a.customerName||"—")}${a.siteCity?`<div style="color:var(--muted);font-size:12px;">${esc(a.siteCity)}</div>`:""}</td>
+            <td>${typePill(a.type)}</td>
+            <td style="color:var(--muted);">${esc(activityDetailText(a)||"—")}</td>
+            <td style="color:var(--muted);max-width:220px;">${esc(a.note||"—")}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table></div>` : `<div class="empty-state">${icon("clock")}<div>Belum ada aktivitas tercatat.</div></div>`}
+  </div>
+  `;
+}
+
+function typePill(key){
+  const t = TYPE_BY_KEY[key];
+  if (!t) return esc(key||"—");
+  return `<span class="type-pill" style="background:${t.bg};color:${t.color};"><span class="dot" style="background:${t.color};"></span>${esc(t.short)}</span>`;
+}
+
+// ---------------- per-type validation fields ----------------
+function extraFieldsHtml(typeKey){
+  let html = "";
+  if (TYPES_WITH_CONTACT_MULTI.includes(typeKey)){
+    html += `
+    <div style="margin-bottom:16px;">
+      <label class="field-label">Yang Akan Ditemui (bisa pilih lebih dari 1)</label>
+      <div class="choice-row" data-field="contactRoles">
+        ${CONTACT_ROLE_OPTIONS_WITH_OTHER.map(o=>`
+          <label class="choice-opt"><input type="checkbox" name="contactRoles" value="${esc(o)}"/>${esc(o)}</label>
+        `).join("")}
+      </div>
+      <input class="input" id="contact-other-input" style="margin-top:8px;display:none;" placeholder="Sebutkan yang ditemui lainnya..." name="contactRoleOther"/>
+    </div>`;
+  }
+  if (TYPES_WITH_CONTACT_SINGLE.includes(typeKey)){
+    html += `
+    <div style="margin-bottom:16px;">
+      <label class="field-label">Yang Dihubungi</label>
+      <div class="choice-row" data-field="contactRole">
+        ${CONTACT_ROLE_OPTIONS.map(o=>`
+          <label class="choice-opt"><input type="radio" name="contactRole" value="${esc(o)}"/>${esc(o)}</label>
+        `).join("")}
+      </div>
+    </div>`;
+  }
+  if (TYPES_WITH_PRODUCT_LIST.includes(typeKey)){
+    html += `
+    <div>
+      <label class="field-label">Produk Terkait (bisa pilih lebih dari 1)</label>
+      <div class="choice-row" data-field="products">
+        ${PRODUCT_OPTIONS.map(p=>`
+          <label class="choice-opt"><input type="checkbox" name="products" value="${esc(p)}"/>${esc(p)}</label>
+        `).join("")}
+      </div>
+      <input class="input" id="product-other-input" style="margin-top:8px;display:none;" placeholder="Sebutkan produk lainnya..." name="productOther"/>
+    </div>`;
+  }
+  return html;
+}
+
+// Human-readable summary of an activity's validation answers, for tables & PDF.
+function activityDetailText(a){
+  const parts = [];
+  if (TYPES_WITH_CONTACT_MULTI.includes(a.type) && a.contactRoles && a.contactRoles.length){
+    const list = a.contactRoles.map(r => (r === "Lainnya" && a.contactRoleOther) ? a.contactRoleOther : r);
+    parts.push("Ditemui: " + list.join(", "));
+  }
+  if (TYPES_WITH_CONTACT_SINGLE.includes(a.type) && a.contactRole){
+    parts.push("Dihubungi: " + a.contactRole);
+  }
+  if (TYPES_WITH_PRODUCT_LIST.includes(a.type) && a.products && a.products.length){
+    const list = a.products.map(p => (p === "Lainnya" && a.productOther) ? a.productOther : p);
+    parts.push("Produk: " + list.join(", "));
+  }
+  return parts.join(" · ");
+}
+
+function mountDashboardChart(){
+  const canvas = document.getElementById("chart-types");
+  if (!canvas || !window.Chart) return;
+  const range = getPeriodRange(state.period.type, state.period.ref);
+  const acts = visibleActivities().filter(a=> a.date >= range.start && a.date <= range.end);
+  const counts = ACTIVITY_TYPES.map(t=> acts.filter(a=>a.type===t.key).length);
+  if (canvas._chart) canvas._chart.destroy();
+  const styles = getComputedStyle(document.documentElement);
+  canvas._chart = new Chart(canvas, {
+    type: "bar",
+    data: {
+      labels: ACTIVITY_TYPES.map(t=>t.short),
+      datasets: [{
+        data: counts,
+        backgroundColor: ACTIVITY_TYPES.map(t=> styles.getPropertyValue(t.color.replace("var(","").replace(")","")).trim() || "#999"),
+        borderRadius: 6,
+        maxBarThickness: 48,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display:false }, tooltip: { enabled:true } },
+      scales: {
+        y: { beginAtZero:true, ticks:{ precision:0, color: styles.getPropertyValue('--muted').trim() }, grid:{ color: styles.getPropertyValue('--border').trim() } },
+        x: { ticks:{ color: styles.getPropertyValue('--muted').trim() }, grid:{ display:false } }
+      }
+    }
+  });
+}
+
+// ---------------- CUSTOMERS ----------------
+function renderCustomers(){
+  const isSup = effectiveMode() === "supervisor";
+  let list = visibleCustomers();
+  if (state.customerSearch){
+    const q = state.customerSearch.toLowerCase();
+    list = list.filter(c => (c.name||"").toLowerCase().includes(q) || (c.accountNo||"").toLowerCase().includes(q));
+  }
+  const activityCountByCustomer = {};
+  visibleActivities().forEach(a=>{ activityCountByCustomer[a.customerId] = (activityCountByCustomer[a.customerId]||0)+1; });
+
+  return `
+  <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px;">
+    <div style="position:relative;flex:1;min-width:200px;">
+      <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted);">${icon("search")}</span>
+      <input class="input" style="padding-left:36px;" placeholder="Cari nama / no. akun..." id="customer-search-input" value="${esc(state.customerSearch)}" data-action="customer-search"/>
+    </div>
+    <button class="btn btn-ghost" data-action="open-bulk-import">Impor Massal</button>
+    <button class="btn btn-primary" data-action="open-customer-modal">${icon("plus-circle")} Tambah Customer</button>
+  </div>
+
+  ${list.length ? `
+  <div class="card table-wrap">
+    <table>
+      <thead><tr>
+        <th>No. Akun</th><th>Nama Customer</th><th>Site / Kota</th>${isSup?"<th>Sales</th>":""}<th>Aktivitas</th><th></th>
+      </tr></thead>
+      <tbody>
+        ${list.map(c=>`
+          <tr>
+            <td style="white-space:nowrap;color:var(--muted);">${esc(c.accountNo||"—")}</td>
+            <td style="font-weight:600;">${esc(c.name)}</td>
+            <td>${(c.sites||[]).map(s=>`<span class="type-pill" style="background:var(--surface-2);color:var(--ink);margin:2px 4px 2px 0;">${icon("mappin")}${esc(s.city)}</span>`).join("")}</td>
+            ${isSup?`<td>${esc(salesName(c.salesId))}</td>`:""}
+            <td>${activityCountByCustomer[c.id]||0}</td>
+            <td style="white-space:nowrap;">
+              <button class="btn btn-ghost btn-sm" data-action="open-customer-modal" data-id="${esc(c.id)}">${icon("edit")}</button>
+              <button class="btn btn-danger btn-sm" data-action="delete-customer" data-id="${esc(c.id)}">${icon("trash")}</button>
+            </td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  </div>` : `
+  <div class="card empty-state">${icon("building")}<div>Belum ada customer${state.customerSearch? " yang cocok":""}. ${state.customerSearch? "":"Tambahkan customer pertama Anda."}</div></div>`}
+  `;
+}
+
+function customerModalHtml(existing){
+  const isSup = effectiveMode() === "supervisor";
+  const sites = (existing && existing.sites && existing.sites.length) ? existing.sites : [{ id: cryptoId(), city:"" }];
+  return `
+  <div class="modal-backdrop" data-action="backdrop-close">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h3 style="margin:0;font-size:16px;">${existing? "Edit Customer" : "Tambah Customer"}</h3>
+        <button class="btn btn-ghost btn-sm" data-action="close-modal">${icon("x")}</button>
+      </div>
+      <form id="customer-form">
+        <div class="modal-body">
+          <div class="grid-2">
+            <div>
+              <label class="field-label">No. Akun</label>
+              <input class="input" name="accountNo" value="${esc(existing?.accountNo||"")}" placeholder="Contoh: ACC-0231" />
+            </div>
+            <div>
+              <label class="field-label">Nama Customer</label>
+              <input class="input" name="name" required value="${esc(existing?.name||"")}" placeholder="PT Sumber Makmur" />
+            </div>
+          </div>
+          ${isSup ? `
+          <div style="margin-top:14px;">
+            <label class="field-label">Sales Pemilik</label>
+            <select class="input" name="salesId">
+              <option value="">— Pilih Sales —</option>
+              ${state.sales.map(s=>`<option value="${esc(s.id)}" ${existing?.salesId===s.id?"selected":""}>${esc(s.name)}</option>`).join("")}
+            </select>
+          </div>` : ""}
+
+          <div style="margin-top:16px;">
+            <label class="field-label">Site / Kota</label>
+            <div id="site-rows">
+              ${sites.map(s=>`
+                <div class="site-row" data-site-row>
+                  <input class="input" data-site-city value="${esc(s.city)}" placeholder="Nama kota / site" />
+                  <button type="button" class="btn btn-ghost btn-sm" data-action="remove-site-row">${icon("x")}</button>
+                </div>
+              `).join("")}
+            </div>
+            <button type="button" class="btn btn-ghost btn-sm" data-action="add-site-row">${icon("plus-circle")} Tambah Site</button>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-ghost" data-action="close-modal">Batal</button>
+          <button type="submit" class="btn btn-primary">Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>`;
+}
+
+function bulkImportModalHtml(){
+  const isSup = effectiveMode() === "supervisor";
+  return `
+  <div class="modal-backdrop" data-action="backdrop-close">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h3 style="margin:0;font-size:16px;">Impor Customer Massal</h3>
+        <button class="btn btn-ghost btn-sm" data-action="close-modal">${icon("x")}</button>
+      </div>
+      <form id="bulk-import-form">
+        <div class="modal-body">
+          <p style="font-size:13px;color:var(--muted);margin:0 0 10px;line-height:1.6;">
+            Satu baris = satu customer. Pisahkan kolom dengan <b>|</b> dan beberapa site dengan <b>;</b>.<br/>
+            Format: ${isSup? `<code>No.Akun | Nama Customer | Nama Sales | Kota1;Kota2</code>` : `<code>No.Akun | Nama Customer | Kota1;Kota2</code>`}
+          </p>
+          <textarea id="bulk-import-text" class="input" style="min-height:160px;font-family:monospace;font-size:12.5px;" placeholder="${isSup? "ACC-001 | PT Sumber Makmur | Budi Santoso | Jakarta;Bekasi" : "ACC-001 | PT Sumber Makmur | Jakarta;Bekasi"}"></textarea>
+        </div>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-ghost" data-action="close-modal">Batal</button>
+          <button type="submit" class="btn btn-primary">Impor</button>
+        </div>
+      </form>
+    </div>
+  </div>`;
+}
+
+// ---------------- LOG ACTIVITY (sales only) ----------------
+function renderLog(){
+  const myCustomers = visibleCustomers();
+  const todayActs = visibleActivities().filter(a=>a.date===todayStr()).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+
+  if (!myCustomers.length){
+    return `<div class="card empty-state">${icon("building")}<div>Tambahkan customer terlebih dahulu di tab <b>Customer Saya</b> sebelum mencatat aktivitas.</div></div>`;
+  }
+
+  return `
+  <div class="card" style="padding:20px;">
+    <form id="activity-form">
+      <div class="grid-2">
+        <div>
+          <label class="field-label">Customer</label>
+          <select class="input" name="customerId" id="log-customer-select" required>
+            <option value="">— Pilih Customer —</option>
+            ${myCustomers.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}${c.accountNo? " ("+esc(c.accountNo)+")":""}</option>`).join("")}
+          </select>
+        </div>
+        <div>
+          <label class="field-label">Site / Kota</label>
+          <select class="input" name="siteCity" id="log-site-select">
+            <option value="">Umum / tidak spesifik</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="margin-top:16px;">
+        <label class="field-label">Jenis Aktivitas</label>
+        <div class="type-toggle" id="type-toggle">
+          ${ACTIVITY_TYPES.map((t,i)=>`
+            <label class="opt ${i===0?'selected':''}" style="color:${t.color};" data-type-opt="${t.key}">
+              <input type="radio" name="type" value="${t.key}" ${i===0?"checked":""} style="accent-color:${t.color};"/>${esc(t.label)}
+            </label>
+          `).join("")}
+        </div>
+      </div>
+
+      <div id="extra-fields-wrap" style="margin-top:16px;">${extraFieldsHtml(ACTIVITY_TYPES[0].key)}</div>
+
+      <div class="grid-2" style="margin-top:16px;">
+        <div>
+          <label class="field-label">Tanggal</label>
+          <input class="input" type="date" name="date" value="${todayStr()}" max="${todayStr()}" required />
+        </div>
+      </div>
+
+      <div style="margin-top:16px;">
+        <label class="field-label">Catatan (opsional)</label>
+        <textarea class="input" name="note" placeholder="Contoh: Diskusi kebutuhan RTI untuk unit baru..."></textarea>
+      </div>
+
+      <div style="margin-top:18px;">
+        <button type="submit" class="btn btn-accent">${icon("plus-circle")} Simpan Aktivitas</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="card" style="padding:0;margin-top:18px;overflow:hidden;">
+    <h3 style="margin:0;padding:16px 18px;font-size:14.5px;border-bottom:1px solid var(--border);">Tercatat Hari Ini (${todayActs.length})</h3>
+    ${todayActs.length? `
+    <div class="table-wrap"><table>
+      <thead><tr><th>Customer</th><th>Jenis</th><th>Detail</th><th>Catatan</th><th></th></tr></thead>
+      <tbody>
+        ${todayActs.map(a=>`
+          <tr>
+            <td>${esc(a.customerName)}${a.siteCity?`<div style="color:var(--muted);font-size:12px;">${esc(a.siteCity)}</div>`:""}</td>
+            <td>${typePill(a.type)}</td>
+            <td style="color:var(--muted);">${esc(activityDetailText(a)||"—")}</td>
+            <td style="color:var(--muted);">${esc(a.note||"—")}</td>
+            <td><button class="btn btn-danger btn-sm" data-action="delete-activity" data-id="${esc(a.id)}">${icon("trash")}</button></td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table></div>` : `<div class="empty-state" style="padding:26px;">Belum ada aktivitas hari ini.</div>`}
+  </div>
+  `;
+}
+
+// ---------------- ACTIVITIES (history) ----------------
+function renderActivities(){
+  const isSup = effectiveMode() === "supervisor";
+  const f = state.activityFilter;
+  let list = visibleActivities();
+  if (f.type !== "all") list = list.filter(a=>a.type===f.type);
+  if (isSup && f.salesId !== "all") list = list.filter(a=>a.salesId===f.salesId);
+  if (f.customerId !== "all") list = list.filter(a=>a.customerId===f.customerId);
+  if (f.from) list = list.filter(a=>a.date >= f.from);
+  if (f.to) list = list.filter(a=>a.date <= f.to);
+  list = [...list].sort((a,b)=> (b.date+b.createdAt).localeCompare(a.date+a.createdAt));
+
+  const myCustomerOptions = visibleCustomers();
+
+  return `
+  <div class="card" style="padding:14px 16px;display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+    <select class="input" style="width:auto;" data-action="filter-type">
+      <option value="all">Semua Jenis</option>
+      ${ACTIVITY_TYPES.map(t=>`<option value="${t.key}" ${f.type===t.key?"selected":""}>${esc(t.label)}</option>`).join("")}
+    </select>
+    ${isSup?`
+    <select class="input" style="width:auto;" data-action="filter-sales">
+      <option value="all">Semua Sales</option>
+      ${state.sales.map(s=>`<option value="${esc(s.id)}" ${f.salesId===s.id?"selected":""}>${esc(s.name)}</option>`).join("")}
+    </select>`:""}
+    <select class="input" style="width:auto;" data-action="filter-customer">
+      <option value="all">Semua Customer</option>
+      ${myCustomerOptions.map(c=>`<option value="${esc(c.id)}" ${f.customerId===c.id?"selected":""}>${esc(c.name)}</option>`).join("")}
+    </select>
+    <input class="input" type="date" style="width:auto;" value="${f.from}" data-action="filter-from" title="Dari tanggal"/>
+    <input class="input" type="date" style="width:auto;" value="${f.to}" data-action="filter-to" title="Sampai tanggal"/>
+  </div>
+
+  ${list.length ? `
+  <div class="card table-wrap">
+    <table>
+      <thead><tr>
+        <th>Tanggal</th>${isSup?"<th>Sales</th>":""}<th>Customer</th><th>Site</th><th>Jenis</th><th>Detail</th><th>Catatan</th><th></th>
+      </tr></thead>
+      <tbody>
+        ${list.map(a=>`
+          <tr>
+            <td style="white-space:nowrap;">${esc(fmtDateLabel(a.date))}</td>
+            ${isSup?`<td>${esc(salesName(a.salesId))}</td>`:""}
+            <td style="font-weight:600;">${esc(a.customerName||"—")}</td>
+            <td>${esc(a.siteCity||"—")}</td>
+            <td>${typePill(a.type)}</td>
+            <td style="color:var(--muted);">${esc(activityDetailText(a)||"—")}</td>
+            <td style="color:var(--muted);max-width:240px;">${esc(a.note||"—")}</td>
+            <td><button class="btn btn-danger btn-sm" data-action="delete-activity" data-id="${esc(a.id)}">${icon("trash")}</button></td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  </div>
+  <div style="margin-top:10px;color:var(--muted);font-size:12.5px;">${list.length} aktivitas ditemukan.</div>
+  ` : `<div class="card empty-state">${icon("clock")}<div>Tidak ada aktivitas yang cocok dengan filter.</div></div>`}
+  `;
+}
+
+// ---------------- TEAM (supervisor) ----------------
+function renderTeam(){
+  return `
+  <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">
+    <button class="btn btn-primary" data-action="open-add-slot">${icon("plus-circle")} Tambah Sales</button>
+  </div>
+  <div class="card table-wrap">
+    <table>
+      <thead><tr><th>Nama</th><th>Status</th><th>Customer</th><th>Aktivitas</th><th></th></tr></thead>
+      <tbody>
+        ${state.sales.map(s=>{
+          const custCount = state.customers.filter(c=>c.salesId===s.id).length;
+          const actCount = state.activities.filter(a=>a.salesId===s.id).length;
+          const claimerRole = s.claimedByUserId ? state.roles.find(r=>r.id===s.claimedByUserId) : null;
+          const isDualSupervisor = claimerRole && claimerRole.role === "supervisor";
+          return `
+          <tr>
+            <td style="font-weight:600;">
+              <span class="avatar" style="width:26px;height:26px;font-size:11px;display:inline-flex;vertical-align:middle;margin-right:8px;">${esc(initials(s.name))}</span>
+              ${esc(s.name)}
+            </td>
+            <td>
+              ${s.claimedByUserId
+                ? (isDualSupervisor
+                    ? `<span class="badge" style="background:var(--accent-tint);color:var(--accent);">Aktif · juga Supervisor</span>`
+                    : `<span class="badge" style="background:var(--t-halo-bg);color:var(--t-halo);">Aktif</span>`)
+                : `<span class="badge" style="background:var(--surface-2);color:var(--muted);">Belum diklaim</span>`}
+            </td>
+            <td>${custCount}</td>
+            <td>${actCount}</td>
+            <td style="white-space:nowrap;">
+              <button class="btn btn-ghost btn-sm" data-action="rename-slot" data-id="${esc(s.id)}" data-name="${esc(s.name)}">${icon("edit")}</button>
+              ${s.claimedByUserId && !isDualSupervisor ? `<button class="btn btn-ghost btn-sm" data-action="promote-supervisor" data-id="${esc(s.claimedByUserId)}" data-name="${esc(s.name)}">Jadikan Supervisor</button>`:""}
+              ${s.claimedByUserId? `<button class="btn btn-danger btn-sm" data-action="reset-claim" data-id="${esc(s.id)}">Reset Klaim</button>`:""}
+            </td>
+          </tr>`;
+        }).join("")}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card" style="padding:18px;margin-top:18px;">
+    <h3 style="margin:0 0 10px;font-size:14.5px;">Daftar Supervisor</h3>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      ${state.roles.filter(r=>r.role==="supervisor").map(r=>`
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="avatar" style="width:26px;height:26px;font-size:11px;">${esc(initials(r.name))}</span>
+          <span style="font-size:13.5px;font-weight:600;">${esc(r.name||"—")}</span>
+          ${r.salesId ? `<span class="badge" style="background:var(--primary-tint);color:var(--primary);">juga Sales: ${esc(salesName(r.salesId))}</span>` : ``}
+        </div>
+      `).join("")}
+    </div>
+  </div>
+  `;
+}
+
+// ---------------- REPORTS ----------------
+function renderReports(){
+  const { isSup, range, acts, counts, progress, scopeLabel } = getReportData();
+  const showSalesCol = isSup && state.reportScope === "all";
+  const customerOptions = (function(){
+    if (!isSup) return visibleCustomers();
+    if (state.reportScope === "all") return state.customers;
+    return state.customers.filter(c=>c.salesId===state.reportScope);
+  })();
+
+  return `
+  ${periodSelectorHtml()}
+
+  ${isSup? `
+  <div class="card" style="padding:14px 16px;margin-top:14px;">
+    <label class="field-label">Cakupan Laporan</label>
+    <select class="input" style="max-width:280px;" data-action="report-scope">
+      <option value="all" ${state.reportScope==="all"?"selected":""}>Seluruh Tim Sales</option>
+      ${state.sales.map(s=>`<option value="${esc(s.id)}" ${state.reportScope===s.id?"selected":""}>${esc(s.name)}</option>`).join("")}
+    </select>
+  </div>` : ""}
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-top:16px;">
+    <div class="card stat-card"><div class="stat-num">${acts.length}</div><div class="stat-label">Total Aktivitas</div></div>
+    ${ACTIVITY_TYPES.map(t=>`<div class="card stat-card"><div class="stat-num" style="color:${t.color}">${counts[t.key]}</div><div class="stat-label">${esc(t.short)}</div></div>`).join("")}
+  </div>
+
+  ${progressCardHtml(progress, range.label, "reports")}
+
+  <div class="card" style="padding:18px;margin-top:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+    <div>
+      <div style="font-weight:700;font-size:14.5px;">${esc(range.label)}</div>
+      <div style="font-size:12.5px;color:var(--muted);margin-top:2px;">${esc(scopeLabel)}</div>
+    </div>
+    <button class="btn btn-accent" data-action="download-report-pdf">${icon("download")} Unduh PDF</button>
+  </div>
+
+  <div class="card" style="padding:14px 16px;margin-top:16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
+    <span style="font-size:12.5px;color:var(--muted);font-weight:600;">Filter:</span>
+    <select class="input" style="width:auto;" data-action="report-filter-type">
+      <option value="all">Semua Jenis</option>
+      ${ACTIVITY_TYPES.map(t=>`<option value="${t.key}" ${state.reportFilter.type===t.key?"selected":""}>${esc(t.label)}</option>`).join("")}
+    </select>
+    <select class="input" style="width:auto;" data-action="report-filter-customer">
+      <option value="all">Semua Customer</option>
+      ${customerOptions.map(c=>`<option value="${esc(c.id)}" ${state.reportFilter.customerId===c.id?"selected":""}>${esc(c.name)}</option>`).join("")}
+    </select>
+    ${(state.reportFilter.type!=="all"||state.reportFilter.customerId!=="all") ? `<button class="btn btn-ghost btn-sm" data-action="report-filter-reset">Reset Filter</button>` : ``}
+    <span style="margin-left:auto;font-size:12px;color:var(--muted);">${acts.length} aktivitas · klik judul kolom untuk urutkan</span>
+  </div>
+
+  <div class="card table-wrap" style="margin-top:10px;">
+    <table>
+      <thead><tr>
+        <th data-action="sort-report" data-field="date" style="cursor:pointer;user-select:none;">Tanggal${sortArrow("date")}</th>
+        ${showSalesCol?`<th data-action="sort-report" data-field="sales" style="cursor:pointer;user-select:none;">Sales${sortArrow("sales")}</th>`:""}
+        <th data-action="sort-report" data-field="customer" style="cursor:pointer;user-select:none;">Customer${sortArrow("customer")}</th>
+        <th data-action="sort-report" data-field="site" style="cursor:pointer;user-select:none;">Site${sortArrow("site")}</th>
+        <th data-action="sort-report" data-field="type" style="cursor:pointer;user-select:none;">Jenis${sortArrow("type")}</th>
+        <th>Detail</th><th>Catatan</th>
+      </tr></thead>
+      <tbody>
+        ${acts.length? acts.map(a=>`
+          <tr>
+            <td style="white-space:nowrap;">${esc(fmtDateLabel(a.date))}</td>
+            ${showSalesCol?`<td>${esc(salesName(a.salesId))}</td>`:""}
+            <td style="font-weight:600;">${esc(a.customerName||"—")}</td>
+            <td>${esc(a.siteCity||"—")}</td>
+            <td>${typePill(a.type)}</td>
+            <td style="color:var(--muted);">${esc(activityDetailText(a)||"—")}</td>
+            <td style="color:var(--muted);">${esc(a.note||"—")}</td>
+          </tr>
+        `).join("") : `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px;">Tidak ada aktivitas yang cocok.</td></tr>`}
+      </tbody>
+    </table>
+  </div>
+  `;
+}
+
+async function handleDownloadReportPdf(){
+  const { isSup, range, acts, counts, progress, scopeLabel } = getReportData();
+  const showSalesCol = isSup && state.reportScope === "all";
+
+  const columns = ["Tanggal", ...(showSalesCol ? ["Sales"]:[]), "Customer", "Site", "Jenis", "Detail", "Catatan"];
+  const rows = acts.map(a=>[
+    fmtDateLabel(a.date),
+    ...(showSalesCol ? [salesName(a.salesId)]:[]),
+    a.customerName||"—",
+    a.siteCity||"—",
+    (TYPE_BY_KEY[a.type]||{}).short || a.type,
+    activityDetailText(a)||"—",
+    a.note||"—"
+  ]);
+
+  const totalsLine = [
+    { label:"Total", value: acts.length },
+    ...ACTIVITY_TYPES.map(t=>({ label: t.short, value: counts[t.key] }))
+  ];
+
+  const extraSummaryLines = [
+    "Cakupan Customer: "+progress.progressed+" dari "+progress.total+" customer terprogress ("+progress.pct+"%) · "+progress.notProgressed+" belum ada aktivitas.",
+    ...((state.reportFilter.type!=="all"||state.reportFilter.customerId!=="all") ? ["Filter aktif diterapkan pada tabel di bawah ini."] : [])
+  ];
+
+  const periodLabelSlug = range.start+"_"+range.end;
+  await exportPdf({
+    title: "Laporan "+ (state.period.type==="daily"?"Harian":state.period.type==="weekly"?"Mingguan":state.period.type==="monthly"?"Bulanan":"Tahunan"),
+    subtitle: scopeLabel + " · " + range.label,
+    columns, rows, totalsLine, extraSummaryLines,
+    fileName: "Laporan-Aktivitas-"+scopeLabel.replace(/\s+/g,"-")+"-"+periodLabelSlug+".pdf"
+  });
+}
+
+// ============================================================
+// EVENT HANDLING (delegation)
+// ============================================================
+function afterRender(){
+  if (state.tab === "dashboard") mountDashboardChart();
+  if (state.tab === "log") mountLogFormBehaviour();
+}
+
+function mountLogFormBehaviour(){
+  const custSelect = document.getElementById("log-customer-select");
+  const siteSelect = document.getElementById("log-site-select");
+  if (!custSelect || !siteSelect) return;
+  function refreshSites(){
+    const c = state.customers.find(x=>x.id===custSelect.value);
+    siteSelect.innerHTML = `<option value="">Umum / tidak spesifik</option>` + (c && c.sites? c.sites.map(s=>`<option value="${esc(s.city)}">${esc(s.city)}</option>`).join(""):"");
+  }
+  custSelect.addEventListener("change", refreshSites);
+  refreshSites();
+}
+
+document.addEventListener("click", async (e)=>{
+  const el = e.target.closest("[data-action]");
+  if (!el) return;
+  const action = el.getAttribute("data-action");
+
+  switch(action){
+    case "go-tab": {
+      state.tab = el.getAttribute("data-tab");
+      state.sidebarOpen = false;
+      renderRoot();
+      break;
+    }
+    case "open-sidebar": state.sidebarOpen = true; renderRoot(); break;
+    case "close-sidebar": state.sidebarOpen = false; renderRoot(); break;
+
+    case "switch-mode": {
+      const mode = el.getAttribute("data-mode");
+      if (mode === "sales" && !state.salesId){
+        state.modalOpen = "become-sales";
+        renderModalLayer();
+      } else {
+        state.viewMode = mode;
+        if (!navItems().some(n=>n.key===state.tab)) state.tab = "dashboard";
+        renderRoot();
+      }
+      break;
+    }
+
+    case "claim-slot": {
+      const id = el.getAttribute("data-id");
+      await claimSlot(id, null);
+      break;
+    }
+    case "self-add": {
+      const input = document.getElementById("self-name-input") || document.getElementById("become-sales-name-input");
+      await selfAddAndClaim(input ? input.value : "");
+      break;
+    }
+
+    case "set-period-type": {
+      const t = el.getAttribute("data-type");
+      state.period.type = t;
+      const now = new Date();
+      if (t==="daily" || t==="weekly") state.period.ref = todayStr();
+      else if (t==="monthly") state.period.ref = monthStr(now);
+      else state.period.ref = String(now.getFullYear());
+      renderRoot();
+      break;
+    }
+
+    case "open-customer-modal": {
+      const id = el.getAttribute("data-id");
+      state.modalOpen = "customer";
+      state.modalCtx = id ? state.customers.find(c=>c.id===id) : null;
+      renderModalLayer();
+      break;
+    }
+    case "delete-customer": {
+      const id = el.getAttribute("data-id");
+      if (confirm("Hapus customer ini? Aktivitas terkait tidak akan terhapus.")){
+        await deleteCustomer(id);
+      }
+      break;
+    }
+    case "open-bulk-import": {
+      state.modalOpen = "bulk-import";
+      renderModalLayer();
+      break;
+    }
+    case "add-site-row": {
+      const wrap = document.getElementById("site-rows");
+      const row = document.createElement("div");
+      row.className = "site-row"; row.setAttribute("data-site-row","");
+      row.innerHTML = `<input class="input" data-site-city placeholder="Nama kota / site" /><button type="button" class="btn btn-ghost btn-sm" data-action="remove-site-row">${icon("x")}</button>`;
+      wrap.appendChild(row);
+      break;
+    }
+    case "remove-site-row": {
+      const row = el.closest("[data-site-row]");
+      const wrap = document.getElementById("site-rows");
+      if (wrap.querySelectorAll("[data-site-row]").length > 1) row.remove();
+      break;
+    }
+    case "close-modal":
+    case "backdrop-close": {
+      if (action === "backdrop-close" && e.target !== el) break;
+      state.modalOpen = null; state.modalCtx = null;
+      closeModalLayer();
+      if (state.dirty){ state.dirty = false; renderRoot(); }
+      break;
+    }
+
+    case "open-add-slot": {
+      const name = prompt("Nama sales baru:");
+      if (name && name.trim()) await addSalesSlot(name.trim());
+      break;
+    }
+    case "rename-slot": {
+      const id = el.getAttribute("data-id");
+      const cur = el.getAttribute("data-name");
+      const name = prompt("Nama baru:", cur);
+      if (name && name.trim() && name.trim()!==cur) await renameSalesSlot(id, name.trim());
+      break;
+    }
+    case "reset-claim": {
+      const id = el.getAttribute("data-id");
+      if (confirm("Reset klaim slot ini? Sales terkait perlu klaim ulang.")) await resetClaim(id);
+      break;
+    }
+    case "promote-supervisor": {
+      const userId = el.getAttribute("data-id");
+      const name = el.getAttribute("data-name");
+      if (confirm(esc(name)+" akan bisa melihat seluruh data tim sebagai Supervisor, sambil tetap menjadi Sales. Lanjutkan?")){
+        await promoteSupervisor(userId, name);
+      }
+      break;
+    }
+
+    case "delete-activity": {
+      const id = el.getAttribute("data-id");
+      if (confirm("Hapus aktivitas ini?")) await deleteActivity(id);
+      break;
+    }
+
+    case "download-report-pdf": await handleDownloadReportPdf(); break;
+    case "download-progress-pdf": {
+      const context = el.getAttribute("data-context") || "dashboard";
+      await handleDownloadProgressPdf(context);
+      break;
+    }
+
+    case "sort-report": {
+      const field = el.getAttribute("data-field");
+      if (state.reportSort.field === field){
+        state.reportSort.dir = state.reportSort.dir === "asc" ? "desc" : "asc";
+      } else {
+        state.reportSort.field = field; state.reportSort.dir = "asc";
+      }
+      renderRoot();
+      break;
+    }
+    case "report-filter-reset": {
+      state.reportFilter = { type: "all", customerId: "all" };
+      renderRoot();
+      break;
+    }
+  }
+});
+
+document.addEventListener("change", (e)=>{
+  const el = e.target.closest("[data-action]");
+  if (!el) return;
+  const action = el.getAttribute("data-action");
+  switch(action){
+    case "period-ref-change": state.period.ref = el.value; renderRoot(); break;
+    case "customer-search": break; // handled on input
+    case "filter-type": state.activityFilter.type = el.value; renderRoot(); break;
+    case "filter-sales": state.activityFilter.salesId = el.value; renderRoot(); break;
+    case "filter-customer": state.activityFilter.customerId = el.value; renderRoot(); break;
+    case "filter-from": state.activityFilter.from = el.value; renderRoot(); break;
+    case "filter-to": state.activityFilter.to = el.value; renderRoot(); break;
+    case "report-scope": {
+      state.reportScope = el.value;
+      state.reportFilter = { type: "all", customerId: "all" }; // scope changed: old customer filter may no longer apply
+      renderRoot();
+      break;
+    }
+    case "report-filter-type": state.reportFilter.type = el.value; renderRoot(); break;
+    case "report-filter-customer": state.reportFilter.customerId = el.value; renderRoot(); break;
+  }
+});
+
+document.addEventListener("input", (e)=>{
+  const el = e.target.closest("[data-action]");
+  if (!el) return;
+  if (el.getAttribute("data-action") === "customer-search"){
+    state.customerSearch = el.value;
+    const caret = el.selectionStart;
+    renderRoot();
+    const again = document.getElementById("customer-search-input");
+    if (again){ again.focus(); again.setSelectionRange(caret, caret); }
+  }
+});
+
+document.addEventListener("submit", async (e)=>{
+  const form = e.target;
+  if (form.id === "activity-form"){
+    e.preventDefault();
+    const fd = new FormData(form);
+    const customerId = fd.get("customerId");
+    const customer = state.customers.find(c=>c.id===customerId);
+    if (!customer){ toast("Pilih customer terlebih dahulu."); return; }
+    const type = fd.get("type");
+
+    const extra = {};
+    if (TYPES_WITH_CONTACT_MULTI.includes(type)){
+      const roles = fd.getAll("contactRoles");
+      if (!roles.length){ toast("Pilih yang akan ditemui terlebih dahulu."); return; }
+      const other = (fd.get("contactRoleOther")||"").trim();
+      if (roles.includes("Lainnya") && !other){ toast("Sebutkan yang akan ditemui lainnya."); return; }
+      extra.contactRoles = roles;
+      if (other) extra.contactRoleOther = other;
+    }
+    if (TYPES_WITH_CONTACT_SINGLE.includes(type)){
+      const role = fd.get("contactRole");
+      if (!role){ toast("Pilih yang akan dihubungi terlebih dahulu."); return; }
+      extra.contactRole = role;
+    }
+    if (TYPES_WITH_PRODUCT_LIST.includes(type)){
+      const products = fd.getAll("products");
+      if (!products.length){ toast("Pilih minimal 1 produk terkait."); return; }
+      const other = (fd.get("productOther")||"").trim();
+      if (products.includes("Lainnya") && !other){ toast("Sebutkan nama produk lainnya."); return; }
+      extra.products = products;
+      if (other) extra.productOther = other;
+    }
+
+    await logActivity({
+      salesId: state.salesId,
+      customerId,
+      customerName: customer.name,
+      siteCity: fd.get("siteCity") || "",
+      type,
+      note: (fd.get("note")||"").trim(),
+      date: fd.get("date") || todayStr(),
+      ...extra
+    });
+    form.reset();
+    renderRoot();
+  }
+  if (form.id === "customer-form"){
+    e.preventDefault();
+    const fd = new FormData(form);
+    const sites = [...form.querySelectorAll("[data-site-city]")].map(i=>i.value.trim()).filter(Boolean).map(city=>({ id:cryptoId(), city }));
+    const payload = {
+      accountNo: (fd.get("accountNo")||"").trim(),
+      name: (fd.get("name")||"").trim(),
+      salesId: effectiveMode()==="supervisor" ? (fd.get("salesId")||null) : state.salesId,
+      sites: sites.length? sites : [{ id:cryptoId(), city:"—" }],
+    };
+    if (!payload.name){ toast("Nama customer wajib diisi."); return; }
+    await saveCustomer(payload, state.modalCtx ? state.modalCtx.id : null);
+    state.modalOpen = null; state.modalCtx = null;
+    closeModalLayer();
+    renderRoot();
+  }
+  if (form.id === "bulk-import-form"){
+    e.preventDefault();
+    const text = document.getElementById("bulk-import-text").value;
+    const forcedSalesId = effectiveMode()==="supervisor" ? null : state.salesId;
+    await bulkImportCustomers(text, forcedSalesId);
+    state.modalOpen = null;
+    closeModalLayer();
+    renderRoot();
+  }
+});
+
+document.addEventListener("click", (e)=>{
+  const opt = e.target.closest("[data-type-opt]");
+  if (!opt) return;
+  const wrap = opt.closest("#type-toggle");
+  wrap.querySelectorAll(".opt").forEach(o=>o.classList.remove("selected"));
+  opt.classList.add("selected");
+  const input = opt.querySelector("input");
+  if (input) input.checked = true;
+
+  const typeKey = opt.getAttribute("data-type-opt");
+  const extraWrap = document.getElementById("extra-fields-wrap");
+  if (extraWrap) extraWrap.innerHTML = extraFieldsHtml(typeKey);
+});
+
+// Toggle the free-text "Lainnya" input for the contact-roles and product checklists.
+document.addEventListener("change", (e)=>{
+  if (e.target.matches('input[name="products"]')){
+    const otherInput = document.getElementById("product-other-input");
+    if (otherInput){
+      const lainnyaChecked = !!document.querySelector('input[name="products"][value="Lainnya"]:checked');
+      otherInput.style.display = lainnyaChecked ? "block" : "none";
+      if (!lainnyaChecked) otherInput.value = "";
+    }
+  }
+  if (e.target.matches('input[name="contactRoles"]')){
+    const otherInput = document.getElementById("contact-other-input");
+    if (otherInput){
+      const lainnyaChecked = !!document.querySelector('input[name="contactRoles"][value="Lainnya"]:checked');
+      otherInput.style.display = lainnyaChecked ? "block" : "none";
+      if (!lainnyaChecked) otherInput.value = "";
+    }
+  }
+});
+
+// ---------------- modal layer (kept separate from full re-render to preserve focus while typing) ----------------
+let modalLayerEl = null;
+function renderModalLayer(){
+  if (!modalLayerEl){
+    modalLayerEl = document.createElement("div");
+    document.body.appendChild(modalLayerEl);
+  }
+  if (state.modalOpen === "customer"){
+    modalLayerEl.innerHTML = customerModalHtml(state.modalCtx);
+  } else if (state.modalOpen === "bulk-import"){
+    modalLayerEl.innerHTML = bulkImportModalHtml();
+  } else if (state.modalOpen === "become-sales"){
+    modalLayerEl.innerHTML = becomeSalesModalHtml();
+  } else {
+    modalLayerEl.innerHTML = "";
+  }
+}
+
+function becomeSalesModalHtml(){
+  const unclaimed = state.sales.filter(s => !s.claimedByUserId);
+  return `
+  <div class="modal-backdrop" data-action="backdrop-close">
+    <div class="modal-box" style="max-width:480px;">
+      <div class="modal-head">
+        <h3 style="margin:0;font-size:16px;">Aktifkan Mode Sales</h3>
+        <button class="btn btn-ghost btn-sm" data-action="close-modal">${icon("x")}</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:13px;color:var(--muted);margin:0 0 14px;line-height:1.6;">
+          Pilih slot Sales untuk diri Anda sendiri, atau daftarkan nama baru, agar Anda juga bisa mencatat aktivitas seperti Sales.
+        </p>
+        ${unclaimed.length ? `
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
+          ${unclaimed.map(s=>`
+            <button class="btn btn-ghost" style="justify-content:space-between;width:100%;" data-action="claim-slot" data-id="${esc(s.id)}" ${state.loadingClaim?"disabled":""}>
+              <span style="display:flex;align-items:center;gap:10px;"><span class="avatar" style="width:24px;height:24px;font-size:10.5px;background:var(--primary-tint);color:var(--primary);">${esc(initials(s.name))}</span>${esc(s.name)}</span>
+              <span style="color:var(--muted);font-size:12px;">Pilih →</span>
+            </button>
+          `).join("")}
+        </div>` : `<div class="empty-state" style="padding:10px 0;">Tidak ada slot kosong saat ini.</div>`}
+        <div style="border-top:1px solid var(--border);padding-top:14px;">
+          <label class="field-label">Atau daftarkan nama baru</label>
+          <div style="display:flex;gap:8px;">
+            <input id="become-sales-name-input" class="input" placeholder="Nama tampilan Anda sebagai Sales" value="${esc(state.viewerName||'')}"/>
+            <button class="btn btn-primary" data-action="self-add" ${state.loadingClaim?"disabled":""}>Aktifkan</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+function closeModalLayer(){
+  if (modalLayerEl) modalLayerEl.innerHTML = "";
+}
+
+// ============================================================
+// GO
+// ============================================================
+init();
+</script>
+</body>
+</html>
