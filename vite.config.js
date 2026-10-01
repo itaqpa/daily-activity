@@ -5,12 +5,18 @@ import tailwindcss from '@tailwindcss/vite'
 
 // https://vite.dev/config/
 export default defineConfig({
+  preview: {
+    allowedHosts: true,
+  },
   plugins: [
     tailwindcss(),
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['logo/driver-apps-icon.png'],
+      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
+      workbox: {
+        globIgnores: ['**/runtime-config.js'],
+      },
       manifest: {
         name: 'Apps Aqpa',
         short_name: 'Apps Aqpa',

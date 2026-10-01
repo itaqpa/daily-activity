@@ -1,0 +1,260 @@
+name: Deploy to Server
+
+on:
+  push:
+    branches:
+      - deploy
+    paths-ignore:
+      - "**/*.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build, publish, and deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Build and push GHCR images
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VITE_API_URL: /api
+        run: |
+          set -Eeuo pipefail
+          REPO="ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
+          echo "$GH_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+          docker build -f- -t "$REPO/backend:${{ github.sha }}" -t "$REPO/backend:latest" . <<'EOF'
+          FROM node:22-alpine
+          WORKDIR /app
+          COPY package*.json ./
+          RUN npm ci --omit=dev
+          COPY Server ./Server
+          EXPOSE 8000
+          CMD ["node", "Server/server.js"]
+          EOF
+
+          docker build -f- \
+            --build-arg VITE_API_URL="$VITE_API_URL" \
+            -t "$REPO/frontend:${{ github.sha }}" \
+            -t "$REPO/frontend:latest" . <<'EOF'
+          FROM node:22-alpine AS build
+          WORKDIR /app
+          ARG VITE_API_URL
+          ENV VITE_API_URL=$VITE_API_URL
+          COPY package*.json ./
+          RUN npm ci
+          COPY . .
+          RUN npm run build
+
+          FROM node:22-alpine
+          WORKDIR /app
+          COPY package*.json ./
+          COPY vite.config.js ./
+          COPY --from=build /app/scripts ./scripts
+          COPY --from=build /app/node_modules ./node_modules
+          COPY --from=build /app/dist ./dist
+          EXPOSE 4173
+          CMD ["sh", "-c", "node scripts/start-frontend.mjs && npm run preview -- --host 0.0.0.0 --port 4173"]
+          EOF
+
+          docker push "$REPO/backend:${{ github.sha }}"
+          docker push "$REPO/backend:latest"
+          docker push "$REPO/frontend:${{ github.sha }}"
+          docker push "$REPO/frontend:latest"
+
+      - name: Connect to OpenVPN
+        env:
+          OPENVPN_CONFIG: ${{ secrets.OVPN_CONFIG }}
+        run: |
+          set -Eeuo pipefail
+          LOG_FILE="$RUNNER_TEMP/openvpn-connect.log"
+          exec > >(tee -a "$LOG_FILE") 2>&1
+
+          trap 'status=$?; line="${BASH_LINENO[0]:-unknown}"; command="${BASH_COMMAND:-unknown}"; printf "[ERROR] line=%s status=%s command=%s\n" "$line" "$status" "$command" >&2; exit "$status"' ERR
+
+          printf '[INFO] Installing OpenVPN dependencies\n'
+          timeout --foreground 5m sudo apt-get update
+          timeout --foreground 5m sudo apt-get install --yes openvpn
+
+          printf '%s' "$OPENVPN_CONFIG" > "$RUNNER_TEMP/openvpn-client.ovpn"
+          sudo chmod 600 "$RUNNER_TEMP/openvpn-client.ovpn"
+          sudo touch "$RUNNER_TEMP/openvpn.log" "$RUNNER_TEMP/openvpn.pid"
+          sudo chmod 644 "$RUNNER_TEMP/openvpn.log" "$RUNNER_TEMP/openvpn.pid"
+
+          sudo openvpn \
+            --config "$RUNNER_TEMP/openvpn-client.ovpn" \
+            --daemon \
+            --writepid "$RUNNER_TEMP/openvpn.pid" \
+            --log "$RUNNER_TEMP/openvpn.log"
+
+          for attempt in {1..30}; do
+            if ip link show tun0 >/dev/null 2>&1; then
+              printf '[INFO] OpenVPN interface tun0 is ready after attempt %s\n' "$attempt"
+              break
+            fi
+
+            if ! sudo kill -0 "$(sudo cat "$RUNNER_TEMP/openvpn.pid")" 2>/dev/null; then
+              printf '[ERROR] OpenVPN process stopped unexpectedly\n' >&2
+              sudo cat "$RUNNER_TEMP/openvpn.log" >&2
+              exit 1
+            fi
+
+            printf '[INFO] Waiting for tun0, attempt %s/30\n' "$attempt"
+            sleep 2
+          done
+
+          if ! ip link show tun0 >/dev/null 2>&1; then
+            printf '[ERROR] OpenVPN timeout: tun0 did not become ready\n' >&2
+            sudo cat "$RUNNER_TEMP/openvpn.log" >&2
+            exit 1
+          fi
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          DEPLOY_DIR: ${{ vars.DEPLOY_DIR || '/home/serverlocal/repositories/daily-activityy' }}
+          DEPLOY_ENV_FILE: ${{ vars.DEPLOY_ENV_FILE || '/home/serverlocal/repositories/daily-activityy/.env' }}
+          BACKEND_PORT: ${{ vars.BACKEND_PORT || '8400' }}
+          FRONTEND_PORT: ${{ vars.FRONTEND_PORT || '4179' }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          timeout: 60s
+          command_timeout: 25m
+          script_stop: true
+          debug: true
+          envs: GH_TOKEN,REPO,DEPLOY_DIR,DEPLOY_ENV_FILE,BACKEND_PORT,FRONTEND_PORT
+          script: |
+            set -Eeuo pipefail
+
+            phase() {
+              printf '\n===== PHASE: %s =====\n' "$1"
+            }
+
+            dump_container() {
+              container="$1"
+              printf '\n===== CONTAINER: %s =====\n' "$container"
+              docker ps -a --filter "name=^${container}$" --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' || true
+              docker inspect --format 'status={{.State.Status}} exit={{.State.ExitCode}} started={{.State.StartedAt}} finished={{.State.FinishedAt}} health={{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$container" 2>&1 || true
+              printf '%s\n' "----- logs: $container -----"
+              docker logs --tail 200 "$container" 2>&1 || true
+            }
+
+            diagnostics() {
+              printf '\n===== DIAGNOSTICS =====\n'
+              docker version 2>&1 || true
+              docker network inspect postgres_database 2>&1 || true
+              dump_container daily-activity-backend
+              dump_container daily-activity-frontend
+            }
+
+            on_error() {
+              status=$?
+              line="${BASH_LINENO[0]:-unknown}"
+              command="${BASH_COMMAND:-unknown}"
+              printf '\n[ERROR] remote deployment failed: status=%s line=%s\n' "$status" "$line" >&2
+              printf '[ERROR] command: %s\n' "$command" >&2
+              diagnostics
+              exit "$status"
+            }
+
+            trap on_error ERR
+
+            GHCR_REPO="ghcr.io/$(echo "$REPO" | tr '[:upper:]' '[:lower:]')"
+
+            mkdir -p "$DEPLOY_DIR"
+            printf '[INFO] backend_port=%s frontend_port=%s\n' "$BACKEND_PORT" "$FRONTEND_PORT"
+
+            phase "login and pull images"
+            printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+            printf '[INFO] pulling %s/backend:latest\n' "$GHCR_REPO"
+            docker pull "$GHCR_REPO/backend:latest"
+            printf '[INFO] pulling %s/frontend:latest\n' "$GHCR_REPO"
+            docker pull "$GHCR_REPO/frontend:latest"
+
+            phase "validate postgres network"
+            docker network inspect postgres_database >/dev/null 2>&1 || {
+              printf '[ERROR] Docker network postgres_database does not exist\n' >&2
+              docker network ls >&2
+              exit 1
+            }
+            docker network inspect postgres_database --format '{{range .Containers}}{{.Name}} {{.IPv4Address}}{{"\\n"}}{{end}}'
+
+            phase "remove old application containers"
+            docker rm -f daily-activity-frontend daily-activity-backend 2>/dev/null || true
+
+            phase "start backend"
+            docker run -d \
+              --name daily-activity-backend \
+              --restart unless-stopped \
+              --network postgres_database \
+              --env-file "$DEPLOY_ENV_FILE" \
+              -v "$DEPLOY_ENV_FILE:/app/.env:ro" \
+              -e BACKEND_PORT=8400 \
+              -p "${BACKEND_PORT}:8400" \
+              "$GHCR_REPO/backend:latest"
+
+            for attempt in $(seq 1 30); do
+              if curl --fail --silent "http://127.0.0.1:${BACKEND_PORT}/api/health" >/dev/null; then
+                printf '[INFO] backend healthy after attempt %s\n' "$attempt"
+                break
+              fi
+              printf '[INFO] waiting for backend, attempt %s/30\n' "$attempt"
+              sleep 2
+            done
+            if ! curl --fail --silent "http://127.0.0.1:${BACKEND_PORT}/api/health" >/dev/null; then
+              printf '[ERROR] backend health check failed\n' >&2
+              dump_container daily-activity-backend
+              exit 1
+            fi
+
+            phase "start frontend"
+            docker run -d \
+              --name daily-activity-frontend \
+              --restart unless-stopped \
+              --network postgres_database \
+              --env-file "$DEPLOY_ENV_FILE" \
+              -v "$DEPLOY_ENV_FILE:/app/.env:ro" \
+              -p "${FRONTEND_PORT}:4173" \
+              "$GHCR_REPO/frontend:latest"
+
+            phase "check frontend"
+            for attempt in $(seq 1 30); do
+              if curl --fail --silent "http://127.0.0.1:${FRONTEND_PORT}/" >/dev/null; then
+                printf '[INFO] Frontend healthy after attempt %s\n' "$attempt"
+                exit 0
+              fi
+              sleep 2
+            done
+
+            printf '[ERROR] frontend health check failed\n' >&2
+            diagnostics
+            exit 1

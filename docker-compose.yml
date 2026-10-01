@@ -1,0 +1,53 @@
+services:
+  backend:
+    image: node:22-alpine
+    working_dir: /app
+    restart: unless-stopped
+    command: sh -c "npm ci && npm run server:dev"
+    environment:
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: 5432
+      DB_DATABASE: ${DB_DATABASE:-db_aqpa_indonesia}
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      JWT_SECRET: ${JWT_SECRET:-change-this-secret}
+    volumes:
+      - .:/app
+      - backend_node_modules:/app/node_modules
+    networks:
+      - postgres_database
+    ports:
+      - "${BACKEND_PORT:-8400}:8400"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8400/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+
+  frontend:
+    image: node:22-alpine
+    working_dir: /app
+    restart: unless-stopped
+    command: sh -c "npm ci && npm run dev -- --host 0.0.0.0 --port 4173"
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8400/api}
+    volumes:
+      - .:/app
+      - frontend_node_modules:/app/node_modules
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - postgres_database
+    ports:
+      - "${FRONTEND_PORT:-4179}:4173"
+
+networks:
+  postgres_database:
+    external: true
+    name: postgres_database
+
+volumes:
+  backend_node_modules:
+  frontend_node_modules:

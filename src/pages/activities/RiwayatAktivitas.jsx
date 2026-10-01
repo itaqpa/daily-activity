@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import MainLayout from '../components/layouts/MainLayout';
 import { Clock, Filter, Trash2, Search, ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
+import { apiUrl } from '../../api';
 
 export default function RiwayatAktivitas() {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -22,7 +23,7 @@ export default function RiwayatAktivitas() {
 
   const fetchActivities = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/activities');
+      const response = await fetch(apiUrl('/activities'));
       if (response.ok) {
         let data = await response.json();
         // Filter out for sales staff

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import MainLayout from '../components/layouts/MainLayout';
 import { Edit2, Trash2, UserPlus, CheckCircle, XCircle } from 'lucide-react';
+import { apiUrl } from '../../api';
 
 export default function UserManagement() {
   const [users, setUsers] = useState([]);
@@ -21,7 +22,7 @@ export default function UserManagement() {
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/users');
+      const response = await fetch(apiUrl('/users'));
       if (response.ok) {
         const data = await response.json();
         setUsers(data);
@@ -33,14 +34,14 @@ export default function UserManagement() {
 
   const fetchDivisis = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/divisis');
+      const response = await fetch(apiUrl('/divisis'));
       if (response.ok) setDivisis(await response.json());
     } catch (error) { console.error(error); }
   };
 
   const fetchJabatans = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/jabatans');
+      const response = await fetch(apiUrl('/jabatans'));
       if (response.ok) setJabatans(await response.json());
     } catch (error) { console.error(error); }
   };
@@ -62,8 +63,8 @@ export default function UserManagement() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const url = isEditing 
-      ? `http://localhost:8000/api/users/${formData.id}` 
-      : 'http://localhost:8000/api/users';
+      ? apiUrl(`/users/${formData.id}`)
+      : apiUrl('/users');
     
     const method = isEditing ? 'PUT' : 'POST';
 
@@ -107,7 +108,7 @@ export default function UserManagement() {
   const handleDelete = async (id) => {
     if (window.confirm('Yakin ingin menghapus user ini?')) {
       try {
-        const response = await fetch(`http://localhost:8000/api/users/${id}`, {
+        const response = await fetch(apiUrl(`/users/${id}`), {
           method: 'DELETE'
         });
         if (response.ok) {
@@ -123,7 +124,7 @@ export default function UserManagement() {
 
   const handleToggleStatus = async (id, currentStatus) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/users/${id}/toggle-status`, {
+      const response = await fetch(apiUrl(`/users/${id}/toggle-status`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_active: !currentStatus })

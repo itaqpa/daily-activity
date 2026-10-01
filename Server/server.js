@@ -9,7 +9,7 @@ import jwt from 'jsonwebtoken';
 dotenv.config();
 
 const app = express();
-const port = 8000;
+const port = process.env.BACKEND_PORT || 8400;
 
 // Middleware
 app.use(cors());
@@ -37,6 +37,10 @@ pool.connect((err, client, release) => {
 const JWT_SECRET = process.env.JWT_SECRET || 'rahasia_negara_aqpa';
 
 // Routes
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
+
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
   
