@@ -7,7 +7,7 @@ export default function DataSales() {
   const [salesData, setSalesData] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
-  
+
   const [selectedSales, setSelectedSales] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -59,7 +59,7 @@ export default function DataSales() {
       email: new Set(),
       nama_jabatan: new Set(),
     };
-    
+
     salesData.forEach(s => {
       if (s.name) opts.name.add(s.name);
       if (s.email) opts.email.add(s.email);
@@ -75,15 +75,15 @@ export default function DataSales() {
 
   const filteredAndSortedSales = React.useMemo(() => {
     let result = [...salesData];
-    
+
     if (globalSearch) {
       const s = globalSearch.toLowerCase();
-      result = result.filter(x => 
+      result = result.filter(x =>
         (x.name && x.name.toLowerCase().includes(s)) ||
         (x.email && x.email.toLowerCase().includes(s))
       );
     }
-    
+
     result = result.filter(x => {
       if (filters.name && x.name !== filters.name) return false;
       if (filters.email && x.email !== filters.email) return false;
@@ -97,13 +97,13 @@ export default function DataSales() {
         if (sortConfig.key === 'name') { aVal = a.name || ''; bVal = b.name || ''; }
         else if (sortConfig.key === 'email') { aVal = a.email || ''; bVal = b.email || ''; }
         else if (sortConfig.key === 'nama_jabatan') { aVal = a.nama_jabatan || ''; bVal = b.nama_jabatan || ''; }
-        
+
         if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
         if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
       });
     }
-    
+
     return result;
   }, [salesData, filters, sortConfig, globalSearch]);
 
@@ -120,7 +120,7 @@ export default function DataSales() {
           <div className="flex-1 cursor-pointer hover:text-gray-900 flex items-center gap-1" onClick={() => requestSort(columnKey)}>
             {label} <SortIcon columnKey={columnKey} />
           </div>
-          <div 
+          <div
             className={`cursor-pointer p-1.5 rounded transition-colors ${isActive ? 'text-blue-600 bg-blue-50' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-200'}`}
             onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === columnKey ? null : columnKey); }}
           >
@@ -136,14 +136,14 @@ export default function DataSales() {
               <button onClick={(e) => { e.stopPropagation(); setOpenFilter(null); }} className="text-gray-400 hover:text-gray-600 text-lg leading-none">&times;</button>
             </div>
             <div className="max-h-48 overflow-y-auto">
-              <div 
+              <div
                 className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${!isActive ? 'bg-blue-50 text-blue-600 font-medium' : ''}`}
                 onClick={(e) => { e.stopPropagation(); handleFilterChange(columnKey, ''); setOpenFilter(null); }}
               >
                 Semua
               </div>
               {uniqueOptions[columnKey].map(o => (
-                <div 
+                <div
                   key={o}
                   className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${filters[columnKey] === o ? 'bg-blue-50 text-blue-600 font-medium' : ''}`}
                   onClick={(e) => { e.stopPropagation(); handleFilterChange(columnKey, o); setOpenFilter(null); }}
@@ -171,27 +171,32 @@ export default function DataSales() {
         {openFilter && (
           <div className="fixed inset-0 z-50" onClick={() => setOpenFilter(null)} />
         )}
-        
+
         {/* Search Bar */}
         <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-          <div className="relative w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-            <input 
-              type="text" 
-              placeholder="Cari sales atau email..." 
-              value={globalSearch}
-              onChange={e => setGlobalSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-            />
+          <div className="flex items-center gap-2">
+            <div className="relative w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+              <input
+                type="text"
+                placeholder="Cari sales atau email..."
+                value={globalSearch}
+                onChange={e => setGlobalSearch(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              />
+            </div>
+            <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+              Search
+            </button>
           </div>
         </div>
-        
+
         {error && (
           <div className="p-4 bg-red-50 text-red-600 border-b border-red-100">
             {error}
           </div>
         )}
-        
+
         <div className="overflow-x-auto min-h-[400px]">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -223,16 +228,15 @@ export default function DataSales() {
                     <td className="py-4 px-6 text-gray-800 font-medium">{sales.name}</td>
                     <td className="py-4 px-6 text-gray-600">{sales.email}</td>
                     <td className="py-4 px-6">
-                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        sales.nama_jabatan === 'Spv' 
-                          ? 'bg-blue-100 text-blue-700' 
+                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${sales.nama_jabatan === 'Spv'
+                          ? 'bg-blue-100 text-blue-700'
                           : 'bg-gray-100 text-gray-700'
-                      }`}>
+                        }`}>
                         {sales.nama_jabatan}
                       </span>
                     </td>
                     <td className="py-4 px-6">
-                      <button 
+                      <button
                         onClick={() => openCustomerModal(sales)}
                         className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors border border-blue-100"
                       >
@@ -257,14 +261,14 @@ export default function DataSales() {
                 <h3 className="text-xl font-bold text-gray-800">Daftar Customer</h3>
                 <p className="text-sm text-gray-500 mt-1">Assigned ke: <span className="font-semibold text-gray-700">{selectedSales.name}</span></p>
               </div>
-              <button 
+              <button
                 onClick={() => setIsModalOpen(false)}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
               >
                 <X size={24} />
               </button>
             </div>
-            
+
             <div className="p-6 overflow-y-auto bg-gray-50/50">
               {selectedSales.assigned_customers && selectedSales.assigned_customers.length > 0 ? (
                 <div className="space-y-3">
@@ -275,7 +279,7 @@ export default function DataSales() {
                         <span className="text-xs font-mono text-gray-500 bg-gray-100 px-2 py-0.5 rounded">{cust.no_akun || 'No Akun'}</span>
                       </div>
                       <span className="text-sm text-gray-600 flex items-center gap-1">
-                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500"></span> 
+                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500"></span>
                         {cust.site_kota || 'Lokasi tidak diketahui'}
                       </span>
                     </div>
@@ -290,9 +294,9 @@ export default function DataSales() {
                 </div>
               )}
             </div>
-            
+
             <div className="p-4 border-t border-gray-100 bg-white flex justify-end">
-              <button 
+              <button
                 onClick={() => setIsModalOpen(false)}
                 className="px-5 py-2 text-sm font-semibold text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
               >
