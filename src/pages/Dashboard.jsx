@@ -11,6 +11,7 @@ import {
   Legend
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
+import { apiUrl } from '../api';
 
 ChartJS.register(
   CategoryScale,
@@ -72,9 +73,9 @@ export default function Dashboard() {
 
   useEffect(() => {
     Promise.all([
-      fetch('http://localhost:8000/api/activities'),
-      fetch('http://localhost:8000/api/customers' + (!canSeeAll ? `?sales_id=${user.id}` : '')),
-      fetch('http://localhost:8000/api/sales')
+      fetch(apiUrl('/activities')),
+      fetch(apiUrl('/customers' + (!canSeeAll ? `?sales_id=${user.id}` : ''))),
+      fetch(apiUrl('/sales'))
     ])
     .then(async ([actRes, custRes, salesRes]) => {
       if (actRes.ok && custRes.ok && salesRes.ok) {

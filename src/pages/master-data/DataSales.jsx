@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import MainLayout from '../components/layouts/MainLayout';
 import { Users, X, ArrowDown, ArrowUp, ArrowUpDown, Search } from 'lucide-react';
+import { apiUrl } from '../../api';
 
 export default function DataSales() {
   const [salesData, setSalesData] = useState([]);
@@ -21,7 +22,7 @@ export default function DataSales() {
 
   const fetchSalesData = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/sales');
+      const response = await fetch(apiUrl('/sales'));
       if (!response.ok) {
         throw new Error('Gagal mengambil data sales');
       }

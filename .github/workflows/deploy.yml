@@ -1,0 +1,100 @@
+name: Deploy to Server
+
+on:
+  push:
+    branches:
+      - deploy
+    paths-ignore:
+      - "**/*.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Validate and deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production bundle
+        run: |
+          set -Eeuo pipefail
+          npm run build
+
+      - name: Create deployment archive
+        run: |
+          tar --exclude=node_modules --exclude=dist --exclude=.git --exclude=.codebase-memory --exclude=.env \
+            -czf daily-activity.tar.gz .
+
+      - name: Prepare deployment directory
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          timeout: 60s
+          script_stop: true
+          script: mkdir -p "${{ vars.DEPLOY_DIR || '/opt/daily-activity' }}"
+
+      - name: Copy deployment archive
+        uses: appleboy/scp-action@v1.0.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          source: "daily-activity.tar.gz"
+          target: "${{ vars.DEPLOY_DIR || '/opt/daily-activity' }}"
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          DEPLOY_DIR: ${{ vars.DEPLOY_DIR || '/opt/daily-activity' }}
+          DEPLOY_ENV_FILE: ${{ vars.DEPLOY_ENV_FILE || '/opt/daily-activity/.env' }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          timeout: 60s
+          command_timeout: 25m
+          script_stop: true
+          envs: DEPLOY_DIR,DEPLOY_ENV_FILE
+          script: |
+            set -Eeuo pipefail
+            cd "$DEPLOY_DIR"
+            test -f "$DEPLOY_ENV_FILE"
+            mkdir -p .release
+            tar xzf daily-activity.tar.gz -C .release
+            cp -a .release/. .
+            rm -rf .release daily-activity.tar.gz
+            docker compose --env-file "$DEPLOY_ENV_FILE" -f docker-compose.yml up -d --remove-orphans
+            docker compose --env-file "$DEPLOY_ENV_FILE" -f docker-compose.yml ps
+            for attempt in $(seq 1 30); do
+              if curl --fail --silent "http://127.0.0.1:4173/" >/dev/null; then
+                printf '[INFO] Frontend healthy after attempt %s\n' "$attempt"
+                exit 0
+              fi
+              sleep 2
+            done
+            docker compose --env-file "$DEPLOY_ENV_FILE" -f docker-compose.yml logs --tail 200
+            exit 1

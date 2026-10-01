@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { LogOut, Menu, Home, PlusCircle, List } from 'lucide-react';
 import Sidebar from './Sidebar';
+import { apiUrl } from '../../../api';
 
 export default function MainLayout({ children }) {
   const navigate = useNavigate();
@@ -28,7 +29,7 @@ export default function MainLayout({ children }) {
 
     for (const activity of offlineQueue) {
       try {
-        const response = await fetch('http://localhost:8000/api/activities', {
+        const response = await fetch(apiUrl('/activities'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(activity)

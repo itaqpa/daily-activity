@@ -3,6 +3,7 @@ import MainLayout from '../components/layouts/MainLayout';
 import { Plus, Edit2, Trash2, Search, X, ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import Select from 'react-select';
 import CreatableSelect from 'react-select/creatable';
+import { apiUrl } from '../../api';
 
 export default function DataCustomer() {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -28,7 +29,7 @@ export default function DataCustomer() {
 
   const fetchCustomers = async () => {
     try {
-      const url = new URL('http://localhost:8000/api/customers');
+      const url = new URL(apiUrl('/customers'), window.location.origin);
       
       const isSPV = user.jabatan?.toLowerCase().includes('spv') || user.jabatan?.toLowerCase().includes('supervisor');
       
@@ -48,7 +49,7 @@ export default function DataCustomer() {
 
   const fetchSalesList = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/sales');
+      const response = await fetch(apiUrl('/sales'));
       if (response.ok) {
         setSalesList(await response.json());
       }
@@ -120,7 +121,7 @@ export default function DataCustomer() {
   const handleDelete = async (id) => {
     if (window.confirm('Yakin ingin menghapus customer ini?')) {
       try {
-        const response = await fetch(`http://localhost:8000/api/customers/${id}`, {
+        const response = await fetch(apiUrl(`/customers/${id}`), {
           method: 'DELETE',
         });
         if (response.ok) {
@@ -137,8 +138,8 @@ export default function DataCustomer() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const url = isEditing 
-      ? `http://localhost:8000/api/customers/${formData.id}`
-      : 'http://localhost:8000/api/customers';
+      ? apiUrl(`/customers/${formData.id}`)
+      : apiUrl('/customers');
       
     try {
       const payload = {

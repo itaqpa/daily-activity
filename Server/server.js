@@ -37,6 +37,10 @@ pool.connect((err, client, release) => {
 const JWT_SECRET = process.env.JWT_SECRET || 'rahasia_negara_aqpa';
 
 // Routes
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
+
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
   

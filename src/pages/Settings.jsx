@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import MainLayout from './components/layouts/MainLayout';
 import { Save } from 'lucide-react';
+import { apiUrl } from '../api';
 
 export default function Settings() {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -38,7 +39,7 @@ export default function Settings() {
         ...payload
       };
 
-      const response = await fetch(`http://localhost:8000/api/users/${user.id}`, {
+      const response = await fetch(apiUrl(`/users/${user.id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updateData)

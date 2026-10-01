@@ -16,6 +16,7 @@ import {
   AlertCircle,
   LoaderCircle,
 } from 'lucide-react';
+import { apiUrl } from '../api';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -41,11 +42,7 @@ export default function Login() {
     setErrorMsg('');
 
     try {
-      const baseUrl =
-        import.meta.env.VITE_API_URL ||
-        'http://localhost:8000/api';
-
-      const API_URL = `${baseUrl}/login`;
+      const API_URL = apiUrl('/login');
 
       const response = await fetch(API_URL, {
         method: 'POST',

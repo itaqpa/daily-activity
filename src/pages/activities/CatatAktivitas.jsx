@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '../components/layouts/MainLayout';
 import { Save, AlertCircle } from 'lucide-react';
+import { apiUrl } from '../../api';
 
 export default function CatatAktivitas() {
   const navigate = useNavigate();
@@ -39,7 +40,7 @@ export default function CatatAktivitas() {
 
   const fetchCustomers = async () => {
     try {
-      const url = new URL('http://localhost:8000/api/customers');
+      const url = new URL(apiUrl('/customers'), window.location.origin);
       
       const isSuperAdmin = user.jabatan === 'Super Admin' || user.username === 'admin' || user.role === 'superadmin';
       const isSPV = user.jabatan?.toLowerCase().includes('spv') || user.jabatan?.toLowerCase().includes('supervisor');
@@ -116,7 +117,7 @@ export default function CatatAktivitas() {
         return;
       }
 
-      const response = await fetch('http://localhost:8000/api/activities', {
+      const response = await fetch(apiUrl('/activities'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
