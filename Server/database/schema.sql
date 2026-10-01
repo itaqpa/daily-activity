@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS customers (
     no_akun VARCHAR(50),
     nama_customer VARCHAR(255) NOT NULL,
     site_kota VARCHAR(255),
+    status VARCHAR(50) DEFAULT 'approved',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

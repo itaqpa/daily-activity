@@ -16,8 +16,27 @@ const ACTIVITY_TYPES = [
 
 export default function Laporan() {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const canSeeAll = user.jabatan === 'Spv' || user.jabatan === 'Supervisor' || user.jabatan === 'Super Admin' || user.jabatan === 'Manager';
+  const getVisibilityRoles = (jabatan) => {
+    if (!jabatan) return [];
+    const jName = jabatan.toLowerCase();
+    
+    if (jName.includes('super admin') || jName.includes('admin') || user.role === 'admin') {
+      return ['Super Admin', 'Admin', 'Manager', 'Spv', 'Supervisor', 'Leader', 'Staff'];
+    }
+    if (jName.includes('manager')) {
+      return ['Spv', 'Supervisor', 'Leader', 'Staff'];
+    }
+    if (jName.includes('spv') || jName.includes('supervisor')) {
+      return ['Leader', 'Staff'];
+    }
+    if (jName.includes('leader')) {
+      return ['Staff'];
+    }
+    return [];
+  };
 
+  const roleName = (user.jabatan || '').toLowerCase();
+  const canSeeAll = roleName !== 'staff';
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -40,9 +59,22 @@ export default function Laporan() {
       const response = await fetch(apiUrl('/activities'));
       if (response.ok) {
         let data = await response.json();
-        if (!canSeeAll) {
-          data = data.filter(act => act.user_id === user.id);
-        }
+        const visibleRoles = getVisibilityRoles(user.jabatan).map(r => r.toLowerCase());
+        const isSuperAdminOrAdmin = roleName.includes('super admin') || roleName.includes('admin') || user.role === 'admin';
+
+        data = data.filter(act => {
+          if (isSuperAdminOrAdmin) return true;
+          if (act.user_id === user.id) return true;
+          if (act.user_jabatan) {
+            const actRole = act.user_jabatan.toLowerCase();
+            const userDiv = (user.divisi || user.nama_divisi || '').toLowerCase();
+            const actDiv = (act.user_divisi || '').toLowerCase();
+            const isSameDivisi = !userDiv || !actDiv || userDiv === actDiv;
+
+            if (isSameDivisi && visibleRoles.some(vr => actRole.includes(vr))) return true;
+          }
+          return false;
+        });
         setActivities(data);
       }
     } catch (error) {

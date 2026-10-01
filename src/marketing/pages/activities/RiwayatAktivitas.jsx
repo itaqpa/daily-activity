@@ -6,12 +6,31 @@ import { apiUrl } from '../../../api';
 export default function RiwayatAktivitas() {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   
-  // Contoh pengecekan akses (Spv / Admin vs Sales)
-  const canSeeAll = user.jabatan === 'Spv' || user.jabatan === 'Supervisor' || user.jabatan === 'Super Admin' || user.jabatan === 'Manager';
+  const getVisibilityRoles = (jabatan) => {
+    if (!jabatan) return [];
+    const jName = jabatan.toLowerCase();
+    
+    if (jName.includes('super admin') || jName.includes('admin') || user.role === 'admin') {
+      return ['Super Admin', 'Admin', 'Manager', 'Spv', 'Supervisor', 'Leader', 'Staff'];
+    }
+    if (jName.includes('manager')) {
+      return ['Spv', 'Supervisor', 'Leader', 'Staff'];
+    }
+    if (jName.includes('spv') || jName.includes('supervisor')) {
+      return ['Leader', 'Staff'];
+    }
+    if (jName.includes('leader')) {
+      return ['Staff'];
+    }
+    return [];
+  };
+
+  const roleName = (user.jabatan || '').toLowerCase();
+  const canSeeAll = roleName !== 'staff';
+  const canAction = roleName.includes('super admin') || roleName.includes('admin') || user.role === 'admin';
 
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
-
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: 'tanggal', direction: 'desc' });
   const [filters, setFilters] = useState({});
@@ -26,10 +45,30 @@ export default function RiwayatAktivitas() {
       const response = await fetch(apiUrl('/activities'));
       if (response.ok) {
         let data = await response.json();
-        // Filter out for sales staff
-        if (!canSeeAll) {
-           data = data.filter(act => act.user_id === user.id);
-        }
+        
+        const visibleRoles = getVisibilityRoles(user.jabatan).map(r => r.toLowerCase());
+        const isSuperAdminOrAdmin = roleName.includes('super admin') || roleName.includes('admin') || user.role === 'admin';
+
+        data = data.filter(act => {
+          // Super Admin/Admin bisa melihat semuanya
+          if (isSuperAdminOrAdmin) return true;
+          // Selalu bisa melihat catatannya sendiri
+          if (act.user_id === user.id) return true;
+          // Atau sesuai rule visibilitas role-nya DAN berada di divisi yang sama
+          if (act.user_jabatan) {
+            const actRole = act.user_jabatan.toLowerCase();
+            
+            // Cek divisi (lapisan ke-2)
+            const userDiv = (user.divisi || user.nama_divisi || '').toLowerCase();
+            const actDiv = (act.user_divisi || '').toLowerCase();
+            const isSameDivisi = !userDiv || !actDiv || userDiv === actDiv;
+
+            if (isSameDivisi && visibleRoles.some(vr => actRole.includes(vr))) return true;
+          }
+          
+          return false;
+        });
+
         setActivities(data);
       }
     } catch (error) {
@@ -212,14 +251,29 @@ export default function RiwayatAktivitas() {
     );
   };
 
+  const getSubtitle = (jabatan) => {
+    switch (jabatan) {
+      case 'Super Admin':
+      case 'Admin':
+        return 'Melihat seluruh riwayat aktivitas tim.';
+      case 'Manager':
+        return 'Melihat riwayat aktivitas Anda sendiri, Spv, Leader, dan Staff.';
+      case 'Spv':
+      case 'Supervisor':
+        return 'Melihat riwayat aktivitas Anda sendiri, Leader, dan Staff.';
+      case 'Leader':
+        return 'Melihat riwayat aktivitas Anda sendiri dan Staff.';
+      default:
+        return 'Melihat riwayat aktivitas Anda sendiri.';
+    }
+  };
+
   return (
     <MainLayout>
       <div className="mb-8">
         <h2 className="text-2xl font-bold text-gray-800">Semua Aktivitas / Riwayat</h2>
         <p className="text-gray-600 mt-1">
-          {canSeeAll 
-            ? 'Melihat riwayat aktivitas diri sendiri dan seluruh tim.' 
-            : 'Melihat riwayat aktivitas Anda sendiri.'}
+          {getSubtitle(user.jabatan)}
         </p>
       </div>
 
@@ -255,13 +309,13 @@ export default function RiwayatAktivitas() {
                 <FilterHeader columnKey="jenis_aktivitas" label="Jenis" />
                 <FilterHeader columnKey="ditemui" label="Ditemui" />
                 <FilterHeader columnKey="catatan" label="Catatan" />
-                <th className="py-3 px-4 font-semibold text-gray-700 text-center whitespace-nowrap">Aksi</th>
+                {canAction && <th className="py-3 px-4 font-semibold text-gray-700 text-center whitespace-nowrap">Aksi</th>}
               </tr>
             </thead>
             <tbody className="text-sm">
               {loading ? (
                  <tr>
-                    <td colSpan={canSeeAll ? 8 : 7} className="py-8 text-center text-gray-500">
+                    <td colSpan={6 + (canSeeAll ? 1 : 0) + (canAction ? 1 : 0)} className="py-8 text-center text-gray-500">
                        Memuat data...
                     </td>
                  </tr>
@@ -281,16 +335,18 @@ export default function RiwayatAktivitas() {
                     </td>
                     <td className="py-3 px-4 text-gray-600 whitespace-nowrap">{getDitemuiText(act) || '-'}</td>
                     <td className="py-3 px-4 text-gray-600 max-w-[300px] truncate" title={act.catatan}>{act.catatan || '-'}</td>
-                    <td className="py-3 px-4 text-center">
-                       <button className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition-colors" title="Hapus">
-                         <Trash2 size={16} />
-                       </button>
-                    </td>
+                    {canAction && (
+                      <td className="py-3 px-4 text-center">
+                         <button className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition-colors" title="Hapus">
+                           <Trash2 size={16} />
+                         </button>
+                      </td>
+                    )}
                   </tr>
                 ))
               ) : (
                 <tr>
-                   <td colSpan={canSeeAll ? 8 : 7} className="py-8 text-center">
+                   <td colSpan={6 + (canSeeAll ? 1 : 0) + (canAction ? 1 : 0)} className="py-8 text-center">
                       <div className="flex flex-col items-center justify-center text-gray-500">
                         <Clock className="w-8 h-8 mb-2 opacity-20" />
                         <p>Belum ada aktivitas yang dicatat.</p>

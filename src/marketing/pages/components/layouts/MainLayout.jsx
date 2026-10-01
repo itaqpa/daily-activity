@@ -16,7 +16,9 @@ export default function MainLayout({ children }) {
   const isSales = user.divisi?.toLowerCase() === 'sales' || user.kode_divisi === 'SLS' || user.divisi_id === 1;
   const isStaffSales = isSales && (user.jabatan?.toLowerCase() === 'staff' || user.jabatan_id === 5);
   const isSPV = user.jabatan?.toLowerCase().includes('spv') || user.jabatan?.toLowerCase().includes('supervisor');
-  const canAddActivity = isStaffSales || isSPV;
+  const isManager = user.jabatan?.toLowerCase().includes('manager');
+  const isLeader = user.jabatan?.toLowerCase().includes('leader');
+  const canAddActivity = isStaffSales || isSPV || isManager || isLeader;
 
   const isActive = (path) => location.pathname === path;
 

@@ -55,7 +55,16 @@ export default function Sidebar({ isOpen, setIsOpen }) {
   const isSPV =
     user.jabatan?.toLowerCase().includes("spv") ||
     user.jabatan?.toLowerCase().includes("supervisor");
-  const canViewTimSales = isSuperAdmin || isSPV;
+  const isManager = user.jabatan?.toLowerCase().includes("manager");
+  const canViewTimSales = isSuperAdmin || isSPV || isManager;
+
+  const roleName = (user.jabatan || '').toLowerCase();
+  const canCatatAktivitas = 
+    roleName === 'staff' || 
+    roleName === 'leader' || 
+    roleName.includes('spv') || 
+    roleName.includes('supervisor') || 
+    roleName.includes('manager');
 
   // PWA Install Prompt State
   const [deferredPrompt, setDeferredPrompt] = useState(null);
@@ -201,22 +210,20 @@ export default function Sidebar({ isOpen, setIsOpen }) {
           )}
 
           {/* Semua Aktivitas */}
-          {!isAdmin && (
-            <Link
-              to="/marketing/activities"
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive("/marketing/activities")
-                  ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
-                  : "text-blue-100/70 hover:bg-white/5 hover:text-white"
-              }`}
-            >
-              <List className="w-5 h-5" />
-              <span className="font-medium">Semua Aktivitas</span>
-            </Link>
-          )}
+          <Link
+            to="/marketing/activities"
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+              isActive("/marketing/activities")
+                ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
+                : "text-blue-100/70 hover:bg-white/5 hover:text-white"
+            }`}
+          >
+            <List className="w-5 h-5" />
+            <span className="font-medium">Semua Aktivitas</span>
+          </Link>
 
-          {/* Catat Aktivitas - Khusus Staff Sales & SPV */}
-          {(isStaffSales || isSPV) && (
+          {/* Catat Aktivitas - Khusus Staff, Leader, SPV, Manager */}
+          {canCatatAktivitas && (
             <Link
               to="/marketing/activities/new"
               className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
@@ -297,19 +304,17 @@ export default function Sidebar({ isOpen, setIsOpen }) {
           )}
 
           {/* Laporan - Paling Akhir */}
-          {!isAdmin && (
-            <Link
-              to="/marketing/reports"
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive("/marketing/reports")
-                  ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
-                  : "text-blue-100/70 hover:bg-white/5 hover:text-white"
-              }`}
-            >
-              <FileText className="w-5 h-5" />
-              <span className="font-medium">Laporan</span>
-            </Link>
-          )}
+          <Link
+            to="/marketing/reports"
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+              isActive("/marketing/reports")
+                ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
+                : "text-blue-100/70 hover:bg-white/5 hover:text-white"
+            }`}
+          >
+            <FileText className="w-5 h-5" />
+            <span className="font-medium">Laporan</span>
+          </Link>
 
           {/* Settings */}
           <Link

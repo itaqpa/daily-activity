@@ -21,7 +21,7 @@ const pool = new Pool({
   port: process.env.DB_PORT || 5432,
   database: process.env.DB_DATABASE || 'db_aqpa_indonesia',
   user: process.env.DB_USERNAME || 'postgres',
-  password: process.env.DB_PASSWORD || 'postgres',
+  password: String(process.env.DB_PASSWORD || 'postgres'),
 });
 
 // Test DB Connection
@@ -262,13 +262,13 @@ app.get('/api/customers', async (req, res) => {
 });
 
 app.post('/api/customers', async (req, res) => {
-  const { no_akun, nama_customer, site_kota, sales_ids } = req.body;
+  const { no_akun, nama_customer, site_kota, sales_ids, status } = req.body;
   try {
     await pool.query('BEGIN');
     
     const custResult = await pool.query(
-      'INSERT INTO customers (no_akun, nama_customer, site_kota) VALUES ($1, $2, $3) RETURNING *',
-      [no_akun, nama_customer, JSON.stringify(site_kota)]
+      'INSERT INTO customers (no_akun, nama_customer, site_kota, status) VALUES ($1, $2, $3, $4) RETURNING *',
+      [no_akun, nama_customer, JSON.stringify(site_kota), status || 'pending']
     );
     const newCust = custResult.rows[0];
 
@@ -331,6 +331,22 @@ app.delete('/api/customers/:id', async (req, res) => {
   }
 });
 
+app.put('/api/customers/:id/approve', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const custResult = await pool.query(
+      'UPDATE customers SET status = $1 WHERE id = $2 RETURNING *',
+      ['approved', id]
+    );
+    if (custResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+    res.json(custResult.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // --- ACTIVITIES API ---
 app.get('/api/activities', async (req, res) => {
   try {
@@ -338,10 +354,14 @@ app.get('/api/activities', async (req, res) => {
       SELECT 
         a.*,
         c.nama_customer,
-        u.name as user_name
+        u.name as user_name,
+        j.nama_jabatan as user_jabatan,
+        d.nama_divisi as user_divisi
       FROM daily_activity_sales a
       LEFT JOIN customers c ON a.customer_id = c.id
       LEFT JOIN users u ON a.user_id = u.id
+      LEFT JOIN jabatans j ON u.jabatan_id = j.id
+      LEFT JOIN divisis d ON u.divisi_id = d.id
       ORDER BY a.tanggal DESC, a.created_at DESC
     `);
     res.json(result.rows);
