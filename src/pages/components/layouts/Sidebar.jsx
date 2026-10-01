@@ -51,6 +51,7 @@ export default function Sidebar({ isOpen, setIsOpen }) {
     const handleBeforeInstallPrompt = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
+      window.deferredPrompt = e; // Simpan di global agar bisa diakses oleh topbar
     };
 
     const handleOnline = () => setIsOnline(true);
@@ -81,6 +82,9 @@ export default function Sidebar({ isOpen, setIsOpen }) {
       
       // Prompt hanya bisa dipakai 1 kali
       setDeferredPrompt(null);
+    } else {
+      // Fallback jika tidak ada prompt (misal di iOS atau sudah diinstal)
+      alert("Untuk menginstal aplikasi:\n\n- iOS/Safari: Tap tombol Share, lalu pilih 'Add to Home Screen'.\n- Android/Chrome: Tap ikon titik tiga, lalu pilih 'Install App' atau 'Add to Home Screen'.\n\n(Pesan ini muncul jika aplikasi sudah terinstal atau browser belum mendukung install prompt otomatis).");
     }
   };
 
@@ -150,8 +154,8 @@ export default function Sidebar({ isOpen, setIsOpen }) {
               </Link>
             )}
 
-            {/* Tim Sales - Khusus untuk Super Admin & SPV */}
-            {canViewTimSales && (
+            {/* Tim Sales - Khusus untuk SPV (Super Admin sudah ada di Data Master) */}
+            {(canViewTimSales && !isSuperAdmin) && (
               <Link 
                 to="/master-data/sales"
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
@@ -264,19 +268,10 @@ export default function Sidebar({ isOpen, setIsOpen }) {
             </Link>
           </nav>
           
-          <div className="p-4 border-t border-gray-200 shrink-0 space-y-2">
-            {/* Tombol Install App (Hanya Tampil di Mobile) */}
-            <button
-              onClick={handleInstallClick}
-              className="md:hidden flex items-center gap-3 text-blue-600 hover:bg-blue-50 w-full px-4 py-3 rounded-lg transition-colors"
-            >
-              <Download className="w-5 h-5" />
-              <span className="font-medium">Install App</span>
-            </button>
-
+          <div className="p-4 border-t border-gray-200 shrink-0 flex items-center gap-2">
             <button
               onClick={handleLogout}
-              className="flex items-center gap-3 text-red-600 hover:bg-red-50 w-full px-4 py-3 rounded-lg transition-colors"
+              className="flex-1 flex items-center justify-center gap-3 text-red-600 hover:bg-red-50 px-4 py-3 rounded-lg transition-colors"
             >
               <LogOut className="w-5 h-5" />
               <span className="font-medium">Logout</span>

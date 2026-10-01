@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { LogOut, Menu, Home, PlusCircle, List } from 'lucide-react';
+import { LogOut, Menu, Home, PlusCircle, List, Download } from 'lucide-react';
 import Sidebar from './Sidebar';
 
 export default function MainLayout({ children }) {
@@ -98,9 +98,31 @@ export default function MainLayout({ children }) {
               )}
             </div>
           </div>
-          <button onClick={handleLogout} className="text-gray-600">
-            <LogOut className="w-6 h-6" />
-          </button>
+          <div className="flex items-center gap-4">
+            {!window.matchMedia('(display-mode: standalone)').matches && (
+              <button 
+                onClick={async () => {
+                  if (window.deferredPrompt) {
+                    window.deferredPrompt.prompt();
+                    const { outcome } = await window.deferredPrompt.userChoice;
+                    if (outcome === 'accepted') {
+                      console.log('User accepted the install prompt');
+                    }
+                    window.deferredPrompt = null;
+                  } else {
+                    alert("Untuk menginstal aplikasi:\n\n- iOS/Safari: Tap tombol Share, lalu pilih 'Add to Home Screen'.\n- Android/Chrome: Tap ikon titik tiga, lalu pilih 'Install App' atau 'Add to Home Screen'.");
+                  }
+                }}
+                className="text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 p-1.5 rounded-md"
+                title="Install App"
+              >
+                <Download className="w-5 h-5" />
+              </button>
+            )}
+            <button onClick={handleLogout} className="text-gray-600">
+              <LogOut className="w-6 h-6" />
+            </button>
+          </div>
         </header>
 
         {/* Content Area */}
