@@ -18,18 +18,18 @@ export default defineConfig({
         globIgnores: ['**/runtime-config.js'],
       },
       manifest: {
-        name: 'AQPA Indonesia',
-        short_name: 'AQPA',
-        description: 'AQPA Indonesia',
+        name: 'Apps Aqpa',
+        short_name: 'Apps Aqpa',
+        description: 'Apps Aqpa',
         theme_color: '#ffffff',
         icons: [
           {
-            src: 'pwa-192x192.png',
+            src: '/logo/driver-apps-icon.png',
             sizes: '192x192',
             type: 'image/png'
           },
           {
-            src: 'pwa-512x512.png',
+            src: '/logo/driver-apps-icon.png',
             sizes: '512x512',
             type: 'image/png'
           }

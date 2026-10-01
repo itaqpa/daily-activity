@@ -26,8 +26,10 @@ export default function Laporan() {
   const [periodRef, setPeriodRef] = useState(new Date().toISOString().substring(0, 7));
   
   const [reportScope, setReportScope] = useState('all');
-  const [filterType, setFilterType] = useState('all');
-  const [filterCustomer, setFilterCustomer] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortConfig, setSortConfig] = useState({ key: 'tanggal', direction: 'desc' });
+  const [filters, setFilters] = useState({});
+  const [openFilter, setOpenFilter] = useState(null);
 
   useEffect(() => {
     fetchActivities();
@@ -102,32 +104,127 @@ export default function Laporan() {
     return `${year}-${month}-${day}`;
   };
 
+  const formatDate = (dateString) => {
+    const d = new Date(dateString);
+    return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+  };
+
+  const requestSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const handleFilterChange = (columnKey, value) => {
+    setFilters(prev => ({ ...prev, [columnKey]: value }));
+  };
+
+  const uniqueOptions = useMemo(() => {
+    const opts = {
+      tanggal: new Set(),
+      user_name: new Set(),
+      nama_customer: new Set(),
+      site_kota: new Set(),
+      jenis_aktivitas: new Set(),
+      ditemui: new Set(),
+      catatan: new Set(),
+    };
+    
+    const baseActs = activities.filter(act => {
+      let matchPeriod = false;
+      const actDateStr = getLocalDateStr(act.tanggal);
+      if (period === 'monthly') {
+        matchPeriod = actDateStr.substring(0, 7) === periodRef;
+      } else if (period === 'yearly') {
+        matchPeriod = actDateStr.substring(0, 4) === periodRef;
+      }
+      const matchScope = canSeeAll ? (reportScope === 'all' || act.user_id.toString() === reportScope) : true;
+      return matchPeriod && matchScope;
+    });
+
+    baseActs.forEach(a => {
+      opts.tanggal.add(formatDate(a.tanggal));
+      if (a.user_name) opts.user_name.add(a.user_name);
+      if (a.nama_customer) opts.nama_customer.add(a.nama_customer);
+      if (a.site_kota) opts.site_kota.add(a.site_kota);
+      if (a.jenis_aktivitas) opts.jenis_aktivitas.add(a.jenis_aktivitas);
+      
+      const dText = getDitemuiText(a);
+      if (dText) opts.ditemui.add(dText);
+      if (a.catatan) opts.catatan.add(a.catatan);
+    });
+
+    return {
+      tanggal: Array.from(opts.tanggal).sort(),
+      user_name: Array.from(opts.user_name).sort(),
+      nama_customer: Array.from(opts.nama_customer).sort(),
+      site_kota: Array.from(opts.site_kota).sort(),
+      jenis_aktivitas: Array.from(opts.jenis_aktivitas).sort(),
+      ditemui: Array.from(opts.ditemui).sort(),
+      catatan: Array.from(opts.catatan).sort(),
+    };
+  }, [activities, period, periodRef, reportScope, canSeeAll]);
+
   const filteredActs = useMemo(() => {
-    return activities.filter(act => {
+    let result = activities.filter(act => {
       // 1. Period filter
       let matchPeriod = false;
       const actDateStr = getLocalDateStr(act.tanggal);
 
       if (period === 'monthly') {
-        // periodRef format 2024-03
         matchPeriod = actDateStr.substring(0, 7) === periodRef;
       } else if (period === 'yearly') {
-        // periodRef format 2024
         matchPeriod = actDateStr.substring(0, 4) === periodRef;
       }
 
       // 2. Scope filter (for Supervisor/Admin)
       const matchScope = canSeeAll ? (reportScope === 'all' || act.user_id.toString() === reportScope) : true;
       
-      // 3. Type filter
-      const matchType = filterType === 'all' || act.jenis_aktivitas === filterType;
-      
-      // 4. Customer filter
-      const matchCustomer = filterCustomer === 'all' || act.nama_customer === filterCustomer;
-
-      return matchPeriod && matchScope && matchType && matchCustomer;
+      return matchPeriod && matchScope;
     });
-  }, [activities, period, periodRef, reportScope, filterType, filterCustomer, canSeeAll]);
+
+    if (searchTerm) {
+      const s = searchTerm.toLowerCase();
+      result = result.filter(act => 
+         (act.nama_customer?.toLowerCase() || '').includes(s) ||
+         (act.catatan?.toLowerCase() || '').includes(s) ||
+         (getDitemuiText(act).toLowerCase()).includes(s)
+      );
+    }
+    
+    result = result.filter(act => {
+      if (filters.tanggal && formatDate(act.tanggal) !== filters.tanggal) return false;
+      if (filters.user_name && act.user_name !== filters.user_name) return false;
+      if (filters.nama_customer && act.nama_customer !== filters.nama_customer) return false;
+      if (filters.site_kota && act.site_kota !== filters.site_kota) return false;
+      if (filters.jenis_aktivitas && act.jenis_aktivitas !== filters.jenis_aktivitas) return false;
+      if (filters.ditemui && getDitemuiText(act) !== filters.ditemui) return false;
+      if (filters.catatan && act.catatan !== filters.catatan) return false;
+      return true;
+    });
+
+    if (sortConfig) {
+      result.sort((a, b) => {
+        let aVal = '', bVal = '';
+        if (sortConfig.key === 'tanggal') { 
+          aVal = new Date(a.tanggal).getTime(); bVal = new Date(b.tanggal).getTime(); 
+        } else if (sortConfig.key === 'user_name') { aVal = a.user_name || ''; bVal = b.user_name || ''; }
+        else if (sortConfig.key === 'nama_customer') { aVal = a.nama_customer || ''; bVal = b.nama_customer || ''; }
+        else if (sortConfig.key === 'site_kota') { aVal = a.site_kota || ''; bVal = b.site_kota || ''; }
+        else if (sortConfig.key === 'jenis_aktivitas') { aVal = a.jenis_aktivitas || ''; bVal = b.jenis_aktivitas || ''; }
+        else if (sortConfig.key === 'ditemui') { aVal = getDitemuiText(a); bVal = getDitemuiText(b); }
+        else if (sortConfig.key === 'catatan') { aVal = a.catatan || ''; bVal = b.catatan || ''; }
+        
+        if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return result;
+  }, [activities, period, periodRef, reportScope, canSeeAll, filters, sortConfig, searchTerm]);
 
   const scopeActivities = useMemo(() => {
     return activities.filter(act => {
@@ -171,11 +268,6 @@ export default function Laporan() {
     });
     return counts;
   }, [filteredActs]);
-
-  const formatDate = (dateString) => {
-    const d = new Date(dateString);
-    return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
-  };
 
   const handleDownloadCoveragePdf = () => {
     const doc = new jsPDF();
@@ -369,6 +461,57 @@ export default function Laporan() {
     ? dateObjUI.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })
     : periodRef;
 
+  const SortIcon = ({ columnKey }) => {
+    if (sortConfig?.key !== columnKey) return <ArrowUpDown className="w-3 h-3 ml-1 opacity-40 inline" />;
+    return sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 ml-1 inline text-blue-600" /> : <ArrowDown className="w-3 h-3 ml-1 inline text-blue-600" />;
+  };
+
+  const FilterHeader = ({ columnKey, label }) => {
+    const isActive = !!filters[columnKey];
+    return (
+      <th className="py-3 px-4 font-semibold text-sm text-gray-700 relative whitespace-nowrap group align-middle">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex-1 cursor-pointer hover:text-gray-900 flex items-center gap-1" onClick={() => requestSort(columnKey)}>
+            {label} <SortIcon columnKey={columnKey} />
+          </div>
+          <div 
+            className={`cursor-pointer p-1.5 rounded transition-colors ${isActive ? 'text-blue-600 bg-blue-50' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-200'}`}
+            onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === columnKey ? null : columnKey); }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill={isActive ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+          </div>
+        </div>
+        {openFilter === columnKey && (
+          <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 shadow-xl rounded-md z-[60] w-48 font-normal normal-case text-gray-700">
+            <div className="px-3 py-2 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-md">
+              <span className="font-semibold text-xs text-gray-600">Filter {label}</span>
+              <button onClick={(e) => { e.stopPropagation(); setOpenFilter(null); }} className="text-gray-400 hover:text-gray-600 text-lg leading-none">&times;</button>
+            </div>
+            <div className="max-h-48 overflow-y-auto">
+              <div 
+                className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${!isActive ? 'bg-blue-50 text-blue-600 font-medium' : ''}`}
+                onClick={(e) => { e.stopPropagation(); handleFilterChange(columnKey, ''); setOpenFilter(null); }}
+              >
+                Semua
+              </div>
+              {uniqueOptions[columnKey].map(o => (
+                <div 
+                  key={o}
+                  className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${filters[columnKey] === o ? 'bg-blue-50 text-blue-600 font-medium' : ''}`}
+                  onClick={(e) => { e.stopPropagation(); handleFilterChange(columnKey, o); setOpenFilter(null); }}
+                >
+                  {o}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </th>
+    );
+  };
+
   return (
     <MainLayout>
       <div className="mb-6 flex flex-col md:flex-row md:justify-between md:items-end gap-4">
@@ -511,42 +654,41 @@ export default function Laporan() {
         </button>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-4 border-b border-gray-100 flex flex-wrap gap-4 items-center bg-gray-50">
-          <span className="text-sm font-semibold text-gray-500 flex items-center gap-1"><Filter size={16} /> Filter:</span>
-          <select className="border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500" value={filterType} onChange={e => setFilterType(e.target.value)}>
-            <option value="all">Semua Jenis</option>
-            {ACTIVITY_TYPES.map(t => (
-              <option key={t.key} value={t.key}>{t.label}</option>
-            ))}
-          </select>
-          <select className="border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500" value={filterCustomer} onChange={e => setFilterCustomer(e.target.value)}>
-            <option value="all">Semua Customer</option>
-            {uniqueCustomer.map(c => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-          {(filterType !== 'all' || filterCustomer !== 'all') && (
-            <button onClick={() => { setFilterType('all'); setFilterCustomer('all'); }} className="text-sm text-blue-600 hover:underline">
-              Reset Filter
-            </button>
-          )}
-          <span className="ml-auto text-xs text-gray-500 font-medium">{filteredActs.length} aktivitas</span>
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden relative">
+        {openFilter && (
+          <div className="fixed inset-0 z-50" onClick={() => setOpenFilter(null)} />
+        )}
+        <div className="p-4 border-b border-gray-100 flex flex-wrap gap-4 items-center justify-between bg-gray-50">
+           <div className="flex gap-2 w-full max-w-md">
+             <div className="relative w-full">
+               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Search size={16} className="text-gray-400" />
+               </div>
+               <input 
+                 type="text" 
+                 value={searchTerm}
+                 onChange={(e) => setSearchTerm(e.target.value)}
+                 placeholder="Cari customer, ditemui, atau catatan..." 
+                 className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+               />
+             </div>
+           </div>
+           <span className="text-xs text-gray-500 font-medium">{filteredActs.length} aktivitas</span>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+        <div className="overflow-x-auto min-h-[400px]">
+          <table className="w-full text-left border-collapse relative z-10">
             <thead>
               <tr className="bg-white border-b border-gray-100 text-sm">
-                <th className="py-3 px-4 font-semibold text-gray-700 whitespace-nowrap">Tanggal</th>
+                <FilterHeader columnKey="tanggal" label="Tanggal" />
                 {canSeeAll && reportScope === 'all' && (
-                  <th className="py-3 px-4 font-semibold text-gray-700 whitespace-nowrap">Sales</th>
+                  <FilterHeader columnKey="user_name" label="Sales" />
                 )}
-                <th className="py-3 px-4 font-semibold text-gray-700 whitespace-nowrap">Customer</th>
-                <th className="py-3 px-4 font-semibold text-gray-700 whitespace-nowrap">Site</th>
-                <th className="py-3 px-4 font-semibold text-gray-700 whitespace-nowrap">Jenis</th>
-                <th className="py-3 px-4 font-semibold text-gray-700 whitespace-nowrap">Detail</th>
-                <th className="py-3 px-4 font-semibold text-gray-700 whitespace-nowrap">Catatan</th>
+                <FilterHeader columnKey="nama_customer" label="Customer" />
+                <FilterHeader columnKey="site_kota" label="Site" />
+                <FilterHeader columnKey="jenis_aktivitas" label="Jenis" />
+                <FilterHeader columnKey="ditemui" label="Detail" />
+                <FilterHeader columnKey="catatan" label="Catatan" />
               </tr>
             </thead>
             <tbody className="text-sm text-gray-700">
