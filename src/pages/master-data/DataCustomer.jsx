@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import MainLayout from '../components/layouts/MainLayout';
-import { Plus, Edit2, Trash2, Search, X, ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, X, ArrowDown, ArrowUp, ArrowUpDown, Download, UploadCloud, FileText, CheckCircle } from 'lucide-react';
 import Select from 'react-select';
 import CreatableSelect from 'react-select/creatable';
 import { apiUrl } from '../../api';
@@ -8,17 +8,40 @@ import { apiUrl } from '../../api';
 export default function DataCustomer() {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const isSuperAdmin = user.jabatan === 'Super Admin' || user.username === 'admin' || user.role === 'superadmin';
+  const isSuperAdminOrAdmin = isSuperAdmin || user.jabatan === 'Admin' || user.role === 'admin';
 
   const [customers, setCustomers] = useState([]);
   const [salesList, setSalesList] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+
+  // Handlers untuk Import/Export
+  const handleExportCSV = () => {
+    alert("Fitur Export CSV data customer...");
+  };
+
+  const handleImportCSV = () => {
+    setIsImportModalOpen(true);
+  };
+
+  const downloadFormatCSV = () => {
+    const csvContent = "data:text/csv;charset=utf-8,no_akun,nama_customer,site_kota,sales_email\n1001,PT Satu Sales,\"Jakarta\",sales1@email.com\n1002,PT Multi Sales,\"Bandung;Surabaya\",\"sales1@email.com;sales2@email.com\"\n";
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "format_import_customer.csv");
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
   const [sortConfig, setSortConfig] = useState(null);
   const [filters, setFilters] = useState({});
   const [openFilter, setOpenFilter] = useState(null);
   const [globalSearch, setGlobalSearch] = useState('');
-  
+
   const [formData, setFormData] = useState({
     id: null,
     no_akun: '',
@@ -30,9 +53,9 @@ export default function DataCustomer() {
   const fetchCustomers = async () => {
     try {
       const url = new URL(apiUrl('/customers'), window.location.origin);
-      
+
       const isSPV = user.jabatan?.toLowerCase().includes('spv') || user.jabatan?.toLowerCase().includes('supervisor');
-      
+
       // Jika bukan Super Admin dan bukan SPV, hanya tampilkan customer miliknya sendiri
       if (!isSuperAdmin && !isSPV) {
         url.searchParams.append('sales_id', user.id);
@@ -137,10 +160,10 @@ export default function DataCustomer() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const url = isEditing 
+    const url = isEditing
       ? apiUrl(`/customers/${formData.id}`)
       : apiUrl('/customers');
-      
+
     try {
       const payload = {
         ...formData,
@@ -152,7 +175,7 @@ export default function DataCustomer() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      
+
       if (response.ok) {
         setIsModalOpen(false);
         fetchCustomers();
@@ -183,7 +206,7 @@ export default function DataCustomer() {
       site_kota: new Set(),
       sales: new Set(),
     };
-    
+
     customers.forEach(c => {
       if (c.no_akun) opts.no_akun.add(c.no_akun);
       if (c.nama_customer) opts.nama_customer.add(c.nama_customer);
@@ -201,15 +224,15 @@ export default function DataCustomer() {
 
   const filteredAndSortedCustomers = React.useMemo(() => {
     let result = [...customers];
-    
+
     if (globalSearch) {
       const s = globalSearch.toLowerCase();
-      result = result.filter(c => 
+      result = result.filter(c =>
         (c.no_akun && c.no_akun.toLowerCase().includes(s)) ||
         (c.nama_customer && c.nama_customer.toLowerCase().includes(s))
       );
     }
-    
+
     result = result.filter(c => {
       if (filters.no_akun && c.no_akun !== filters.no_akun) return false;
       if (filters.nama_customer && c.nama_customer !== filters.nama_customer) return false;
@@ -223,15 +246,15 @@ export default function DataCustomer() {
         let aVal = '', bVal = '';
         if (sortConfig.key === 'no_akun') { aVal = a.no_akun || ''; bVal = b.no_akun || ''; }
         else if (sortConfig.key === 'nama_customer') { aVal = a.nama_customer || ''; bVal = b.nama_customer || ''; }
-        else if (sortConfig.key === 'site_kota') { aVal = (a.site_kota||[]).join(', '); bVal = (b.site_kota||[]).join(', '); }
-        else if (sortConfig.key === 'sales') { aVal = (a.assigned_sales||[]).map(s=>s.name).join(', '); bVal = (b.assigned_sales||[]).map(s=>s.name).join(', '); }
-        
+        else if (sortConfig.key === 'site_kota') { aVal = (a.site_kota || []).join(', '); bVal = (b.site_kota || []).join(', '); }
+        else if (sortConfig.key === 'sales') { aVal = (a.assigned_sales || []).map(s => s.name).join(', '); bVal = (b.assigned_sales || []).map(s => s.name).join(', '); }
+
         if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
         if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
       });
     }
-    
+
     return result;
   }, [customers, filters, sortConfig, globalSearch]);
 
@@ -248,7 +271,7 @@ export default function DataCustomer() {
           <div className="flex-1 cursor-pointer hover:text-gray-900 flex items-center gap-1" onClick={() => requestSort(columnKey)}>
             {label} <SortIcon columnKey={columnKey} />
           </div>
-          <div 
+          <div
             className={`cursor-pointer p-1.5 rounded transition-colors ${isActive ? 'text-blue-600 bg-blue-50' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-200'}`}
             onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === columnKey ? null : columnKey); }}
           >
@@ -264,14 +287,14 @@ export default function DataCustomer() {
               <button onClick={(e) => { e.stopPropagation(); setOpenFilter(null); }} className="text-gray-400 hover:text-gray-600 text-lg leading-none">&times;</button>
             </div>
             <div className="max-h-48 overflow-y-auto">
-              <div 
+              <div
                 className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${!isActive ? 'bg-blue-50 text-blue-600 font-medium' : ''}`}
                 onClick={(e) => { e.stopPropagation(); handleFilterChange(columnKey, ''); setOpenFilter(null); }}
               >
                 Semua
               </div>
               {uniqueOptions[columnKey].map(o => (
-                <div 
+                <div
                   key={o}
                   className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${filters[columnKey] === o ? 'bg-blue-50 text-blue-600 font-medium' : ''}`}
                   onClick={(e) => { e.stopPropagation(); handleFilterChange(columnKey, o); setOpenFilter(null); }}
@@ -293,15 +316,33 @@ export default function DataCustomer() {
           <h2 className="text-2xl font-bold text-gray-800">Data Customer</h2>
           <p className="text-gray-600 mt-1">Kelola data pelanggan dan assign ke Sales.</p>
         </div>
-        {isSuperAdmin && (
-          <button 
-            onClick={openAddModal}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors shadow-sm"
-          >
-            <Plus size={18} />
-            Tambah Customer
-          </button>
-        )}
+        <div className="flex gap-2">
+          {isSuperAdminOrAdmin && (
+            <>
+              <button
+                onClick={handleImportCSV}
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors shadow-sm"
+              >
+                Import CSV
+              </button>
+              <button
+                onClick={handleExportCSV}
+                className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors shadow-sm"
+              >
+                Export CSV
+              </button>
+            </>
+          )}
+          {isSuperAdmin && (
+            <button
+              onClick={openAddModal}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors shadow-sm"
+            >
+              <Plus size={18} />
+              Tambah Customer
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden relative">
@@ -310,15 +351,20 @@ export default function DataCustomer() {
         )}
         {/* Search Bar */}
         <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-          <div className="relative w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-            <input 
-              type="text" 
-              placeholder="Cari customer..." 
-              value={globalSearch}
-              onChange={e => setGlobalSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-            />
+          <div className="flex items-center gap-2">
+            <div className="relative w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+              <input
+                type="text"
+                placeholder="Cari customer..."
+                value={globalSearch}
+                onChange={e => setGlobalSearch(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              />
+            </div>
+            <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+              Search
+            </button>
           </div>
         </div>
 
@@ -374,14 +420,14 @@ export default function DataCustomer() {
                   <td className="p-4 text-sm">
                     {isSuperAdmin ? (
                       <div className="flex items-center justify-end gap-2">
-                        <button 
+                        <button
                           onClick={() => openEditModal(c)}
                           className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                           title="Edit"
                         >
                           <Edit2 size={16} />
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleDelete(c.id)}
                           className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           title="Hapus"
@@ -416,21 +462,21 @@ export default function DataCustomer() {
               <h3 className="text-xl font-bold text-gray-800">
                 {isEditing ? 'Edit Customer' : 'Tambah Customer'}
               </h3>
-              <button 
+              <button
                 onClick={() => setIsModalOpen(false)}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
               >
                 <X size={24} />
               </button>
             </div>
-            
+
             <div className="p-6 overflow-y-auto">
               <form id="customerForm" onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-1">No. Akun</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       name="no_akun"
                       value={formData.no_akun}
                       onChange={handleInputChange}
@@ -439,13 +485,13 @@ export default function DataCustomer() {
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-1">Nama Customer</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       name="nama_customer"
                       value={formData.nama_customer}
                       onChange={handleInputChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required 
+                      required
                     />
                   </div>
                 </div>
@@ -453,8 +499,8 @@ export default function DataCustomer() {
                 <div>
                   <div className="flex justify-between items-center mb-2">
                     <label className="block text-sm font-semibold text-gray-700">Site / Kota</label>
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       onClick={handleAddSite}
                       className="text-xs font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded transition-colors"
                     >
@@ -464,7 +510,7 @@ export default function DataCustomer() {
                   <div className="space-y-2">
                     {formData.site_kota.map((site, idx) => (
                       <div key={idx} className="flex items-center gap-2">
-                        <input 
+                        <input
                           type="text"
                           value={site}
                           onChange={(e) => handleSiteTextChange(idx, e.target.value)}
@@ -472,8 +518,8 @@ export default function DataCustomer() {
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                         {formData.site_kota.length > 1 && (
-                          <button 
-                            type="button" 
+                          <button
+                            type="button"
                             onClick={() => handleRemoveSite(idx)}
                             className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                           >
@@ -509,21 +555,141 @@ export default function DataCustomer() {
                 </div>
               </form>
             </div>
-            
+
             <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 mt-auto">
-              <button 
+              <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
                 className="px-4 py-2 text-sm font-semibold text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
               >
                 Batal
               </button>
-              <button 
+              <button
                 type="submit"
                 form="customerForm"
                 className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-sm"
               >
                 Simpan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Import Modal */}
+      {isImportModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-gray-900/60 backdrop-blur-sm p-4 transition-all duration-300">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col transform transition-all scale-100">
+            {/* Header */}
+            <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-white">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                  <UploadCloud size={20} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-800 tracking-tight">Import CSV</h3>
+                  <p className="text-xs text-gray-500 font-medium">Unggah data customer secara massal</p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setIsImportModalOpen(false); setSelectedFile(null); }}
+                className="text-gray-400 hover:text-gray-600 bg-white hover:bg-gray-100 p-2 rounded-full transition-colors shadow-sm"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 space-y-6">
+              {/* Step 1 */}
+              <div className="flex gap-4">
+                <div className="flex-shrink-0 flex flex-col items-center">
+                  <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs ring-4 ring-white">1</div>
+                  <div className="w-0.5 h-full bg-gray-100 mt-2"></div>
+                </div>
+                <div className="pb-4">
+                  <h4 className="text-sm font-bold text-gray-700 mb-1">Unduh Format CSV</h4>
+                  <p className="text-xs text-gray-500 mb-3 leading-relaxed">
+                    Gunakan template ini untuk memastikan struktur kolom sesuai (mendukung multi-sales dengan pemisah <code className="bg-gray-100 px-1 py-0.5 rounded text-red-500 font-mono">;</code>).
+                  </p>
+                  <button
+                    type="button"
+                    onClick={downloadFormatCSV}
+                    className="px-4 py-2 text-sm font-semibold text-blue-600 bg-white border border-blue-200 shadow-sm rounded-lg hover:bg-blue-50 transition-all flex items-center gap-2 group"
+                  >
+                    <Download size={16} className="group-hover:-translate-y-0.5 transition-transform" />
+                    Template.csv
+                  </button>
+                </div>
+              </div>
+
+              {/* Step 2 */}
+              <div className="flex gap-4">
+                <div className="flex-shrink-0 flex flex-col items-center">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs ring-4 ring-white transition-colors ${selectedFile ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>
+                    {selectedFile ? <CheckCircle size={14} /> : '2'}
+                  </div>
+                </div>
+                <div className="w-full">
+                  <h4 className="text-sm font-bold text-gray-700 mb-1">Upload File Data</h4>
+                  <p className="text-xs text-gray-500 mb-3">Pilih file CSV yang sudah Anda isi.</p>
+
+                  <div className={`relative border-2 border-dashed rounded-xl p-6 transition-all duration-200 text-center ${selectedFile ? 'border-green-400 bg-green-50' : 'border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-blue-300'}`}>
+                    <input
+                      type="file"
+                      accept=".csv"
+                      onChange={(e) => setSelectedFile(e.target.files[0])}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+
+                    {!selectedFile ? (
+                      <div className="flex flex-col items-center justify-center gap-2 pointer-events-none">
+                        <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm text-gray-400 mb-1">
+                          <FileText size={20} />
+                        </div>
+                        <span className="text-sm font-medium text-blue-600">Klik untuk browse file</span>
+                        <span className="text-xs text-gray-400">atau drag & drop file .csv di sini</span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center gap-2 pointer-events-none">
+                        <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm text-green-500 mb-1">
+                          <FileText size={20} />
+                        </div>
+                        <span className="text-sm font-bold text-green-700">{selectedFile.name}</span>
+                        <span className="text-xs text-green-600 font-medium">{(selectedFile.size / 1024).toFixed(1)} KB</span>
+                        <span className="text-xs text-gray-500 underline mt-1">Klik untuk mengganti file</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-5 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 rounded-b-2xl">
+              <button
+                type="button"
+                onClick={() => { setIsImportModalOpen(false); setSelectedFile(null); }}
+                className="px-5 py-2.5 text-sm font-semibold text-gray-600 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-all shadow-sm"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={!selectedFile}
+                onClick={() => {
+                  if (selectedFile) {
+                    alert(`Memproses file: ${selectedFile.name}\n\nDi sini nanti logic parsing titik koma (;) untuk multi sales/kota.`);
+                    setIsImportModalOpen(false);
+                    setSelectedFile(null);
+                  }
+                }}
+                className={`px-5 py-2.5 text-sm font-bold text-white rounded-xl transition-all shadow-md flex items-center gap-2
+                  ${selectedFile ? 'bg-blue-600 hover:bg-blue-700 hover:shadow-lg' : 'bg-gray-300 cursor-not-allowed opacity-70'}
+                `}
+              >
+                <UploadCloud size={18} />
+                Import Data Sekarang
               </button>
             </div>
           </div>
