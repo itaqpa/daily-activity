@@ -9,7 +9,7 @@ import jwt from 'jsonwebtoken';
 dotenv.config();
 
 const app = express();
-const port = 8000;
+const port = process.env.BACKEND_PORT || 8400;
 
 // Middleware
 app.use(cors());
