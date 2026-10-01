@@ -275,11 +275,17 @@ export default function Laporan() {
     const dateObj = new Date(periodRef + "-01");
     const periodStr = period === 'monthly' ? dateObj.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }) : periodRef;
 
-    // Top Accent Bar
+    // Top Header Bar
     doc.setFillColor(31, 62, 124);
-    doc.rect(0, 0, 210, 4, 'F');
+    doc.rect(0, 0, 210, 20, 'F');
 
-    let currY = 16;
+    // Text Logo
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(255, 255, 255);
+    doc.text("AQPA INDONESIA", 14, 14);
+
+    let currY = 32;
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(30, 40, 50);
@@ -347,24 +353,35 @@ export default function Laporan() {
     const dateObj = new Date(periodRef + "-01");
     const periodStr = period === 'monthly' ? dateObj.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }) : periodRef;
 
-    // Top Accent Bar
+    // Top Header Bar
     doc.setFillColor(31, 62, 124);
-    doc.rect(0, 0, 210, 4, 'F');
+    doc.rect(0, 0, 210, 20, 'F');
+
+    // Text Logo
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(255, 255, 255);
+    doc.text("AQPA INDONESIA", 14, 14);
+
+    let currY = 32;
 
     doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(31, 62, 124);
-    doc.text(`Laporan ${period === 'monthly' ? 'Bulanan' : 'Tahunan'}`, 14, 16);
+    doc.text(`Laporan ${period === 'monthly' ? 'Bulanan' : 'Tahunan'}`, 14, currY);
     
+    currY += 7;
+
     doc.setFontSize(11);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100, 100, 100);
-    doc.text(`${scopeName} · ${periodStr}`, 14, 23);
+    doc.text(`${scopeName} · ${periodStr}`, 14, currY);
     
+    currY += 4;
     doc.setDrawColor(230, 230, 230);
-    doc.line(14, 27, 196, 27);
+    doc.line(14, currY, 196, currY);
     
-    let currY = 32;
+    currY += 5;
     
     const drawCard = (label, value, colIndex, rowIndex) => {
       const cardWidth = 42.5;
