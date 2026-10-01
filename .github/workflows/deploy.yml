@@ -136,8 +136,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
-          DEPLOY_DIR: ${{ vars.DEPLOY_DIR || '/opt/daily-activity' }}
-          DEPLOY_ENV_FILE: ${{ vars.DEPLOY_ENV_FILE || '/opt/daily-activity/.env' }}
+          DEPLOY_DIR: ${{ vars.DEPLOY_DIR || '/home/serverlocal/repositories/daily-activityy' }}
+          DEPLOY_ENV_FILE: ${{ vars.DEPLOY_ENV_FILE || '/home/serverlocal/repositories/daily-activityy/.env' }}
           BACKEND_PORT: ${{ vars.BACKEND_PORT || '8000' }}
           FRONTEND_PORT: ${{ vars.FRONTEND_PORT || '4173' }}
         with:
