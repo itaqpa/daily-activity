@@ -188,14 +188,10 @@ jobs:
 
             GHCR_REPO="ghcr.io/$(echo "$REPO" | tr '[:upper:]' '[:lower:]')"
 
-            phase "validate environment"
-            test -f "$DEPLOY_ENV_FILE"
+            mkdir -p "$DEPLOY_DIR"
             set -a
             . "$DEPLOY_ENV_FILE"
             set +a
-            mkdir -p "$DEPLOY_DIR"
-            printf '[INFO] deploy_dir=%s\n' "$DEPLOY_DIR"
-            printf '[INFO] env_file=%s\n' "$DEPLOY_ENV_FILE"
             printf '[INFO] backend_port=%s frontend_port=%s\n' "$BACKEND_PORT" "$FRONTEND_PORT"
             printf '[INFO] db_host=%s db_port=%s db_database=%s\n' "${DB_HOST:-unset}" "${DB_PORT:-unset}" "${DB_DATABASE:-unset}"
 
