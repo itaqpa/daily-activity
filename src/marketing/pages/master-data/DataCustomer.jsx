@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import MainLayout from '../components/layouts/MainLayout';
-import { Plus, Edit2, Trash2, Search, X, ArrowDown, ArrowUp, ArrowUpDown, Download, UploadCloud, FileText, CheckCircle } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, X, ArrowDown, ArrowUp, ArrowUpDown, Download, UploadCloud, FileText, CheckCircle, Users } from 'lucide-react';
 import Select from 'react-select';
 import CreatableSelect from 'react-select/creatable';
 import { apiUrl } from '../../../api';
@@ -16,6 +16,7 @@ export default function DataCustomer() {
   const [isEditing, setIsEditing] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [viewSalesModal, setViewSalesModal] = useState(null);
 
   // Handlers untuk Import/Export
   const handleExportCSV = () => {
@@ -55,9 +56,10 @@ export default function DataCustomer() {
       const url = new URL(apiUrl('/customers'), window.location.origin);
 
       const isSPV = user.jabatan?.toLowerCase().includes('spv') || user.jabatan?.toLowerCase().includes('supervisor');
+      const isManager = user.jabatan?.toLowerCase().includes('manager');
 
-      // Jika bukan Super Admin dan bukan SPV, hanya tampilkan customer miliknya sendiri
-      if (!isSuperAdmin && !isSPV) {
+      // Jika bukan Super Admin, SPV, dan Manager, hanya tampilkan customer miliknya sendiri
+      if (!isSuperAdmin && !isSPV && !isManager) {
         url.searchParams.append('sales_id', user.id);
       }
 
@@ -167,7 +169,9 @@ export default function DataCustomer() {
     try {
       const payload = {
         ...formData,
-        site_kota: formData.site_kota.filter(site => site.trim() !== '')
+        site_kota: formData.site_kota.filter(site => site.trim() !== ''),
+        status: isSuperAdminOrAdmin ? 'approved' : 'pending',
+        sales_ids: isSuperAdminOrAdmin ? formData.sales_ids : [user.id]
       };
 
       const response = await fetch(url, {
@@ -181,6 +185,21 @@ export default function DataCustomer() {
         fetchCustomers();
       } else {
         alert('Gagal menyimpan data customer.');
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleApprove = async (id) => {
+    try {
+      const response = await fetch(apiUrl(`/customers/${id}/approve`), {
+        method: 'PUT',
+      });
+      if (response.ok) {
+        fetchCustomers();
+      } else {
+        alert('Gagal meng-approve customer.');
       }
     } catch (error) {
       console.error(error);
@@ -333,15 +352,13 @@ export default function DataCustomer() {
               </button>
             </>
           )}
-          {isSuperAdmin && (
-            <button
-              onClick={openAddModal}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors shadow-sm"
-            >
-              <Plus size={18} />
-              Tambah Customer
-            </button>
-          )}
+          <button
+            onClick={openAddModal}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors shadow-sm"
+          >
+            <Plus size={18} />
+            Tambah Customer
+          </button>
         </div>
       </div>
 
@@ -377,8 +394,9 @@ export default function DataCustomer() {
                 <FilterHeader columnKey="nama_customer" label="Nama Customer" />
                 <FilterHeader columnKey="site_kota" label="Site / Kota" />
                 <FilterHeader columnKey="sales" label="Sales" />
+                <th className="p-4 font-semibold text-sm whitespace-nowrap">Status</th>
                 <th className="p-4 font-semibold text-sm whitespace-nowrap">Aktivitas</th>
-                <th className="p-4 font-semibold text-sm text-right w-24 whitespace-nowrap">Aksi</th>
+                {isSuperAdminOrAdmin && <th className="p-4 font-semibold text-sm text-right w-24 whitespace-nowrap">Aksi</th>}
               </tr>
             </thead>
             <tbody>
@@ -400,17 +418,17 @@ export default function DataCustomer() {
                     </div>
                   </td>
                   <td className="p-4 text-sm text-gray-600">
-                    <div className="flex flex-wrap gap-1">
-                      {c.assigned_sales && c.assigned_sales.length > 0 ? (
-                        c.assigned_sales.map(s => (
-                          <span key={s.id} className="px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-md font-medium border border-blue-100">
-                            {s.name}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="text-gray-400 italic">Belum ada</span>
-                      )}
-                    </div>
+                    {c.assigned_sales && c.assigned_sales.length > 0 ? (
+                      <button
+                        onClick={() => setViewSalesModal(c)}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs rounded-lg font-medium border border-blue-200 transition-colors"
+                      >
+                        <Users size={14} />
+                        <span>{c.assigned_sales.length} Sales</span>
+                      </button>
+                    ) : (
+                      <span className="text-gray-400 italic text-xs">Belum ada</span>
+                    )}
                   </td>
                   <td className="p-4 text-sm text-gray-600">
                     <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-md text-xs font-medium border border-gray-200">
@@ -418,29 +436,49 @@ export default function DataCustomer() {
                     </span>
                   </td>
                   <td className="p-4 text-sm">
-                    {isSuperAdmin ? (
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => openEditModal(c)}
-                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          title="Edit"
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(c.id)}
-                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Hapus"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
+                    {c.status === 'pending' ? (
+                      <span className="px-2 py-1 bg-yellow-50 text-yellow-700 text-xs rounded-md font-medium border border-yellow-100">Pending</span>
                     ) : (
-                      <div className="text-right text-gray-400 text-xs italic">
-                        No Access
-                      </div>
+                      <span className="px-2 py-1 bg-green-50 text-green-700 text-xs rounded-md font-medium border border-green-100">Approved</span>
                     )}
                   </td>
+                  {isSuperAdminOrAdmin && (
+                  <td className="p-4 text-sm">
+                    <div className="flex items-center justify-end gap-2">
+                      {c.status === 'pending' && isSuperAdminOrAdmin && (
+                        <button
+                          onClick={() => handleApprove(c.id)}
+                          className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                          title="Approve"
+                        >
+                          <CheckCircle size={16} />
+                        </button>
+                      )}
+                      {isSuperAdmin ? (
+                        <>
+                          <button
+                            onClick={() => openEditModal(c)}
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Edit"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(c.id)}
+                            className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Hapus"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </>
+                      ) : (
+                        <div className="text-right text-gray-400 text-xs italic">
+                          No Access
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                  )}
                 </tr>
               )) : (
                 <tr>
@@ -531,30 +569,32 @@ export default function DataCustomer() {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Assign ke Sales</label>
-                  <Select
-                    isMulti
-                    name="sales"
-                    options={salesList.map(sales => ({
-                      value: sales.id,
-                      label: `${sales.name} (${sales.nama_jabatan})`
-                    }))}
-                    className="basic-multi-select"
-                    classNamePrefix="select"
-                    placeholder="Ketik untuk mencari sales..."
-                    menuPortalTarget={document.body}
-                    styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
-                    value={salesList
-                      .filter(sales => formData.sales_ids.includes(sales.id))
-                      .map(sales => ({
+                {isSuperAdminOrAdmin && (
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Assign ke Sales</label>
+                    <Select
+                      isMulti
+                      name="sales"
+                      options={salesList.map(sales => ({
                         value: sales.id,
                         label: `${sales.name} (${sales.nama_jabatan})`
                       }))}
-                    onChange={handleSelectChange}
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Anda dapat memilih lebih dari satu sales untuk customer ini.</p>
-                </div>
+                      className="basic-multi-select"
+                      classNamePrefix="select"
+                      placeholder="Ketik untuk mencari sales..."
+                      menuPortalTarget={document.body}
+                      styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
+                      value={salesList
+                        .filter(sales => formData.sales_ids.includes(sales.id))
+                        .map(sales => ({
+                          value: sales.id,
+                          label: `${sales.name} (${sales.nama_jabatan})`
+                        }))}
+                      onChange={handleSelectChange}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Anda dapat memilih lebih dari satu sales untuk customer ini.</p>
+                  </div>
+                )}
               </form>
             </div>
 
@@ -692,6 +732,54 @@ export default function DataCustomer() {
               >
                 <UploadCloud size={18} />
                 Import Data Sekarang
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal View Sales */}
+      {viewSalesModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+              <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+                <Users size={18} className="text-blue-600" />
+                Data Sales
+              </h3>
+              <button 
+                onClick={() => setViewSalesModal(null)}
+                className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-lg transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            
+            <div className="p-6">
+              <p className="text-sm text-gray-500 mb-4">
+                Sales yang di-assign ke <span className="font-semibold text-gray-700">{viewSalesModal.nama_customer}</span>:
+              </p>
+              
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                {viewSalesModal.assigned_sales.map((s, i) => (
+                  <div key={s.id || i} className="flex items-center gap-3 p-3 bg-blue-50/50 border border-blue-100 rounded-lg">
+                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                      <span className="text-blue-700 font-semibold text-sm">
+                        {s.name ? s.name.charAt(0).toUpperCase() : '?'}
+                      </span>
+                    </div>
+                    <span className="text-sm font-medium text-gray-700">{s.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end">
+              <button
+                onClick={() => setViewSalesModal(null)}
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition-colors"
+              >
+                Tutup
               </button>
             </div>
           </div>

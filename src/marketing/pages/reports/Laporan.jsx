@@ -16,8 +16,27 @@ const ACTIVITY_TYPES = [
 
 export default function Laporan() {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const canSeeAll = user.jabatan === 'Spv' || user.jabatan === 'Supervisor' || user.jabatan === 'Super Admin' || user.jabatan === 'Manager';
+  const getVisibilityRoles = (jabatan) => {
+    if (!jabatan) return [];
+    const jName = jabatan.toLowerCase();
+    
+    if (jName.includes('super admin') || jName.includes('admin') || user.role === 'admin') {
+      return ['Super Admin', 'Admin', 'Manager', 'Spv', 'Supervisor', 'Leader', 'Staff'];
+    }
+    if (jName.includes('manager')) {
+      return ['Spv', 'Supervisor', 'Leader', 'Staff'];
+    }
+    if (jName.includes('spv') || jName.includes('supervisor')) {
+      return ['Leader', 'Staff'];
+    }
+    if (jName.includes('leader')) {
+      return ['Staff'];
+    }
+    return [];
+  };
 
+  const roleName = (user.jabatan || '').toLowerCase();
+  const canSeeAll = roleName !== 'staff';
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -40,9 +59,22 @@ export default function Laporan() {
       const response = await fetch(apiUrl('/activities'));
       if (response.ok) {
         let data = await response.json();
-        if (!canSeeAll) {
-          data = data.filter(act => act.user_id === user.id);
-        }
+        const visibleRoles = getVisibilityRoles(user.jabatan).map(r => r.toLowerCase());
+        const isSuperAdminOrAdmin = roleName.includes('super admin') || roleName.includes('admin') || user.role === 'admin';
+
+        data = data.filter(act => {
+          if (isSuperAdminOrAdmin) return true;
+          if (act.user_id === user.id) return true;
+          if (act.user_jabatan) {
+            const actRole = act.user_jabatan.toLowerCase();
+            const userDiv = (user.divisi || user.nama_divisi || '').toLowerCase();
+            const actDiv = (act.user_divisi || '').toLowerCase();
+            const isSameDivisi = !userDiv || !actDiv || userDiv === actDiv;
+
+            if (isSameDivisi && visibleRoles.some(vr => actRole.includes(vr))) return true;
+          }
+          return false;
+        });
         setActivities(data);
       }
     } catch (error) {
@@ -275,11 +307,17 @@ export default function Laporan() {
     const dateObj = new Date(periodRef + "-01");
     const periodStr = period === 'monthly' ? dateObj.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }) : periodRef;
 
-    // Top Accent Bar
+    // Top Header Bar
     doc.setFillColor(31, 62, 124);
-    doc.rect(0, 0, 210, 4, 'F');
+    doc.rect(0, 0, 210, 20, 'F');
 
-    let currY = 16;
+    // Text Logo
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(255, 255, 255);
+    doc.text("AQPA INDONESIA", 14, 14);
+
+    let currY = 32;
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(30, 40, 50);
@@ -347,24 +385,35 @@ export default function Laporan() {
     const dateObj = new Date(periodRef + "-01");
     const periodStr = period === 'monthly' ? dateObj.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }) : periodRef;
 
-    // Top Accent Bar
+    // Top Header Bar
     doc.setFillColor(31, 62, 124);
-    doc.rect(0, 0, 210, 4, 'F');
+    doc.rect(0, 0, 210, 20, 'F');
+
+    // Text Logo
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(255, 255, 255);
+    doc.text("AQPA INDONESIA", 14, 14);
+
+    let currY = 32;
 
     doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(31, 62, 124);
-    doc.text(`Laporan ${period === 'monthly' ? 'Bulanan' : 'Tahunan'}`, 14, 16);
+    doc.text(`Laporan ${period === 'monthly' ? 'Bulanan' : 'Tahunan'}`, 14, currY);
     
+    currY += 7;
+
     doc.setFontSize(11);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100, 100, 100);
-    doc.text(`${scopeName} · ${periodStr}`, 14, 23);
+    doc.text(`${scopeName} · ${periodStr}`, 14, currY);
     
+    currY += 4;
     doc.setDrawColor(230, 230, 230);
-    doc.line(14, 27, 196, 27);
+    doc.line(14, currY, 196, currY);
     
-    let currY = 32;
+    currY += 5;
     
     const drawCard = (label, value, colIndex, rowIndex) => {
       const cardWidth = 42.5;

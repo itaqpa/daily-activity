@@ -43,10 +43,9 @@ export default function CatatAktivitas() {
       const url = new URL(apiUrl('/customers'), window.location.origin);
       
       const isSuperAdmin = user.jabatan === 'Super Admin' || user.username === 'admin' || user.role === 'superadmin';
-      const isSPV = user.jabatan?.toLowerCase().includes('spv') || user.jabatan?.toLowerCase().includes('supervisor');
       
-      // Jika bukan Super Admin dan bukan SPV, hanya tampilkan customer miliknya sendiri
-      if (!isSuperAdmin && !isSPV) {
+      // Semua role sales (Staff, Leader, SPV, Manager) HANYA BISA memilih customer yang di-assign kepadanya.
+      if (!isSuperAdmin) {
         url.searchParams.append('sales_id', user.id);
       }
 
@@ -117,7 +116,7 @@ export default function CatatAktivitas() {
         return;
       }
 
-      const response = await fetch(apiUrl('/marketing/activities'), {
+      const response = await fetch(apiUrl('/activities'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
