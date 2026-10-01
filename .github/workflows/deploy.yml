@@ -41,7 +41,7 @@ jobs:
       - name: Build and push GHCR images
         env:
           GH_TOKEN: ${{ github.token }}
-          VITE_API_URL: ${{ vars.VITE_API_URL || 'http://localhost:8000/api' }}
+          VITE_API_URL: ${{ vars.VITE_API_URL || 'http://localhost:8400/api' }}
         run: |
           set -Eeuo pipefail
           REPO="ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
@@ -138,8 +138,8 @@ jobs:
           REPO: ${{ github.repository }}
           DEPLOY_DIR: ${{ vars.DEPLOY_DIR || '/home/serverlocal/repositories/daily-activityy' }}
           DEPLOY_ENV_FILE: ${{ vars.DEPLOY_ENV_FILE || '/home/serverlocal/repositories/daily-activityy/.env' }}
-          BACKEND_PORT: ${{ vars.BACKEND_PORT || '8000' }}
-          FRONTEND_PORT: ${{ vars.FRONTEND_PORT || '4173' }}
+          BACKEND_PORT: ${{ vars.BACKEND_PORT || '8400' }}
+          FRONTEND_PORT: ${{ vars.FRONTEND_PORT || '4179' }}
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
@@ -219,8 +219,9 @@ jobs:
               --restart unless-stopped \
               --network postgres_database \
               --env-file "$DEPLOY_ENV_FILE" \
+              -e BACKEND_PORT=8400 \
               -e DB_PORT=5432 \
-              -p "${BACKEND_PORT}:8000" \
+              -p "${BACKEND_PORT}:8400" \
               "$GHCR_REPO/backend:latest"
 
             for attempt in $(seq 1 30); do
