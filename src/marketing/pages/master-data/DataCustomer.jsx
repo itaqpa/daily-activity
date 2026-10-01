@@ -3,7 +3,7 @@ import MainLayout from '../components/layouts/MainLayout';
 import { Plus, Edit2, Trash2, Search, X, ArrowDown, ArrowUp, ArrowUpDown, Download, UploadCloud, FileText, CheckCircle } from 'lucide-react';
 import Select from 'react-select';
 import CreatableSelect from 'react-select/creatable';
-import { apiUrl } from '../../api';
+import { apiUrl } from '../../../api';
 
 export default function DataCustomer() {
   const user = JSON.parse(localStorage.getItem('user') || '{}');

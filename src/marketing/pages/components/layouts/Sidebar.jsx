@@ -33,6 +33,12 @@ export default function Sidebar({ isOpen, setIsOpen }) {
     user.username === "admin" ||
     user.jabatan === "Super Admin" ||
     user.role === "superadmin";
+    
+  const isAdmin = 
+    user.jabatan === "Admin" || 
+    user.role === "admin" || 
+    user.jabatan?.toLowerCase() === "admin sales";
+
   const isSales =
     user.divisi?.toLowerCase() === "sales" ||
     user.kode_divisi === "SLS" ||
@@ -153,9 +159,9 @@ export default function Sidebar({ isOpen, setIsOpen }) {
         <nav className="flex-1 px-4 space-y-1.5 mt-2 overflow-y-auto pb-4">
           {/* Dashboard */}
           <Link
-            to="/dashboard"
+            to="/marketing/dashboard"
             className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-              isActive("/dashboard")
+              isActive("/marketing/dashboard")
                 ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
                 : "text-blue-100/70 hover:bg-white/5 hover:text-white"
             }`}
@@ -167,9 +173,9 @@ export default function Sidebar({ isOpen, setIsOpen }) {
           {/* Data Customer - Untuk User Biasa */}
           {isRegularUser && (
             <Link
-              to="/master-data/customer"
+              to="/marketing/master-data/customer"
               className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive("/master-data/customer")
+                isActive("/marketing/master-data/customer")
                   ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
                   : "text-blue-100/70 hover:bg-white/5 hover:text-white"
               }`}
@@ -179,40 +185,42 @@ export default function Sidebar({ isOpen, setIsOpen }) {
             </Link>
           )}
 
-          {/* Tim Sales - Khusus untuk SPV (Super Admin sudah ada di Data Master) */}
-          {canViewTimSales && !isSuperAdmin && (
+          {/* Tim Sales / Data Sales */}
+          {(canViewTimSales || isAdmin) && !isSuperAdmin && (
             <Link
-              to="/master-data/sales"
+              to="/marketing/master-data/sales"
               className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive("/master-data/sales")
+                isActive("/marketing/master-data/sales")
                   ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
                   : "text-blue-100/70 hover:bg-white/5 hover:text-white"
               }`}
             >
               <Briefcase className="w-5 h-5" />
-              <span className="font-medium">Tim Sales</span>
+              <span className="font-medium">{isAdmin ? "Data Sales" : "Tim Sales"}</span>
             </Link>
           )}
 
           {/* Semua Aktivitas */}
-          <Link
-            to="/activities"
-            className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-              isActive("/activities")
-                ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
-                : "text-blue-100/70 hover:bg-white/5 hover:text-white"
-            }`}
-          >
-            <List className="w-5 h-5" />
-            <span className="font-medium">Semua Aktivitas</span>
-          </Link>
+          {!isAdmin && (
+            <Link
+              to="/marketing/activities"
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                isActive("/marketing/activities")
+                  ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
+                  : "text-blue-100/70 hover:bg-white/5 hover:text-white"
+              }`}
+            >
+              <List className="w-5 h-5" />
+              <span className="font-medium">Semua Aktivitas</span>
+            </Link>
+          )}
 
           {/* Catat Aktivitas - Khusus Staff Sales & SPV */}
           {(isStaffSales || isSPV) && (
             <Link
-              to="/activities/new"
+              to="/marketing/activities/new"
               className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive("/activities/new")
+                isActive("/marketing/activities/new")
                   ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
                   : "text-blue-100/70 hover:bg-white/5 hover:text-white"
               }`}
@@ -247,9 +255,9 @@ export default function Sidebar({ isOpen, setIsOpen }) {
               {isDataMasterOpen && (
                 <div className="mt-1 ml-4 pl-4 border-l border-white/10 space-y-1">
                   <Link
-                    to="/master-data/sales"
+                    to="/marketing/master-data/sales"
                     className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors ${
-                      isActive("/master-data/sales")
+                      isActive("/marketing/master-data/sales")
                         ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
                         : "text-blue-100/70 hover:bg-white/5 hover:text-white"
                     }`}
@@ -258,9 +266,9 @@ export default function Sidebar({ isOpen, setIsOpen }) {
                     <span className="font-medium text-sm">Data Sales</span>
                   </Link>
                   <Link
-                    to="/master-data/customer"
+                    to="/marketing/master-data/customer"
                     className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors ${
-                      isActive("/master-data/customer")
+                      isActive("/marketing/master-data/customer")
                         ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
                         : "text-blue-100/70 hover:bg-white/5 hover:text-white"
                     }`}
@@ -276,9 +284,9 @@ export default function Sidebar({ isOpen, setIsOpen }) {
           {/* User Management - Khusus Super Admin */}
           {isSuperAdmin && (
             <Link
-              to="/users"
+              to="/marketing/users"
               className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive("/users")
+                isActive("/marketing/users")
                   ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
                   : "text-blue-100/70 hover:bg-white/5 hover:text-white"
               }`}
@@ -289,23 +297,25 @@ export default function Sidebar({ isOpen, setIsOpen }) {
           )}
 
           {/* Laporan - Paling Akhir */}
-          <Link
-            to="/reports"
-            className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-              isActive("/reports")
-                ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
-                : "text-blue-100/70 hover:bg-white/5 hover:text-white"
-            }`}
-          >
-            <FileText className="w-5 h-5" />
-            <span className="font-medium">Laporan</span>
-          </Link>
+          {!isAdmin && (
+            <Link
+              to="/marketing/reports"
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                isActive("/marketing/reports")
+                  ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
+                  : "text-blue-100/70 hover:bg-white/5 hover:text-white"
+              }`}
+            >
+              <FileText className="w-5 h-5" />
+              <span className="font-medium">Laporan</span>
+            </Link>
+          )}
 
           {/* Settings */}
           <Link
-            to="/settings"
+            to="/marketing/settings"
             className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-              isActive("/settings")
+              isActive("/marketing/settings")
                 ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
                 : "text-blue-100/70 hover:bg-white/5 hover:text-white"
             }`}
@@ -328,3 +338,5 @@ export default function Sidebar({ isOpen, setIsOpen }) {
     </>
   );
 }
+
+
