@@ -543,6 +543,8 @@ export default function DataCustomer() {
                     className="basic-multi-select"
                     classNamePrefix="select"
                     placeholder="Ketik untuk mencari sales..."
+                    menuPortalTarget={document.body}
+                    styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
                     value={salesList
                       .filter(sales => formData.sales_ids.includes(sales.id))
                       .map(sales => ({
