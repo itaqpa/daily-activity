@@ -148,27 +148,76 @@ jobs:
           timeout: 60s
           command_timeout: 25m
           script_stop: true
+          debug: true
           envs: GH_TOKEN,REPO,DEPLOY_DIR,DEPLOY_ENV_FILE,BACKEND_PORT,FRONTEND_PORT
           script: |
             set -Eeuo pipefail
+
+            phase() {
+              printf '\n===== PHASE: %s =====\n' "$1"
+            }
+
+            dump_container() {
+              container="$1"
+              printf '\n===== CONTAINER: %s =====\n' "$container"
+              docker ps -a --filter "name=^${container}$" --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' || true
+              docker inspect --format 'status={{.State.Status}} exit={{.State.ExitCode}} started={{.State.StartedAt}} finished={{.State.FinishedAt}} health={{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$container" 2>&1 || true
+              printf '%s\n' "----- logs: $container -----"
+              docker logs --tail 200 "$container" 2>&1 || true
+            }
+
+            diagnostics() {
+              printf '\n===== DIAGNOSTICS =====\n'
+              docker version 2>&1 || true
+              docker network inspect postgres_database 2>&1 || true
+              dump_container daily-activity-backend
+              dump_container daily-activity-frontend
+            }
+
+            on_error() {
+              status=$?
+              line="${BASH_LINENO[0]:-unknown}"
+              command="${BASH_COMMAND:-unknown}"
+              printf '\n[ERROR] remote deployment failed: status=%s line=%s\n' "$status" "$line" >&2
+              printf '[ERROR] command: %s\n' "$command" >&2
+              diagnostics
+              exit "$status"
+            }
+
+            trap on_error ERR
+
             GHCR_REPO="ghcr.io/$(echo "$REPO" | tr '[:upper:]' '[:lower:]')"
+
+            phase "validate environment"
             test -f "$DEPLOY_ENV_FILE"
             set -a
             . "$DEPLOY_ENV_FILE"
             set +a
             mkdir -p "$DEPLOY_DIR"
+            printf '[INFO] deploy_dir=%s\n' "$DEPLOY_DIR"
+            printf '[INFO] env_file=%s\n' "$DEPLOY_ENV_FILE"
+            printf '[INFO] backend_port=%s frontend_port=%s\n' "$BACKEND_PORT" "$FRONTEND_PORT"
+            printf '[INFO] db_host=%s db_port=%s db_database=%s\n' "${DB_HOST:-unset}" "${DB_PORT:-unset}" "${DB_DATABASE:-unset}"
 
+            phase "login and pull images"
             printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+            printf '[INFO] pulling %s/backend:latest\n' "$GHCR_REPO"
             docker pull "$GHCR_REPO/backend:latest"
+            printf '[INFO] pulling %s/frontend:latest\n' "$GHCR_REPO"
             docker pull "$GHCR_REPO/frontend:latest"
+
+            phase "validate postgres network"
             docker network inspect postgres_database >/dev/null 2>&1 || {
               printf '[ERROR] Docker network postgres_database does not exist\n' >&2
               docker network ls >&2
               exit 1
             }
+            docker network inspect postgres_database --format '{{range .Containers}}{{.Name}} {{.IPv4Address}}{{"\\n"}}{{end}}'
 
+            phase "remove old application containers"
             docker rm -f daily-activity-frontend daily-activity-backend 2>/dev/null || true
 
+            phase "start backend"
             docker run -d \
               --name daily-activity-backend \
               --restart unless-stopped \
@@ -178,6 +227,21 @@ jobs:
               -p "${BACKEND_PORT}:8000" \
               "$GHCR_REPO/backend:latest"
 
+            for attempt in $(seq 1 30); do
+              if curl --fail --silent "http://127.0.0.1:${BACKEND_PORT}/api/health" >/dev/null; then
+                printf '[INFO] backend healthy after attempt %s\n' "$attempt"
+                break
+              fi
+              printf '[INFO] waiting for backend, attempt %s/30\n' "$attempt"
+              sleep 2
+            done
+            if ! curl --fail --silent "http://127.0.0.1:${BACKEND_PORT}/api/health" >/dev/null; then
+              printf '[ERROR] backend health check failed\n' >&2
+              dump_container daily-activity-backend
+              exit 1
+            fi
+
+            phase "start frontend"
             docker run -d \
               --name daily-activity-frontend \
               --restart unless-stopped \
@@ -185,6 +249,7 @@ jobs:
               -p "${FRONTEND_PORT}:4173" \
               "$GHCR_REPO/frontend:latest"
 
+            phase "check frontend"
             for attempt in $(seq 1 30); do
               if curl --fail --silent "http://127.0.0.1:${FRONTEND_PORT}/" >/dev/null; then
                 printf '[INFO] Frontend healthy after attempt %s\n' "$attempt"
@@ -193,6 +258,6 @@ jobs:
               sleep 2
             done
 
-            docker logs --tail 200 daily-activity-backend || true
-            docker logs --tail 200 daily-activity-frontend || true
+            printf '[ERROR] frontend health check failed\n' >&2
+            diagnostics
             exit 1
