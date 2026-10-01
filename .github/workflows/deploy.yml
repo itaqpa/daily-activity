@@ -190,11 +190,7 @@ jobs:
             GHCR_REPO="ghcr.io/$(echo "$REPO" | tr '[:upper:]' '[:lower:]')"
 
             mkdir -p "$DEPLOY_DIR"
-            set -a
-            . "$DEPLOY_ENV_FILE"
-            set +a
             printf '[INFO] backend_port=%s frontend_port=%s\n' "$BACKEND_PORT" "$FRONTEND_PORT"
-            printf '[INFO] db_host=%s db_port=%s db_database=%s\n' "${DB_HOST:-unset}" "${DB_PORT:-unset}" "${DB_DATABASE:-unset}"
 
             phase "login and pull images"
             printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
@@ -220,8 +216,8 @@ jobs:
               --restart unless-stopped \
               --network postgres_database \
               --env-file "$DEPLOY_ENV_FILE" \
+              -v "$DEPLOY_ENV_FILE:/app/.env:ro" \
               -e BACKEND_PORT=8400 \
-              -e DB_PORT=5432 \
               -p "${BACKEND_PORT}:8400" \
               "$GHCR_REPO/backend:latest"
 
