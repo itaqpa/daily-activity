@@ -17,9 +17,9 @@ services:
     networks:
       - postgres_database
     ports:
-      - "${BACKEND_PORT:-8000}:8000"
+      - "${BACKEND_PORT:-8400}:8400"
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8000/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8400/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 10s
       timeout: 5s
       retries: 6
@@ -41,7 +41,7 @@ services:
     networks:
       - postgres_database
     ports:
-      - "${FRONTEND_PORT:-4173}:4173"
+      - "${FRONTEND_PORT:-4179}:4179"
 
 networks:
   postgres_database:
