@@ -41,7 +41,7 @@ jobs:
       - name: Build and push GHCR images
         env:
           GH_TOKEN: ${{ github.token }}
-          VITE_API_URL: ${{ vars.VITE_API_URL || 'http://localhost:8400/api' }}
+          VITE_API_URL: /api
         run: |
           set -Eeuo pipefail
           REPO="ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
@@ -74,10 +74,11 @@ jobs:
           WORKDIR /app
           COPY package*.json ./
           COPY vite.config.js ./
+          COPY --from=build /app/scripts ./scripts
           COPY --from=build /app/node_modules ./node_modules
           COPY --from=build /app/dist ./dist
           EXPOSE 4173
-          CMD ["npm", "run", "preview", "--", "--host", "0.0.0.0", "--port", "4173"]
+          CMD ["sh", "-c", "node scripts/start-frontend.mjs && npm run preview -- --host 0.0.0.0 --port 4173"]
           EOF
 
           docker push "$REPO/backend:${{ github.sha }}"
@@ -240,6 +241,8 @@ jobs:
               --name daily-activity-frontend \
               --restart unless-stopped \
               --network postgres_database \
+              --env-file "$DEPLOY_ENV_FILE" \
+              -v "$DEPLOY_ENV_FILE:/app/.env:ro" \
               -p "${FRONTEND_PORT}:4173" \
               "$GHCR_REPO/frontend:latest"
 

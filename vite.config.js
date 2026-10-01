@@ -14,6 +14,9 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
+      workbox: {
+        globIgnores: ['**/runtime-config.js'],
+      },
       manifest: {
         name: 'AQPA Indonesia',
         short_name: 'AQPA',
