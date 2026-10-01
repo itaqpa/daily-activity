@@ -161,55 +161,19 @@ jobs:
             printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
             docker pull "$GHCR_REPO/backend:latest"
             docker pull "$GHCR_REPO/frontend:latest"
-            docker pull postgres:16-alpine
-
-            docker rm -f daily-activity-schema 2>/dev/null || true
-            docker create --name daily-activity-schema "$GHCR_REPO/backend:latest" >/dev/null
-            docker cp daily-activity-schema:/app/Server/database/schema.sql "$DEPLOY_DIR/schema.sql"
-            docker rm daily-activity-schema >/dev/null
-
-            docker network inspect daily-activity >/dev/null 2>&1 || docker network create daily-activity
-            docker volume inspect daily-activity-postgres >/dev/null 2>&1 || docker volume create daily-activity-postgres
-
-            docker rm -f daily-activity-frontend daily-activity-backend daily-activity-postgres 2>/dev/null || true
-
-            docker run -d \
-              --name daily-activity-postgres \
-              --restart unless-stopped \
-              --network daily-activity \
-              --env-file "$DEPLOY_ENV_FILE" \
-              -e POSTGRES_DB="${DB_DATABASE:-db_aqpa_indonesia}" \
-              -e POSTGRES_USER="${DB_USERNAME:-postgres}" \
-              -e POSTGRES_PASSWORD="${DB_PASSWORD:-postgres}" \
-              -v daily-activity-postgres:/var/lib/postgresql/data \
-              postgres:16-alpine
-
-            postgres_ready=false
-            for attempt in $(seq 1 30); do
-              if docker exec daily-activity-postgres pg_isready -U "${DB_USERNAME:-postgres}" -d "${DB_DATABASE:-db_aqpa_indonesia}" >/dev/null 2>&1; then
-                postgres_ready=true
-                break
-              fi
-              sleep 2
-            done
-            if [[ "$postgres_ready" != true ]]; then
-              docker logs daily-activity-postgres
+            docker network inspect postgres_database >/dev/null 2>&1 || {
+              printf '[ERROR] Docker network postgres_database does not exist\n' >&2
+              docker network ls >&2
               exit 1
-            fi
+            }
 
-            docker run --rm \
-              --network daily-activity \
-              -e PGPASSWORD="$DB_PASSWORD" \
-              -v "$DEPLOY_DIR/schema.sql:/schema.sql:ro" \
-              postgres:16-alpine \
-              psql -h daily-activity-postgres -U "${DB_USERNAME:-postgres}" -d "${DB_DATABASE:-db_aqpa_indonesia}" -f /schema.sql
+            docker rm -f daily-activity-frontend daily-activity-backend 2>/dev/null || true
 
             docker run -d \
               --name daily-activity-backend \
               --restart unless-stopped \
-              --network daily-activity \
+              --network postgres_database \
               --env-file "$DEPLOY_ENV_FILE" \
-              -e DB_HOST=daily-activity-postgres \
               -e DB_PORT=5432 \
               -p "${BACKEND_PORT}:8000" \
               "$GHCR_REPO/backend:latest"
@@ -217,7 +181,7 @@ jobs:
             docker run -d \
               --name daily-activity-frontend \
               --restart unless-stopped \
-              --network daily-activity \
+              --network postgres_database \
               -p "${FRONTEND_PORT}:4173" \
               "$GHCR_REPO/frontend:latest"
 
@@ -229,7 +193,6 @@ jobs:
               sleep 2
             done
 
-            docker logs --tail 200 daily-activity-postgres || true
             docker logs --tail 200 daily-activity-backend || true
             docker logs --tail 200 daily-activity-frontend || true
             exit 1
