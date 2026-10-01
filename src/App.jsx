@@ -1,32 +1,32 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import DataSales from './pages/master-data/DataSales';
-import DataCustomer from './pages/master-data/DataCustomer';
-import UserManagement from './pages/user-management/UserManagement';
+import Dashboard from './marketing/pages/Dashboard';
+import DataSales from './marketing/pages/master-data/DataSales';
+import DataCustomer from './marketing/pages/master-data/DataCustomer';
+import UserManagement from './marketing/pages/user-management/UserManagement';
 
-import CatatAktivitas from './pages/activities/CatatAktivitas';
-import RiwayatAktivitas from './pages/activities/RiwayatAktivitas';
-import Laporan from './pages/reports/Laporan';
-import Settings from './pages/Settings';
+import CatatAktivitas from './marketing/pages/activities/CatatAktivitas';
+import RiwayatAktivitas from './marketing/pages/activities/RiwayatAktivitas';
+import Laporan from './marketing/pages/reports/Laporan';
+import Settings from './marketing/pages/Settings';
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Login />} />
-        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/marketing/dashboard" element={<Dashboard />} />
         
         {/* Master Data */}
-        <Route path="/master-data/sales" element={<DataSales />} />
-        <Route path="/master-data/customer" element={<DataCustomer />} />
-        <Route path="/users" element={<UserManagement />} />
+        <Route path="/marketing/master-data/sales" element={<DataSales />} />
+        <Route path="/marketing/master-data/customer" element={<DataCustomer />} />
+        <Route path="/marketing/users" element={<UserManagement />} />
         
         {/* Activities & Reports */}
-        <Route path="/activities/new" element={<CatatAktivitas />} />
-        <Route path="/activities" element={<RiwayatAktivitas />} />
-        <Route path="/reports" element={<Laporan />} />
-        <Route path="/settings" element={<Settings />} />
+        <Route path="/marketing/activities/new" element={<CatatAktivitas />} />
+        <Route path="/marketing/activities" element={<RiwayatAktivitas />} />
+        <Route path="/marketing/reports" element={<Laporan />} />
+        <Route path="/marketing/settings" element={<Settings />} />
       </Routes>
     </BrowserRouter>
   );

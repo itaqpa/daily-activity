@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import MainLayout from '../components/layouts/MainLayout';
 import { Clock, Filter, Trash2, Search, ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
-import { apiUrl } from '../../api';
+import { apiUrl } from '../../../api';
 
 export default function RiwayatAktivitas() {
   const user = JSON.parse(localStorage.getItem('user') || '{}');

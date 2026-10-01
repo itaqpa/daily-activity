@@ -11,7 +11,7 @@ import {
   Legend
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
-import { apiUrl } from '../api';
+import { apiUrl } from '../../api';
 
 ChartJS.register(
   CategoryScale,
@@ -83,7 +83,11 @@ export default function Dashboard() {
         let custData = await custRes.json();
         let salesData = await salesRes.json();
         
-        if (!canSeeAll) {
+        const isAdmin = user.jabatan === 'Admin' || user.role === 'admin' || user.jabatan?.toLowerCase() === 'admin sales';
+
+        if (isAdmin) {
+          actsData = [];
+        } else if (!canSeeAll) {
           actsData = actsData.filter(act => act.user_id === user.id);
         }
         

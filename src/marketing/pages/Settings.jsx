@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import MainLayout from './components/layouts/MainLayout';
 import { Save } from 'lucide-react';
-import { apiUrl } from '../api';
+import { apiUrl } from '../../api';
 
 export default function Settings() {
   const user = JSON.parse(localStorage.getItem('user') || '{}');

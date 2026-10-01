@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '../components/layouts/MainLayout';
 import { Save, AlertCircle } from 'lucide-react';
-import { apiUrl } from '../../api';
+import { apiUrl } from '../../../api';
 
 export default function CatatAktivitas() {
   const navigate = useNavigate();
@@ -117,7 +117,7 @@ export default function CatatAktivitas() {
         return;
       }
 
-      const response = await fetch(apiUrl('/activities'), {
+      const response = await fetch(apiUrl('/marketing/activities'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -163,7 +163,7 @@ export default function CatatAktivitas() {
     
     // Optionally redirect to riwayat
     setTimeout(() => {
-      navigate('/activities');
+      navigate('/marketing/activities');
     }, 2000);
   };
 
@@ -334,3 +334,4 @@ export default function CatatAktivitas() {
     </MainLayout>
   );
 }
+

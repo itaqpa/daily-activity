@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import MainLayout from '../components/layouts/MainLayout';
 import { Edit2, Trash2, UserPlus, CheckCircle, XCircle } from 'lucide-react';
-import { apiUrl } from '../../api';
+import { apiUrl } from '../../../api';
 
 export default function UserManagement() {
   const [users, setUsers] = useState([]);

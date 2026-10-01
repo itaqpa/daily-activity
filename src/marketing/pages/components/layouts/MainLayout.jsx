@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { LogOut, Menu, Home, PlusCircle, List, Download } from 'lucide-react';
 import Sidebar from './Sidebar';
-import { apiUrl } from '../../../api';
+import { apiUrl } from '../../../../api';
 
 export default function MainLayout({ children }) {
   const navigate = useNavigate();
@@ -135,8 +135,8 @@ export default function MainLayout({ children }) {
       {/* Bottom Navigation Bar (Mobile Only) */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 px-6 py-3 flex justify-between items-center pb-safe">
         <Link 
-          to="/dashboard" 
-          className={`flex flex-col items-center gap-1 ${isActive('/dashboard') ? 'text-blue-600' : 'text-gray-500'}`}
+          to="/marketing/dashboard" 
+          className={`flex flex-col items-center gap-1 ${isActive('/marketing/dashboard') ? 'text-blue-600' : 'text-gray-500'}`}
         >
           <Home className="w-6 h-6" />
           <span className="text-[10px] font-medium">Home</span>
@@ -144,7 +144,7 @@ export default function MainLayout({ children }) {
         
         {canAddActivity && (
           <Link 
-            to="/activities/new" 
+            to="/marketing/activities/new" 
             className="flex flex-col items-center -mt-8"
           >
             <div className="bg-blue-600 text-white rounded-full p-3 shadow-lg hover:bg-blue-700 transition-colors">
@@ -154,8 +154,8 @@ export default function MainLayout({ children }) {
         )}
 
         <Link 
-          to="/activities" 
-          className={`flex flex-col items-center gap-1 ${isActive('/activities') ? 'text-blue-600' : 'text-gray-500'}`}
+          to="/marketing/activities" 
+          className={`flex flex-col items-center gap-1 ${isActive('/marketing/activities') ? 'text-blue-600' : 'text-gray-500'}`}
         >
           <List className="w-6 h-6" />
           <span className="text-[10px] font-medium">Riwayat</span>
@@ -164,3 +164,5 @@ export default function MainLayout({ children }) {
     </div>
   );
 }
+
+

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import MainLayout from '../components/layouts/MainLayout';
 import { Users, X, ArrowDown, ArrowUp, ArrowUpDown, Search } from 'lucide-react';
-import { apiUrl } from '../../api';
+import { apiUrl } from '../../../api';
 
 export default function DataSales() {
   const [salesData, setSalesData] = useState([]);

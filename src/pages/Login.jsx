@@ -31,7 +31,7 @@ export default function Login() {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
-      navigate('/dashboard');
+      navigate('/marketing/dashboard');
     }
   }, [navigate]);
 
@@ -79,7 +79,7 @@ export default function Login() {
           );
         }
 
-        navigate('/dashboard');
+        navigate('/marketing/dashboard');
       } else {
         setErrorMsg(
           data.message ||
@@ -1353,3 +1353,4 @@ function ActivityItem({
     </div>
   );
 }
+
