@@ -59,12 +59,15 @@ export default function Sidebar({ isOpen, setIsOpen }) {
   const canViewTimSales = isSuperAdmin || isSPV || isManager;
 
   const roleName = (user.jabatan || '').toLowerCase();
+  const userRole = (user.role || '').toLowerCase();
+  
   const canCatatAktivitas = 
-    roleName === 'staff' || 
-    roleName === 'leader' || 
-    roleName.includes('spv') || 
-    roleName.includes('supervisor') || 
-    roleName.includes('manager');
+    roleName === 'staff' || userRole === 'staff' ||
+    roleName === 'leader' || userRole === 'leader' ||
+    roleName.includes('spv') || userRole.includes('spv') ||
+    roleName.includes('supervisor') || userRole.includes('supervisor') ||
+    roleName.includes('manager') || userRole.includes('manager') ||
+    roleName.includes('manajer') || userRole.includes('manajer');
 
   // PWA Install Prompt State
   const [deferredPrompt, setDeferredPrompt] = useState(null);
