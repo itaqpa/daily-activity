@@ -1,0 +1,359 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Search, Plus, Edit, Trash2, Eye, MoreVertical, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { apiUrl } from '../api';
+import MainLayout from '../marketing/pages/components/layouts/MainLayout';
+import WizardModal from './components/WizardModal';
+
+export default function ListInstallPage() {
+  const [projects, setProjects] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [activeDropdown, setActiveDropdown] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(15);
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const [editId, setEditId] = useState(null);
+  
+  // Ref to handle clicking outside dropdown
+  const dropdownRef = useRef(null);
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setActiveDropdown(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Fetch Projects from API
+  const fetchProjects = async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetch(apiUrl('/install-projects'));
+      if (res.ok) {
+        const data = await res.json();
+        setProjects(data);
+      } else {
+        console.error("Gagal mengambil data project");
+      }
+    } catch (err) {
+      console.error("Error fetching projects:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProjects();
+  }, []);
+
+  // Helper untuk hitung target selesai dari tgl_mulai dan durasi
+  const calculateTargetSelesai = (tgl, durasi) => {
+    if (!tgl || !durasi) return '-';
+    const start = new Date(tgl);
+    start.setDate(start.getDate() + (parseInt(durasi) - 1));
+    return start.toISOString().split('T')[0];
+  };
+
+  // Mapping data API ke format UI
+  const mappedData = projects.map(p => ({
+    id: p.id,
+    no_project: p.no_project || '-',
+    nama_project: p.nama || '-',
+    customer: p.customer || '-',
+    lokasi: p.lokasi || '-',
+    leader: p.leader || '-',
+    mulai: p.tgl_mulai ? new Date(p.tgl_mulai).toISOString().split('T')[0] : '-',
+    target_selesai: calculateTargetSelesai(p.tgl_mulai, p.durasi_hari),
+    catatan: p.catatan || '-',
+    status: p.status === 'registered' ? 'Registered' : (p.status === 'running' ? 'Running' : (p.status || 'draft'))
+  }));
+
+  // Filtering
+  const filteredData = mappedData.filter(item => 
+    item.nama_project.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    item.no_project.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.customer.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Pagination Logic
+  const totalItems = filteredData.length;
+  const totalPages = itemsPerPage === "All" ? 1 : Math.ceil(totalItems / itemsPerPage);
+  
+  const indexOfLastItem = itemsPerPage === "All" ? totalItems : currentPage * itemsPerPage;
+  const indexOfFirstItem = itemsPerPage === "All" ? 0 : indexOfLastItem - itemsPerPage;
+  const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
+
+  const handlePageChange = (page) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+      setActiveDropdown(null);
+    }
+  };
+
+  const handleWizardSuccess = () => {
+    fetchProjects();
+  };
+
+  const handleView = (id) => {
+    console.log("View detail", id);
+    // TODO: Navigate to detail page
+  };
+
+  const handleEdit = (id) => {
+    setEditId(id);
+    setIsWizardOpen(true);
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm("Apakah Anda yakin ingin menghapus project ini?")) {
+      try {
+        const res = await fetch(apiUrl(`/install-projects/${id}`), { method: 'DELETE' });
+        if (res.ok) {
+          fetchProjects();
+        } else {
+          alert("Gagal menghapus project");
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  };
+
+  return (
+    <MainLayout>
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8">
+        
+        {/* Title */}
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-gray-800">Installation Project</h1>
+          <p className="text-gray-500 text-sm mt-1">Daftar semua project instalasi beserta status dan detail pelaksanaannya.</p>
+        </div>
+
+        {/* Toolbar: Search (Left) & Add Button (Right) */}
+        <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+          
+          <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
+            {/* Search */}
+            <div className="relative w-full sm:w-80">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Cari project..."
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1); // Reset to page 1 on search
+                }}
+                className="w-full pl-11 pr-4 py-2 bg-gray-50/50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
+              />
+            </div>
+            
+            {/* Show Entries Dropdown */}
+            <div className="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
+              <span>Tampilkan:</span>
+              <select
+                value={itemsPerPage}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setItemsPerPage(val === "All" ? "All" : Number(val));
+                  setCurrentPage(1);
+                }}
+                className="bg-gray-50/50 border border-gray-200 text-gray-700 py-2 px-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer"
+              >
+                <option value={15}>15</option>
+                <option value={30}>30</option>
+                <option value={90}>90</option>
+                <option value={120}>120</option>
+                <option value="All">All</option>
+              </select>
+            </div>
+          </div>
+
+          <button 
+            onClick={() => setIsWizardOpen(true)}
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition-all shadow-sm hover:shadow-md active:scale-95"
+          >
+            <Plus className="w-5 h-5" strokeWidth={2.5} />
+            Add Installation
+          </button>
+          
+        </div>
+
+        {/* Table Container - min height to fit at least 15 items comfortably and to prevent clipping dropdowns */}
+        <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm min-h-[500px] relative pb-16">
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center h-64 gap-3 text-gray-500">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+              <p className="font-medium">Memuat data project...</p>
+            </div>
+          ) : (
+            <table className="w-full text-sm text-left">
+              <thead className="text-xs text-gray-600 uppercase bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-4 py-4 font-bold text-center">No</th>
+                  <th className="px-4 py-4 font-bold whitespace-nowrap">No Project</th>
+                  <th className="px-4 py-4 font-bold min-w-[200px]">Nama Project</th>
+                  <th className="px-4 py-4 font-bold min-w-[150px]">Customer</th>
+                  <th className="px-4 py-4 font-bold min-w-[120px]">Lokasi</th>
+                  <th className="px-4 py-4 font-bold min-w-[120px]">Leader</th>
+                  <th className="px-4 py-4 font-bold whitespace-nowrap">Mulai</th>
+                  <th className="px-4 py-4 font-bold whitespace-nowrap">Target Selesai</th>
+                  <th className="px-4 py-4 font-bold min-w-[200px]">Catatan</th>
+                  <th className="px-4 py-4 font-bold text-center">Status</th>
+                  <th className="px-4 py-4 font-bold text-center sticky right-0 bg-gray-50 border-l border-gray-200">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 relative">
+                {currentItems.map((row, index) => (
+                  <tr key={row.id} className="bg-white hover:bg-blue-50/30 transition-colors">
+                    <td className="px-4 py-3.5 text-center text-gray-500">{indexOfFirstItem + index + 1}</td>
+                    <td className="px-4 py-3.5 font-semibold text-gray-900">{row.no_project}</td>
+                    <td className="px-4 py-3.5 font-medium text-gray-700">{row.nama_project}</td>
+                    <td className="px-4 py-3.5 text-gray-600">{row.customer}</td>
+                    <td className="px-4 py-3.5 text-gray-600">{row.lokasi}</td>
+                    <td className="px-4 py-3.5 text-gray-600">{row.leader}</td>
+                    <td className="px-4 py-3.5 text-gray-600 whitespace-nowrap">{row.mulai}</td>
+                    <td className="px-4 py-3.5 text-gray-600 whitespace-nowrap">{row.target_selesai}</td>
+                    <td className="px-4 py-3.5 text-gray-500 text-sm">
+                      <div className="line-clamp-2" title={row.catatan}>{row.catatan}</div>
+                    </td>
+                    <td className="px-4 py-3.5 text-center">
+                      <span className={`px-2.5 py-1 text-xs font-semibold rounded-full border whitespace-nowrap capitalize ${
+                        row.status.toLowerCase() === 'registered' ? 'bg-blue-50 text-blue-700 border-blue-200' : 
+                        row.status.toLowerCase() === 'running' || row.status.toLowerCase() === 'in progress' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
+                        row.status.toLowerCase() === 'draft' ? 'bg-amber-50 text-amber-700 border-amber-200' : 
+                        'bg-gray-50 text-gray-700 border-gray-200'
+                      }`}>
+                        {row.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3.5 relative text-center sticky right-0 bg-white border-l border-gray-100 group-hover:bg-blue-50/30">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveDropdown(activeDropdown === row.id ? null : row.id);
+                        }}
+                        className={`p-1.5 rounded-lg transition-colors ${activeDropdown === row.id ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-100'}`}
+                      >
+                        <MoreVertical className="w-5 h-5" />
+                      </button>
+                      
+                      {/* Dropdown Menu - using z-[9999] for top-level stacking */}
+                      {activeDropdown === row.id && (
+                        <div 
+                          ref={dropdownRef}
+                          className="absolute right-12 top-10 w-40 bg-white rounded-xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.15)] border border-gray-200 py-2 z-[9999]"
+                        >
+                          <button 
+                            onClick={() => { setActiveDropdown(null); handleView(row.id); }}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors text-left font-medium"
+                          >
+                            <Eye className="w-[18px] h-[18px]" /> Lihat Detail
+                          </button>
+                          <button 
+                            onClick={() => { setActiveDropdown(null); handleEdit(row.id); }}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-amber-50 hover:text-amber-600 transition-colors text-left font-medium"
+                          >
+                            <Edit className="w-[18px] h-[18px]" /> Edit
+                          </button>
+                          <div className="h-px bg-gray-100 my-1"></div>
+                          <button 
+                            onClick={() => { setActiveDropdown(null); handleDelete(row.id); }}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors text-left font-medium"
+                          >
+                            <Trash2 className="w-[18px] h-[18px]" /> Hapus
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                
+                {/* Jika data kosong (Search filter) */}
+                {currentItems.length === 0 && (
+                  <tr>
+                    <td colSpan="11" className="px-4 py-12 text-center text-gray-500">
+                      Tidak ada data project yang ditemukan.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Pagination Footer */}
+        {totalItems > 0 && !isLoading && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
+            <div className="text-sm text-gray-500">
+              Menampilkan <span className="font-semibold text-gray-700">{indexOfFirstItem + 1}</span> hingga <span className="font-semibold text-gray-700">{Math.min(indexOfLastItem, totalItems)}</span> dari <span className="font-semibold text-gray-700">{totalItems}</span> data
+            </div>
+            
+            {itemsPerPage !== "All" && totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="p-2 border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                
+                <div className="flex items-center gap-1">
+                  {[...Array(totalPages)].map((_, idx) => {
+                    // Logic untuk membatasi jumlah tombol pagination yang tampil agar tidak terlalu panjang
+                    if (
+                      totalPages > 5 &&
+                      idx > 0 &&
+                      idx < totalPages - 1 &&
+                      Math.abs(idx + 1 - currentPage) > 1
+                    ) {
+                      if (idx + 1 === currentPage - 2 || idx + 1 === currentPage + 2) {
+                        return <span key={idx} className="px-1 text-gray-400">...</span>;
+                      }
+                      return null;
+                    }
+
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => handlePageChange(idx + 1)}
+                        className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
+                          currentPage === idx + 1 
+                            ? 'bg-blue-600 text-white' 
+                            : 'text-gray-600 hover:bg-gray-100'
+                        }`}
+                      >
+                        {idx + 1}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <button 
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="p-2 border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <WizardModal 
+        isOpen={isWizardOpen} 
+        onClose={() => {
+          setIsWizardOpen(false);
+          setEditId(null);
+        }}
+        onSuccess={handleWizardSuccess}
+        editId={editId}
+      />
+    </MainLayout>
+  );
+}

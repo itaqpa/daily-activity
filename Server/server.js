@@ -5,6 +5,7 @@ const { Pool } = pkg;
 import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
 import userRoutes from './routes/userRoutes.js';
+import installationProjectsRoutes from './routes/installationProjectsRoutes.js';
 
 // Load environment variables from .env
 dotenv.config();
@@ -471,6 +472,8 @@ app.post('/api/activities', async (req, res) => {
     res.status(500).json({ error: 'Gagal mencatat aktivitas' });
   }
 });
+
+app.use('/api/install-projects', installationProjectsRoutes);
 
 // Start Server
 app.listen(port, () => {

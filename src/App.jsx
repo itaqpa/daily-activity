@@ -9,7 +9,7 @@ import CatatAktivitas from './marketing/pages/activities/CatatAktivitas';
 import RiwayatAktivitas from './marketing/pages/activities/RiwayatAktivitas';
 import Laporan from './marketing/pages/reports/Laporan';
 import Settings from './marketing/pages/Settings';
-
+import ListInstallPage from './install-project/ListInstallPage';
 function ProtectedRoute() {
   const token = localStorage.getItem('token');
   if (!token) {
@@ -38,6 +38,10 @@ function App() {
           <Route path="activities" element={<RiwayatAktivitas />} />
           <Route path="reports" element={<Laporan />} />
           <Route path="settings" element={<Settings />} />
+        </Route>
+
+        <Route path="/installation-project" element={<ProtectedRoute />}>
+          <Route index element={<ListInstallPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
