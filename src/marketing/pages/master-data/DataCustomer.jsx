@@ -58,9 +58,9 @@ export default function DataCustomer() {
 
   const downloadFormatCSV = () => {
     const csvContent =
-      `no_akun,nama_customer,site_kota,sales_email
-1001,PT Maju Jaya,Jakarta,sales1@email.com
-1002,PT Multi Lokasi,"Bandung;Surabaya","sales1@email.com;sales2@email.com"`;
+      `no_akun,nama_customer,site_kota,note,sales_email
+1001,PT Maju Jaya,Jakarta,Register,sales1@email.com
+1002,PT Multi Lokasi,"Bandung;Surabaya",Not Register,"sales1@email.com;sales2@email.com"`;
 
     const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
@@ -81,7 +81,8 @@ export default function DataCustomer() {
     no_akun: '',
     nama_customer: '',
     site_kota: [''],
-    sales_ids: []
+    sales_ids: [],
+    note: ''
   });
 
   const fetchCustomers = async () => {
@@ -172,7 +173,7 @@ export default function DataCustomer() {
   };
 
   const openAddModal = () => {
-    setFormData({ id: null, no_akun: '', nama_customer: '', site_kota: [''], sales_ids: [] });
+    setFormData({ id: null, no_akun: '', nama_customer: '', site_kota: [''], sales_ids: [], note: '' });
     setIsEditing(false);
     setIsModalOpen(true);
   };
@@ -183,7 +184,8 @@ export default function DataCustomer() {
       no_akun: customer.no_akun || '',
       nama_customer: customer.nama_customer,
       site_kota: customer.site_kota && customer.site_kota.length > 0 ? customer.site_kota : [''],
-      sales_ids: customer.assigned_sales ? customer.assigned_sales.map(s => s.id) : []
+      sales_ids: customer.assigned_sales ? customer.assigned_sales.map(s => s.id) : [],
+      note: customer.note || ''
     });
     setIsEditing(true);
     setIsModalOpen(true);
@@ -269,6 +271,7 @@ export default function DataCustomer() {
       no_akun: new Set(),
       nama_customer: new Set(),
       site_kota: new Set(),
+      note: new Set(),
       sales: new Set(),
       account_type: new Set(),
     };
@@ -276,6 +279,7 @@ export default function DataCustomer() {
     customers.forEach(c => {
       if (c.no_akun) opts.no_akun.add(c.no_akun);
       if (c.nama_customer) opts.nama_customer.add(c.nama_customer);
+      if (c.note) opts.note.add(c.note);
       if (c.site_kota) {
         if (Array.isArray(c.site_kota)) {
           c.site_kota.forEach(s => opts.site_kota.add(s));
@@ -295,6 +299,7 @@ export default function DataCustomer() {
       no_akun: Array.from(opts.no_akun).sort(),
       nama_customer: Array.from(opts.nama_customer).sort(),
       site_kota: Array.from(opts.site_kota).sort(),
+      note: Array.from(opts.note).sort(),
       sales: Array.from(opts.sales).sort(),
       account_type: Array.from(opts.account_type).sort(),
     };
@@ -307,7 +312,8 @@ export default function DataCustomer() {
       const s = globalSearch.toLowerCase();
       result = result.filter(c =>
         (c.no_akun && c.no_akun.toLowerCase().includes(s)) ||
-        (c.nama_customer && c.nama_customer.toLowerCase().includes(s))
+        (c.nama_customer && c.nama_customer.toLowerCase().includes(s)) ||
+        (c.note && c.note.toLowerCase().includes(s))
       );
     }
 
@@ -315,6 +321,7 @@ export default function DataCustomer() {
       if (filters.no_akun && c.no_akun !== filters.no_akun) return false;
       if (filters.nama_customer && c.nama_customer !== filters.nama_customer) return false;
       if (filters.site_kota && (!c.site_kota || !c.site_kota.includes(filters.site_kota))) return false;
+      if (filters.note && c.note !== filters.note) return false;
       if (filters.sales && (!c.assigned_sales || !c.assigned_sales.some(s => s.name === filters.sales))) return false;
       if (filters.account_type) {
         let acctType = '-';
@@ -331,6 +338,7 @@ export default function DataCustomer() {
         if (sortConfig.key === 'no_akun') { aVal = a.no_akun || ''; bVal = b.no_akun || ''; }
         else if (sortConfig.key === 'nama_customer') { aVal = a.nama_customer || ''; bVal = b.nama_customer || ''; }
         else if (sortConfig.key === 'site_kota') { aVal = (a.site_kota || []).join(', '); bVal = (b.site_kota || []).join(', '); }
+        else if (sortConfig.key === 'note') { aVal = a.note || ''; bVal = b.note || ''; }
         else if (sortConfig.key === 'sales') { aVal = (a.assigned_sales || []).map(s => s.name).join(', '); bVal = (b.assigned_sales || []).map(s => s.name).join(', '); }
         else if (sortConfig.key === 'account_type') {
           let aType = '-'; if (a.assigned_sales?.length > 1) aType = 'Tandem'; else if (a.assigned_sales?.length === 1) aType = 'Individu';
@@ -466,6 +474,7 @@ export default function DataCustomer() {
               <tr className="bg-gray-50 border-b border-gray-200 text-gray-600">
                 <FilterHeader columnKey="no_akun" label="No. Akun" />
                 <FilterHeader columnKey="nama_customer" label="Nama Customer" />
+                <FilterHeader columnKey="note" label="Note" />
                 <FilterHeader columnKey="site_kota" label="Site / Kota" />
                 <FilterHeader columnKey="sales" label="Sales" />
                 <FilterHeader columnKey="account_type" label="Customer Account Type" />
@@ -479,6 +488,21 @@ export default function DataCustomer() {
                 <tr key={c.id} className="border-b border-gray-100 hover:bg-gray-50/50">
                   <td className="p-4 text-sm text-gray-800 font-medium">{c.no_akun || '-'}</td>
                   <td className="p-4 text-sm text-gray-800 font-medium">{c.nama_customer}</td>
+                  <td className="p-4 text-sm text-gray-600 whitespace-nowrap">
+                    {c.note ? (
+                      <span className={`px-2.5 py-1 text-xs rounded-full font-medium border ${
+                        c.note === 'Register'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : c.note === 'Not Register'
+                            ? 'bg-amber-50 text-amber-700 border-amber-200'
+                            : 'bg-gray-100 text-gray-700 border-gray-200'
+                      }`}>
+                        {c.note}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400 italic text-xs">-</span>
+                    )}
+                  </td>
                   <td className="p-4 text-sm text-gray-600">
                     <div className="flex flex-wrap gap-1">
                       {c.site_kota && c.site_kota.length > 0 ? (
@@ -562,7 +586,7 @@ export default function DataCustomer() {
                 </tr>
               )) : (
                 <tr>
-                  <td colSpan="5" className="p-8 text-center text-gray-500">
+                  <td colSpan="9" className="p-8 text-center text-gray-500">
                     Belum ada data customer
                   </td>
                 </tr>
@@ -708,6 +732,7 @@ export default function DataCustomer() {
                               no_akun: row.no_akun || '',
                               nama_customer: row.nama_customer || '',
                               site_kota: row.site_kota ? row.site_kota.split(';').map(s => s.trim()) : [],
+                              note: row.note || '',
                               sales_emails: row.sales_email ? row.sales_email.split(';').map(e => e.trim()) : [], // We use emails to match sales in backend or just send it if backend supports it. For now assuming backend handles it or we just add it to note.
                               status: isAdmin ? 'approved' : 'pending'
                             };
