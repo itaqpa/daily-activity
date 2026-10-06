@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import MainLayout from '../components/layouts/MainLayout';
 import { Save, AlertCircle } from 'lucide-react';
 import { apiUrl } from '../../../api';
+import Select from 'react-select';
 
 export default function CatatAktivitas() {
   const navigate = useNavigate();
@@ -64,21 +65,62 @@ export default function CatatAktivitas() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleCustomerChange = (e) => {
-    const custId = e.target.value;
-    const selectedCust = customers.find(c => c.id.toString() === custId);
+  const [selectedCustomerName, setSelectedCustomerName] = useState('');
+
+  const uniqueCustomerNames = Array.from(new Set(customers.map(c => c.nama_customer))).filter(Boolean);
+
+  const handleCustomerNameChange = (e) => {
+    const custName = e.target.value;
+    setSelectedCustomerName(custName);
     
-    let defaultSite = '';
-    if (selectedCust && Array.isArray(selectedCust.site_kota) && selectedCust.site_kota.length > 0) {
-      defaultSite = selectedCust.site_kota[0];
+    if (!custName) {
+      setFormData(prev => ({ ...prev, customer_id: '', site_kota: '' }));
+      return;
+    }
+
+    const rows = customers.filter(c => c.nama_customer === custName);
+    let allSites = [];
+    rows.forEach(r => {
+      if (Array.isArray(r.site_kota)) {
+        r.site_kota.forEach(site => {
+          allSites.push({ site, id: r.id });
+        });
+      }
+    });
+
+    if (allSites.length > 0) {
+      setFormData(prev => ({
+        ...prev,
+        customer_id: allSites[0].id.toString(),
+        site_kota: allSites[0].site
+      }));
     } else {
-      defaultSite = 'Umum / tidak spesifik';
+      setFormData(prev => ({
+        ...prev,
+        customer_id: rows.length > 0 ? rows[0].id.toString() : '',
+        site_kota: 'Umum / tidak spesifik'
+      }));
+    }
+  };
+
+  const handleSiteChange = (e) => {
+    const selectedSite = e.target.value;
+    const rows = customers.filter(c => c.nama_customer === selectedCustomerName);
+    let matchedId = formData.customer_id;
+    
+    if (selectedSite !== 'Lainnya') {
+       for (const r of rows) {
+          if (Array.isArray(r.site_kota) && r.site_kota.includes(selectedSite)) {
+             matchedId = r.id.toString();
+             break;
+          }
+       }
     }
 
     setFormData(prev => ({
       ...prev,
-      customer_id: custId,
-      site_kota: defaultSite
+      site_kota: selectedSite,
+      customer_id: matchedId
     }));
   };
 
@@ -150,6 +192,7 @@ export default function CatatAktivitas() {
 
   const resetFormAndRedirect = () => {
     // Reset form
+    setSelectedCustomerName('');
     setFormData({
       customer_id: '',
       site_kota: '',
@@ -166,10 +209,18 @@ export default function CatatAktivitas() {
     }, 2000);
   };
 
-  const selectedCustomerObj = customers.find(c => c.id.toString() === formData.customer_id);
-  const availableSites = selectedCustomerObj && Array.isArray(selectedCustomerObj.site_kota) 
-    ? selectedCustomerObj.site_kota 
-    : [];
+  const currentCustomerRow = customers.find(c => c.id.toString() === formData.customer_id);
+  const currentKodeCsr = currentCustomerRow ? currentCustomerRow.no_akun : '';
+
+  const rowsForSelectedCustomer = customers.filter(c => c.nama_customer === selectedCustomerName);
+  let allAvailableSites = [];
+  rowsForSelectedCustomer.forEach(r => {
+    if (Array.isArray(r.site_kota)) {
+      r.site_kota.forEach(site => {
+        if (!allAvailableSites.includes(site)) allAvailableSites.push(site);
+      });
+    }
+  });
 
   return (
     <MainLayout>
@@ -195,34 +246,43 @@ export default function CatatAktivitas() {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             
-            {/* Customer & Site/Kota */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Customer, Site/Kota & Kode CSR */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Customer <span className="text-red-500">*</span></label>
-                <select 
-                  name="customer_id"
-                  value={formData.customer_id}
-                  onChange={handleCustomerChange}
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                >
-                  <option value="">-- Pilih Customer --</option>
-                  {customers.map(cust => (
-                    <option key={cust.id} value={cust.id}>{cust.nama_customer}</option>
-                  ))}
-                </select>
+                <Select 
+                  options={uniqueCustomerNames.map(name => ({ value: name, label: name }))}
+                  value={selectedCustomerName ? { value: selectedCustomerName, label: selectedCustomerName } : null}
+                  onChange={(selected) => handleCustomerNameChange({ target: { value: selected ? selected.value : '' } })}
+                  placeholder="-- Ketik / Pilih Customer --"
+                  isClearable
+                  isSearchable
+                  required={!selectedCustomerName}
+                  styles={{
+                    control: (base) => ({
+                      ...base,
+                      padding: '2px',
+                      borderRadius: '0.5rem',
+                      borderColor: '#d1d5db',
+                      boxShadow: 'none',
+                      '&:hover': {
+                        borderColor: '#3b82f6'
+                      }
+                    })
+                  }}
+                />
               </div>
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Site / Kota</label>
-                {availableSites.length > 0 ? (
+                {allAvailableSites.length > 0 ? (
                   <select 
                     name="site_kota"
                     value={formData.site_kota}
-                    onChange={handleChange}
+                    onChange={handleSiteChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                   >
-                    {availableSites.map((site, i) => (
+                    {allAvailableSites.map((site, i) => (
                       <option key={i} value={site}>{site}</option>
                     ))}
                     <option value="Lainnya">Lainnya...</option>
@@ -237,6 +297,17 @@ export default function CatatAktivitas() {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50"
                   />
                 )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Kode CSR</label>
+                <input 
+                  type="text"
+                  value={currentKodeCsr || ''}
+                  readOnly
+                  placeholder="Akan otomatis terisi"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed focus:outline-none"
+                />
               </div>
             </div>
 
