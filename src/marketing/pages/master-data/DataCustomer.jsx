@@ -95,7 +95,20 @@ export default function DataCustomer() {
 
       const response = await fetch(url);
       if (response.ok) {
-        setCustomers(await response.json());
+        const rawData = await response.json();
+        const normalizedData = rawData.map(c => {
+          let sk = c.site_kota;
+          if (typeof sk === 'string') {
+            try {
+              sk = JSON.parse(sk);
+            } catch (e) {
+              sk = sk.split(/[;,]/).map(s => s.trim()).filter(Boolean);
+            }
+          }
+          if (!Array.isArray(sk)) sk = [];
+          return { ...c, site_kota: sk };
+        });
+        setCustomers(normalizedData);
       }
     } catch (error) {
       console.error('Error fetching customers:', error);
