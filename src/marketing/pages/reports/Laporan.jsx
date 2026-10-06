@@ -38,6 +38,7 @@ export default function Laporan() {
   const roleName = (user.jabatan || '').toLowerCase();
   const canSeeAll = roleName !== 'staff';
   const [activities, setActivities] = useState([]);
+  const [salesList, setSalesList] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Filters
@@ -52,7 +53,21 @@ export default function Laporan() {
 
   useEffect(() => {
     fetchActivities();
-  }, []);
+    if (canSeeAll) {
+      fetchSalesList();
+    }
+  }, [canSeeAll]);
+
+  const fetchSalesList = async () => {
+    try {
+      const response = await fetch(apiUrl('/sales'));
+      if (response.ok) {
+        setSalesList(await response.json());
+      }
+    } catch (error) {
+      console.error('Error fetching sales:', error);
+    }
+  };
 
   const fetchActivities = async () => {
     try {
@@ -269,14 +284,8 @@ export default function Laporan() {
   }, [scopeActivities]);
 
   const uniqueSales = useMemo(() => {
-    const salesMap = new Map();
-    activities.forEach(act => {
-      if (act.user_id && act.user_name) {
-        salesMap.set(act.user_id, act.user_name);
-      }
-    });
-    return Array.from(salesMap, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
-  }, [activities]);
+    return salesList.slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  }, [salesList]);
 
   const uniqueCustomer = useMemo(() => {
     return [...new Set(filteredActs.map(a => a.nama_customer).filter(Boolean))].sort();
