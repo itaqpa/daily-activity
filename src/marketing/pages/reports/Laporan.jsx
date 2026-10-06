@@ -39,6 +39,7 @@ export default function Laporan() {
   const canSeeAll = roleName !== 'staff';
   const [activities, setActivities] = useState([]);
   const [salesList, setSalesList] = useState([]);
+  const [customersData, setCustomersData] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Filters
@@ -53,10 +54,27 @@ export default function Laporan() {
 
   useEffect(() => {
     fetchActivities();
+    fetchCustomersData();
     if (canSeeAll) {
       fetchSalesList();
     }
   }, [canSeeAll]);
+
+  const fetchCustomersData = async () => {
+    try {
+      const response = await fetch(apiUrl('/customers'));
+      if (response.ok) {
+        const data = await response.json();
+        const formatted = data.map(c => ({
+          ...c,
+          assigned_sales: Array.isArray(c.assigned_sales) ? c.assigned_sales : (c.assigned_sales ? JSON.parse(c.assigned_sales) : [])
+        }));
+        setCustomersData(formatted);
+      }
+    } catch (error) {
+      console.error('Error fetching customers:', error);
+    }
+  };
 
   const fetchSalesList = async () => {
     try {
@@ -280,8 +298,16 @@ export default function Laporan() {
   }, [activities, reportScope, canSeeAll]);
 
   const allScopeCustomers = useMemo(() => {
-    return [...new Set(scopeActivities.map(a => a.nama_customer).filter(Boolean))].sort();
-  }, [scopeActivities]);
+    let filtered = customersData;
+    if (canSeeAll) {
+      if (reportScope !== 'all') {
+         filtered = filtered.filter(c => c.assigned_sales?.some(s => s.id.toString() === reportScope));
+      }
+    } else {
+      filtered = filtered.filter(c => c.assigned_sales?.some(s => s.id === user.id));
+    }
+    return [...new Set(filtered.map(c => c.nama_customer).filter(Boolean))].sort();
+  }, [customersData, reportScope, canSeeAll, user.id]);
 
   const uniqueSales = useMemo(() => {
     return salesList.slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
