@@ -23,21 +23,26 @@ export default function Sidebar({ isOpen, setIsOpen }) {
   const [isDataMasterOpen, setIsDataMasterOpen] = useState(
     location.pathname.includes("/master-data"),
   );
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   // Parse user dari localStorage untuk mengecek role
   const userString = localStorage.getItem("user");
   const user = userString ? JSON.parse(userString) : {};
 
+  // Ambil active jabatan, jika belum pilih, gunakan jabatan utama
+  const activeJabatan = user.active_jabatan || user.jabatan;
+  const activeJabatanId = user.active_jabatan_id || user.jabatan_id;
+
   // Logika role (sesuaikan dengan data user dari database Anda)
   const isSuperAdmin =
     user.username === "admin" ||
-    user.jabatan === "Super Admin" ||
+    activeJabatan === "Super Admin" ||
     user.role === "superadmin";
     
   const isAdmin = 
-    user.jabatan === "Admin" || 
+    activeJabatan === "Admin" || 
     user.role === "admin" || 
-    user.jabatan?.toLowerCase() === "admin sales";
+    activeJabatan?.toLowerCase() === "admin sales";
 
   const isSales =
     user.divisi?.toLowerCase() === "sales" ||
@@ -50,21 +55,40 @@ export default function Sidebar({ isOpen, setIsOpen }) {
   // Cek apakah user adalah Staff (bukan SPV) di divisi Sales
   const isStaffSales =
     isSales &&
-    (user.jabatan?.toLowerCase() === "staff" || user.jabatan_id === 5);
+    (activeJabatan?.toLowerCase() === "staff" || activeJabatanId === 5);
 
   const isSPV =
-    user.jabatan?.toLowerCase().includes("spv") ||
-    user.jabatan?.toLowerCase().includes("supervisor");
-  const isManager = user.jabatan?.toLowerCase().includes("manager");
+    activeJabatan?.toLowerCase().includes("spv") ||
+    activeJabatan?.toLowerCase().includes("supervisor");
+  const isManager = activeJabatan?.toLowerCase().includes("manager");
   const canViewTimSales = isSuperAdmin || isSPV || isManager;
 
-  const roleName = (user.jabatan || '').toLowerCase();
+  const roleName = (activeJabatan || '').toLowerCase();
   const canCatatAktivitas = 
     roleName === 'staff' || 
     roleName === 'leader' || 
     roleName.includes('spv') || 
     roleName.includes('supervisor') || 
     roleName.includes('manager');
+
+  // Siapkan daftar role (Jabatan Utama + Jabatan Tambahan)
+  const availableRoles = [];
+  if (user.jabatan) {
+    availableRoles.push({ id: user.jabatan_id, nama_jabatan: user.jabatan });
+  }
+  if (user.additional_roles_data && Array.isArray(user.additional_roles_data)) {
+    user.additional_roles_data.forEach(role => {
+       if (!availableRoles.some(r => r.id === role.id)) {
+          availableRoles.push(role);
+       }
+    });
+  }
+
+  const handleSwitchRole = (roleId, roleName) => {
+    const updatedUser = { ...user, active_jabatan_id: roleId, active_jabatan: roleName };
+    localStorage.setItem("user", JSON.stringify(updatedUser));
+    window.location.reload();
+  };
 
   // PWA Install Prompt State
   const [deferredPrompt, setDeferredPrompt] = useState(null);
@@ -339,10 +363,58 @@ export default function Sidebar({ isOpen, setIsOpen }) {
           </button>
         </nav>
 
-        <div className="p-4 border-t border-white/10 shrink-0 flex items-center gap-2">
+        <div className="p-4 border-t border-white/10 shrink-0 flex flex-col gap-2">
+          {/* Profile Dropdown */}
+          <div className="w-full relative">
+            <button
+              onClick={() => setIsProfileOpen(!isProfileOpen)}
+              className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors text-blue-100/70 hover:bg-white/5 hover:text-white"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-300 font-bold shadow-inner">
+                  {user.nama ? user.nama.substring(0, 2).toUpperCase() : 'U'}
+                </div>
+                <div className="flex flex-col text-left">
+                  <span className="font-bold text-sm text-white truncate max-w-[120px]">{user.nama || user.username}</span>
+                  <span className="text-xs text-blue-200/70 truncate max-w-[120px]">{activeJabatan}</span>
+                </div>
+              </div>
+              {isProfileOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+            </button>
+            
+            {isProfileOpen && (
+              <div className="absolute bottom-full left-0 w-full mb-2 bg-[#1a2d47] border border-white/10 rounded-xl shadow-xl overflow-hidden z-50">
+                <div className="px-4 py-3 border-b border-white/5 bg-[#1c3350]">
+                  <p className="text-xs font-bold text-white uppercase tracking-wider">Pilih Role Aktif</p>
+                </div>
+                <div className="flex flex-col max-h-48 overflow-y-auto py-1">
+                  {availableRoles.length > 0 ? availableRoles.map(role => (
+                    <button
+                      key={role.id}
+                      onClick={() => handleSwitchRole(role.id, role.nama_jabatan)}
+                      className={`flex items-center gap-3 px-4 py-3 text-sm transition-colors text-left
+                        ${activeJabatanId === role.id ? 'bg-blue-600/20 text-blue-300 font-bold border-l-2 border-blue-400' : 'text-blue-100/70 hover:bg-white/5 hover:text-white border-l-2 border-transparent'}
+                      `}
+                    >
+                      <div className="w-4 flex justify-center flex-shrink-0">
+                        {activeJabatanId === role.id && <span className="text-blue-400">✓</span>}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {role.nama_jabatan.toLowerCase().includes('admin') ? <Settings className="w-4 h-4" /> : <Users className="w-4 h-4" />}
+                        <span>{role.nama_jabatan}</span>
+                      </div>
+                    </button>
+                  )) : (
+                    <div className="px-4 py-3 text-sm text-blue-200/50 italic">Tidak ada role lain</div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
           <button
             onClick={handleLogout}
-            className="flex-1 flex items-center justify-center gap-3 text-red-400 hover:bg-red-500/10 hover:text-red-300 px-4 py-3 rounded-lg transition-colors"
+            className="w-full flex items-center justify-center gap-3 text-red-400 hover:bg-red-500/10 hover:text-red-300 px-4 py-3 rounded-lg transition-colors"
           >
             <LogOut className="w-5 h-5" />
             <span className="font-medium">Logout</span>
