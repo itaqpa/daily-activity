@@ -46,6 +46,12 @@ router.get('/:id', async (req, res) => {
     
     const project = projectRes.rows[0];
 
+    // Get progress actual from v_progress_project
+    const progRes = await pool.query('SELECT progress_actual FROM v_progress_project WHERE project_id = $1', [id]);
+    project.progress_actual = progRes.rows.length > 0 && progRes.rows[0].progress_actual !== null
+      ? (parseFloat(progRes.rows[0].progress_actual) * 100).toFixed(2)
+      : '0.00';
+
     // Get areas
     const areasRes = await pool.query('SELECT * FROM areas WHERE project_id = $1 ORDER BY urutan ASC', [id]);
     const areas = areasRes.rows;
@@ -64,17 +70,32 @@ router.get('/:id', async (req, res) => {
         if (units[j].target_start) units[j].target_start = new Date(units[j].target_start).toISOString().split('T')[0];
         if (units[j].target_finish) units[j].target_finish = new Date(units[j].target_finish).toISOString().split('T')[0];
 
-        // Get scopes
-        const scopesRes = await pool.query('SELECT * FROM unit_scopes WHERE unit_id = $1 ORDER BY urutan ASC', [units[j].id]);
+        // Get capaian unit
+        const uCapRes = await pool.query('SELECT capaian_unit FROM v_capaian_unit WHERE unit_id = $1', [units[j].id]);
+        units[j].capaian_unit = uCapRes.rows.length > 0 && uCapRes.rows[0].capaian_unit !== null
+          ? (parseFloat(uCapRes.rows[0].capaian_unit) * 100).toFixed(1)
+          : '0.0';
+
+        // Get scopes with capaian
+        const scopesRes = await pool.query(`
+          SELECT s.*, 
+                 COALESCE((SELECT capaian FROM v_capaian_scope WHERE unit_scope_id = s.id LIMIT 1), 0) as capaian
+          FROM unit_scopes s 
+          WHERE s.unit_id = $1 
+          ORDER BY s.urutan ASC
+        `, [units[j].id]);
+        
         units[j].scopes = scopesRes.rows.map(s => {
           const sBobotPercent = parseFloat(s.bobot || 0) * 100;
           const aBobotPercent = parseFloat(areas[i].bobot || 0);
           const uBobotPercent = parseFloat(units[j].bobot || 0);
           const projBobot = (aBobotPercent * uBobotPercent * sBobotPercent) / 10000;
+          const capPercent = (parseFloat(s.capaian || 0) * 100).toFixed(1);
           return {
             ...s,
             bobot_unit: sBobotPercent.toFixed(2),
-            bobot_project: projBobot.toFixed(2)
+            bobot_project: projBobot.toFixed(2),
+            capaian: capPercent
           };
         });
 
@@ -87,7 +108,7 @@ router.get('/:id', async (req, res) => {
           }
 
           const usersRes = await pool.query(`
-            SELECT u.id, u.nama as name 
+            SELECT u.id, u.nama as name, u.posisi, u.rate_per_jam
             FROM group_rosters r
             JOIN group_roster_members rm ON r.id = rm.roster_id
             JOIN manpower u ON rm.manpower_id = u.id
@@ -104,6 +125,31 @@ router.get('/:id', async (req, res) => {
     // Fetch all work_groups for this project
     const workGroupsRes = await pool.query('SELECT id, nama FROM work_groups WHERE project_id = $1 ORDER BY id ASC', [id]);
     project.work_groups = workGroupsRes.rows;
+
+    // Fetch daily progress history for S-Curve if any
+    try {
+      const dailyProgRes = await pool.query(`
+        SELECT p.tanggal, SUM(a.bobot * u.bobot * s.bobot * p.pct) * 100 as pct_day
+        FROM daily_progress p
+        JOIN unit_scopes s ON s.id = p.unit_scope_id
+        JOIN units u ON u.id = s.unit_id
+        JOIN areas a ON a.id = u.area_id
+        WHERE a.project_id = $1
+        GROUP BY p.tanggal
+        ORDER BY p.tanggal ASC
+      `, [id]);
+      project.daily_progress_history = dailyProgRes.rows;
+    } catch (e) {
+      project.daily_progress_history = [];
+    }
+
+    // Fetch total costs
+    try {
+      const costsRes = await pool.query('SELECT COALESCE(SUM(jumlah), 0) as total FROM project_costs WHERE project_id = $1', [id]);
+      project.total_biaya = costsRes.rows.length > 0 ? parseFloat(costsRes.rows[0].total) : 0;
+    } catch (e) {
+      project.total_biaya = 0;
+    }
 
     // Format project date
     if (project.tgl_mulai) project.tgl_mulai = new Date(project.tgl_mulai).toISOString().split('T')[0];

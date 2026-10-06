@@ -10,6 +10,7 @@ import RiwayatAktivitas from './marketing/pages/activities/RiwayatAktivitas';
 import Laporan from './marketing/pages/reports/Laporan';
 import Settings from './marketing/pages/Settings';
 import ListInstallPage from './install-project/ListInstallPage';
+import ShowInstallPage from './install-project/components/ShowInstallPage';
 function ProtectedRoute() {
   const token = localStorage.getItem('token');
   if (!token) {
@@ -42,6 +43,7 @@ function App() {
 
         <Route path="/installation-project" element={<ProtectedRoute />}>
           <Route index element={<ListInstallPage />} />
+          <Route path=":id" element={<ShowInstallPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

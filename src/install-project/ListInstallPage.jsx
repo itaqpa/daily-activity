@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search, Plus, Edit, Trash2, Eye, MoreVertical, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { apiUrl } from '../api';
 import MainLayout from '../marketing/pages/components/layouts/MainLayout';
 import WizardModal from './components/WizardModal';
 
 export default function ListInstallPage() {
+  const navigate = useNavigate();
   const [projects, setProjects] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -97,8 +99,7 @@ export default function ListInstallPage() {
   };
 
   const handleView = (id) => {
-    console.log("View detail", id);
-    // TODO: Navigate to detail page
+    navigate(`/installation-project/${id}`);
   };
 
   const handleEdit = (id) => {
@@ -209,8 +210,18 @@ export default function ListInstallPage() {
                 {currentItems.map((row, index) => (
                   <tr key={row.id} className="bg-white hover:bg-blue-50/30 transition-colors">
                     <td className="px-4 py-3.5 text-center text-gray-500">{indexOfFirstItem + index + 1}</td>
-                    <td className="px-4 py-3.5 font-semibold text-gray-900">{row.no_project}</td>
-                    <td className="px-4 py-3.5 font-medium text-gray-700">{row.nama_project}</td>
+                    <td 
+                      onClick={() => handleView(row.id)}
+                      className="px-4 py-3.5 font-semibold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                    >
+                      {row.no_project}
+                    </td>
+                    <td 
+                      onClick={() => handleView(row.id)}
+                      className="px-4 py-3.5 font-semibold text-gray-900 hover:text-blue-600 cursor-pointer"
+                    >
+                      {row.nama_project}
+                    </td>
                     <td className="px-4 py-3.5 text-gray-600">{row.customer}</td>
                     <td className="px-4 py-3.5 text-gray-600">{row.lokasi}</td>
                     <td className="px-4 py-3.5 text-gray-600">{row.leader}</td>

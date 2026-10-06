@@ -16,6 +16,9 @@ import {
   Edit3,
   Download,
   Wrench,
+  TrendingUp,
+  Coins,
+  FolderKanban,
 } from "lucide-react";
 
 export default function Sidebar({ isOpen, setIsOpen }) {
@@ -25,6 +28,13 @@ export default function Sidebar({ isOpen, setIsOpen }) {
     location.pathname.includes("/master-data"),
   );
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+
+  // State Section Expand/Collapse khusus Super Admin
+  const [isMarketingSectionOpen, setIsMarketingSectionOpen] = useState(true);
+  const [isInstallSectionOpen, setIsInstallSectionOpen] = useState(true);
+  const [isDataMasterSectionOpen, setIsDataMasterSectionOpen] = useState(
+    location.pathname.includes("/master-data") || location.pathname.includes("/users") || true
+  );
 
   // Parse user dari localStorage untuk mengecek role
   const userString = localStorage.getItem("user");
@@ -190,191 +200,342 @@ export default function Sidebar({ isOpen, setIsOpen }) {
           </div>
         </div>
 
-        <nav className="flex-1 px-4 space-y-1.5 mt-2 overflow-y-auto pb-4">
-          {/* Dashboard */}
-          <Link
-            to="/marketing/dashboard"
-            className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-              isActive("/marketing/dashboard")
-                ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
-                : "text-blue-100/70 hover:bg-white/5 hover:text-white"
-            }`}
-          >
-            <Activity className="w-5 h-5" />
-            <span className="font-medium">Dashboard</span>
-          </Link>
+        <nav className="flex-1 px-4 space-y-2 mt-2 overflow-y-auto pb-4">
+          {isSuperAdmin ? (
+            /* ================= KHUSUS SUPER ADMIN ================= */
+            <div className="space-y-3">
+              {/* SECTION 1: MARKETING */}
+              <div className="space-y-1">
+                <button
+                  type="button"
+                  onClick={() => setIsMarketingSectionOpen(!isMarketingSectionOpen)}
+                  className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold uppercase tracking-wider text-blue-200/70 hover:text-white hover:bg-white/5 rounded-lg transition-colors select-none"
+                >
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-blue-300" />
+                    <span>Marketing</span>
+                  </div>
+                  {isMarketingSectionOpen ? (
+                    <ChevronDown className="w-3.5 h-3.5 text-blue-200/60" />
+                  ) : (
+                    <ChevronRight className="w-3.5 h-3.5 text-blue-200/60" />
+                  )}
+                </button>
 
-          {/* Data Customer - Untuk User Biasa */}
-          {isRegularUser && (
-            <Link
-              to="/marketing/master-data/customer"
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive("/marketing/master-data/customer")
-                  ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
-                  : "text-blue-100/70 hover:bg-white/5 hover:text-white"
-              }`}
-            >
-              <UserCircle className="w-5 h-5" />
-              <span className="font-medium">Data Customer</span>
-            </Link>
-          )}
+                {isMarketingSectionOpen && (
+                  <div className="space-y-1 pl-1">
+                    {/* Dashboard */}
+                    <Link
+                      to="/marketing/dashboard"
+                      className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
+                        isActive("/marketing/dashboard")
+                          ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10 font-semibold"
+                          : "text-blue-100/70 hover:bg-white/5 hover:text-white font-medium"
+                      }`}
+                    >
+                      <Activity className="w-4 h-4" />
+                      <span>Dashboard</span>
+                    </Link>
 
-          {/* Tim Sales / Data Sales */}
-          {(canViewTimSales || isAdmin) && !isSuperAdmin && (
-            <Link
-              to="/marketing/master-data/sales"
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive("/marketing/master-data/sales")
-                  ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
-                  : "text-blue-100/70 hover:bg-white/5 hover:text-white"
-              }`}
-            >
-              <Briefcase className="w-5 h-5" />
-              <span className="font-medium">{isAdmin ? "Data Sales" : "Tim Sales"}</span>
-            </Link>
-          )}
+                    {/* Semua aktivitas */}
+                    <Link
+                      to="/marketing/activities"
+                      className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
+                        isActive("/marketing/activities")
+                          ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10 font-semibold"
+                          : "text-blue-100/70 hover:bg-white/5 hover:text-white font-medium"
+                      }`}
+                    >
+                      <List className="w-4 h-4" />
+                      <span>Semua aktivitas</span>
+                    </Link>
 
-          {/* Semua Aktivitas */}
-          <Link
-            to="/marketing/activities"
-            className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-              isActive("/marketing/activities")
-                ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
-                : "text-blue-100/70 hover:bg-white/5 hover:text-white"
-            }`}
-          >
-            <List className="w-5 h-5" />
-            <span className="font-medium">Semua Aktivitas</span>
-          </Link>
+                    {/* Laporan */}
+                    <Link
+                      to="/marketing/reports"
+                      className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
+                        isActive("/marketing/reports")
+                          ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10 font-semibold"
+                          : "text-blue-100/70 hover:bg-white/5 hover:text-white font-medium"
+                      }`}
+                    >
+                      <FileText className="w-4 h-4" />
+                      <span>Laporan</span>
+                    </Link>
+                  </div>
+                )}
+              </div>
 
-          {/* Catat Aktivitas - Khusus Staff, Leader, SPV, Manager */}
-          {canCatatAktivitas && (
-            <Link
-              to="/marketing/activities/new"
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive("/marketing/activities/new")
-                  ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
-                  : "text-blue-100/70 hover:bg-white/5 hover:text-white"
-              }`}
-            >
-              <Edit3 className="w-5 h-5" />
-              <span className="font-medium">Catat Aktivitas</span>
-            </Link>
-          )}
+              {/* SECTION 2: INSTALLATION PROJECT */}
+              <div className="space-y-1 pt-1 border-t border-white/5">
+                <button
+                  type="button"
+                  onClick={() => setIsInstallSectionOpen(!isInstallSectionOpen)}
+                  className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold uppercase tracking-wider text-blue-200/70 hover:text-white hover:bg-white/5 rounded-lg transition-colors select-none"
+                >
+                  <div className="flex items-center gap-2">
+                    <Wrench className="w-4 h-4 text-blue-300" />
+                    <span>Installation Project</span>
+                  </div>
+                  {isInstallSectionOpen ? (
+                    <ChevronDown className="w-3.5 h-3.5 text-blue-200/60" />
+                  ) : (
+                    <ChevronRight className="w-3.5 h-3.5 text-blue-200/60" />
+                  )}
+                </button>
 
-          {/* Submenu Data Master - Khusus Super Admin */}
-          {isSuperAdmin && (
-            <div>
+                {isInstallSectionOpen && (
+                  <div className="space-y-1 pl-1">
+                    {/* Data Project (sebelumnya bernama Installation Project) */}
+                    <Link
+                      to="/installation-project"
+                      className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
+                        isActive("/installation-project") || location.pathname.startsWith("/installation-project")
+                          ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10 font-semibold"
+                          : "text-blue-100/70 hover:bg-white/5 hover:text-white font-medium"
+                      }`}
+                    >
+                      <FolderKanban className="w-4 h-4" />
+                      <span>Data Project</span>
+                    </Link>
+
+                    {/* Data Pengeluaran (Label saja, belum ada route) */}
+                    <div
+                      className="flex items-center justify-between px-3.5 py-2.5 rounded-lg text-blue-100/40 text-sm font-medium cursor-default select-none"
+                      title="Belum ada route"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Coins className="w-4 h-4 text-blue-200/30" />
+                        <span>Data Pengeluaran</span>
+                      </div>
+                      <span className="text-[10px] font-semibold text-blue-200/40 bg-white/5 px-1.5 py-0.5 rounded border border-white/5">
+                        Soon
+                      </span>
+                    </div>
+
+                    {/* Laporan (Label saja, belum ada route) */}
+                    <div
+                      className="flex items-center justify-between px-3.5 py-2.5 rounded-lg text-blue-100/40 text-sm font-medium cursor-default select-none"
+                      title="Belum ada route"
+                    >
+                      <div className="flex items-center gap-3">
+                        <FileText className="w-4 h-4 text-blue-200/30" />
+                        <span>Laporan</span>
+                      </div>
+                      <span className="text-[10px] font-semibold text-blue-200/40 bg-white/5 px-1.5 py-0.5 rounded border border-white/5">
+                        Soon
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* SECTION 3: DATA MASTER */}
+              <div className="space-y-1 pt-1 border-t border-white/5">
+                <button
+                  type="button"
+                  onClick={() => setIsDataMasterSectionOpen(!isDataMasterSectionOpen)}
+                  className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold uppercase tracking-wider text-blue-200/70 hover:text-white hover:bg-white/5 rounded-lg transition-colors select-none"
+                >
+                  <div className="flex items-center gap-2">
+                    <Database className="w-4 h-4 text-blue-300" />
+                    <span>Data Master</span>
+                  </div>
+                  {isDataMasterSectionOpen ? (
+                    <ChevronDown className="w-3.5 h-3.5 text-blue-200/60" />
+                  ) : (
+                    <ChevronRight className="w-3.5 h-3.5 text-blue-200/60" />
+                  )}
+                </button>
+
+                {isDataMasterSectionOpen && (
+                  <div className="space-y-1 pl-1">
+                    <Link
+                      to="/marketing/master-data/sales"
+                      className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
+                        isActive("/marketing/master-data/sales")
+                          ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10 font-semibold"
+                          : "text-blue-100/70 hover:bg-white/5 hover:text-white font-medium"
+                      }`}
+                    >
+                      <Briefcase className="w-4 h-4" />
+                      <span>Data Sales</span>
+                    </Link>
+
+                    <Link
+                      to="/marketing/master-data/customer"
+                      className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
+                        isActive("/marketing/master-data/customer")
+                          ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10 font-semibold"
+                          : "text-blue-100/70 hover:bg-white/5 hover:text-white font-medium"
+                      }`}
+                    >
+                      <UserCircle className="w-4 h-4" />
+                      <span>Data Customer</span>
+                    </Link>
+
+                    <Link
+                      to="/marketing/users"
+                      className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
+                        isActive("/marketing/users")
+                          ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10 font-semibold"
+                          : "text-blue-100/70 hover:bg-white/5 hover:text-white font-medium"
+                      }`}
+                    >
+                      <Users className="w-4 h-4" />
+                      <span>User Management</span>
+                    </Link>
+                  </div>
+                )}
+              </div>
+
+              {/* SECTION 4: SETTING */}
+              <div className="pt-2 border-t border-white/10">
+                <Link
+                  to="/marketing/settings"
+                  className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
+                    isActive("/marketing/settings")
+                      ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10 font-semibold"
+                      : "text-blue-100/70 hover:bg-white/5 hover:text-white font-medium"
+                  }`}
+                >
+                  <Settings className="w-4 h-4" />
+                  <span>Setting</span>
+                </Link>
+              </div>
+
+              {/* Install Apps */}
               <button
-                onClick={() => setIsDataMasterOpen(!isDataMasterOpen)}
-                className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${
-                  location.pathname.includes("/master-data")
+                onClick={handleInstallClick}
+                className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-blue-100/70 hover:bg-white/5 hover:text-white text-sm font-medium"
+              >
+                <Download className="w-4 h-4" />
+                <span className="flex-1 text-left">Install Apps</span>
+              </button>
+            </div>
+          ) : (
+            /* ================= USER LAINNYA (JANGAN SENTUH / TETAP SAMA) ================= */
+            <>
+              {/* Dashboard */}
+              <Link
+                to="/marketing/dashboard"
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                  isActive("/marketing/dashboard")
                     ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
                     : "text-blue-100/70 hover:bg-white/5 hover:text-white"
                 }`}
               >
-                <div className="flex items-center gap-3">
-                  <Database className="w-5 h-5" />
-                  <span className="font-medium">Data Master</span>
-                </div>
-                {isDataMasterOpen ? (
-                  <ChevronDown className="w-4 h-4" />
-                ) : (
-                  <ChevronRight className="w-4 h-4" />
-                )}
-              </button>
+                <Activity className="w-5 h-5" />
+                <span className="font-medium">Dashboard</span>
+              </Link>
 
-              {isDataMasterOpen && (
-                <div className="mt-1 ml-4 pl-4 border-l border-white/10 space-y-1">
-                  <Link
-                    to="/marketing/master-data/sales"
-                    className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors ${
-                      isActive("/marketing/master-data/sales")
-                        ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
-                        : "text-blue-100/70 hover:bg-white/5 hover:text-white"
-                    }`}
-                  >
-                    <Briefcase className="w-4 h-4" />
-                    <span className="font-medium text-sm">Data Sales</span>
-                  </Link>
-                  <Link
-                    to="/marketing/master-data/customer"
-                    className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors ${
-                      isActive("/marketing/master-data/customer")
-                        ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
-                        : "text-blue-100/70 hover:bg-white/5 hover:text-white"
-                    }`}
-                  >
-                    <UserCircle className="w-4 h-4" />
-                    <span className="font-medium text-sm">Data Customer</span>
-                  </Link>
-                </div>
+              {/* Data Customer - Untuk User Biasa */}
+              {isRegularUser && (
+                <Link
+                  to="/marketing/master-data/customer"
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                    isActive("/marketing/master-data/customer")
+                      ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
+                      : "text-blue-100/70 hover:bg-white/5 hover:text-white"
+                  }`}
+                >
+                  <UserCircle className="w-5 h-5" />
+                  <span className="font-medium">Data Customer</span>
+                </Link>
               )}
-            </div>
+
+              {/* Tim Sales / Data Sales */}
+              {(canViewTimSales || isAdmin) && !isSuperAdmin && (
+                <Link
+                  to="/marketing/master-data/sales"
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                    isActive("/marketing/master-data/sales")
+                      ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
+                      : "text-blue-100/70 hover:bg-white/5 hover:text-white"
+                  }`}
+                >
+                  <Briefcase className="w-5 h-5" />
+                  <span className="font-medium">{isAdmin ? "Data Sales" : "Tim Sales"}</span>
+                </Link>
+              )}
+
+              {/* Semua Aktivitas */}
+              <Link
+                to="/marketing/activities"
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                  isActive("/marketing/activities")
+                    ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
+                    : "text-blue-100/70 hover:bg-white/5 hover:text-white"
+                }`}
+              >
+                <List className="w-5 h-5" />
+                <span className="font-medium">Semua Aktivitas</span>
+              </Link>
+
+              {/* Catat Aktivitas - Khusus Staff, Leader, SPV, Manager */}
+              {canCatatAktivitas && (
+                <Link
+                  to="/marketing/activities/new"
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                    isActive("/marketing/activities/new")
+                      ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
+                      : "text-blue-100/70 hover:bg-white/5 hover:text-white"
+                  }`}
+                >
+                  <Edit3 className="w-5 h-5" />
+                  <span className="font-medium">Catat Aktivitas</span>
+                </Link>
+              )}
+
+              {/* Installation Project */}
+              <Link
+                to="/installation-project"
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                  isActive("/installation-project")
+                    ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
+                    : "text-blue-100/70 hover:bg-white/5 hover:text-white"
+                }`}
+              >
+                <Wrench className="w-5 h-5" />
+                <span className="font-medium">Installation Project</span>
+              </Link>
+
+              {/* Laporan - Paling Akhir */}
+              <Link
+                to="/marketing/reports"
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                  isActive("/marketing/reports")
+                    ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
+                    : "text-blue-100/70 hover:bg-white/5 hover:text-white"
+                }`}
+              >
+                <FileText className="w-5 h-5" />
+                <span className="font-medium">Laporan</span>
+              </Link>
+
+              {/* Settings */}
+              <Link
+                to="/marketing/settings"
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                  isActive("/marketing/settings")
+                    ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
+                    : "text-blue-100/70 hover:bg-white/5 hover:text-white"
+                }`}
+              >
+                <Settings className="w-5 h-5" />
+                <span className="font-medium">Edit Profil</span>
+              </Link>
+
+              {/* Install Apps */}
+              <button
+                onClick={handleInstallClick}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-blue-100/70 hover:bg-white/5 hover:text-white"
+              >
+                <Download className="w-5 h-5" />
+                <span className="font-medium flex-1 text-left">Install Apps</span>
+              </button>
+            </>
           )}
-
-          {/* User Management - Khusus Super Admin */}
-          {isSuperAdmin && (
-            <Link
-              to="/marketing/users"
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive("/marketing/users")
-                  ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
-                  : "text-blue-100/70 hover:bg-white/5 hover:text-white"
-              }`}
-            >
-              <Users className="w-5 h-5" />
-              <span className="font-medium">User Management</span>
-            </Link>
-          )}
-
-          {/* Installation Project */}
-          <Link
-            to="/installation-project"
-            className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-              isActive("/installation-project")
-                ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
-                : "text-blue-100/70 hover:bg-white/5 hover:text-white"
-            }`}
-          >
-            <Wrench className="w-5 h-5" />
-            <span className="font-medium">Installation Project</span>
-          </Link>
-
-          {/* Laporan - Paling Akhir */}
-          <Link
-            to="/marketing/reports"
-            className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-              isActive("/marketing/reports")
-                ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
-                : "text-blue-100/70 hover:bg-white/5 hover:text-white"
-            }`}
-          >
-            <FileText className="w-5 h-5" />
-            <span className="font-medium">Laporan</span>
-          </Link>
-
-          {/* Settings */}
-          <Link
-            to="/marketing/settings"
-            className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-              isActive("/marketing/settings")
-                ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
-                : "text-blue-100/70 hover:bg-white/5 hover:text-white"
-            }`}
-          >
-            <Settings className="w-5 h-5" />
-            <span className="font-medium">Edit Profil</span>
-          </Link>
-
-          {/* Install Apps */}
-          <button
-            onClick={handleInstallClick}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-blue-100/70 hover:bg-white/5 hover:text-white"
-          >
-            <Download className="w-5 h-5" />
-            <span className="font-medium flex-1 text-left">Install Apps</span>
-          </button>
         </nav>
 
         <div className="p-4 border-t border-white/10 shrink-0 flex flex-col gap-2">
