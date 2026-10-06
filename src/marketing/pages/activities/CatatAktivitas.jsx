@@ -1,7 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '../components/layouts/MainLayout';
-import { Save, AlertCircle } from 'lucide-react';
+import { 
+  Save, 
+  AlertCircle, 
+  Building2, 
+  MapPin, 
+  Calendar, 
+  Briefcase, 
+  Users, 
+  FileText, 
+  Check, 
+  Hash, 
+  ArrowLeft,
+  ClipboardList
+} from 'lucide-react';
 import { apiUrl } from '../../../api';
 import Select from 'react-select';
 
@@ -224,63 +237,139 @@ export default function CatatAktivitas() {
 
   return (
     <MainLayout>
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">Catat Aktivitas</h2>
-        <p className="text-gray-600 mt-1">Form input untuk mencatat daily activity sales. Anda login sebagai: <span className="font-semibold">{user.name}</span></p>
+      {/* Top Header */}
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 uppercase tracking-wider mb-1">
+            <ClipboardList size={15} />
+            <span>Daily Sales Activity</span>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Catat Aktivitas</h2>
+          <p className="text-sm text-gray-500 mt-0.5">
+            Form pencatatan interaksi harian sales dengan customer.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => navigate('/marketing/activities')}
+          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 hover:text-gray-900 transition-colors shadow-sm self-start sm:self-auto cursor-pointer"
+        >
+          <ArrowLeft size={16} />
+          <span>Lihat Riwayat</span>
+        </button>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden max-w-3xl">
-        <div className="p-6">
+      {/* Main Card */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200/80 overflow-hidden max-w-4xl">
+        {/* User Context Banner */}
+        <div className="px-6 py-4 bg-gradient-to-r from-blue-50/70 via-indigo-50/30 to-white border-b border-gray-100 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-sm shadow-blue-500/20">
+              <Briefcase size={20} />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-gray-900">Formulir Log Aktivitas</h3>
+              <p className="text-xs text-gray-500">
+                Petugas: <span className="font-semibold text-blue-700">{user.name || 'Sales'}</span> {user.jabatan ? `• ${user.jabatan}` : ''}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6 sm:p-8">
           {error && (
-            <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-r flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 animate-in fade-in">
+              <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
               <p className="text-sm text-red-700 font-medium">{error}</p>
             </div>
           )}
 
           {success && (
-            <div className="mb-6 p-4 bg-green-50 border-l-4 border-green-500 rounded-r">
-              <p className="text-sm text-green-700 font-medium">{success}</p>
+            <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-3 animate-in fade-in">
+              <Check size={20} className="text-emerald-600 shrink-0 mt-0.5" />
+              <p className="text-sm text-emerald-800 font-medium">{success}</p>
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             
             {/* Customer, Site/Kota & Kode CSR */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Customer <span className="text-red-500">*</span></label>
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
+              {/* Customer */}
+              <div className="md:col-span-5">
+                <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
+                  <Building2 size={14} className="text-blue-600" />
+                  <span>Customer</span>
+                  <span className="text-red-500">*</span>
+                </label>
                 <Select 
                   options={uniqueCustomerNames.map(name => ({ value: name, label: name }))}
                   value={selectedCustomerName ? { value: selectedCustomerName, label: selectedCustomerName } : null}
                   onChange={(selected) => handleCustomerNameChange({ target: { value: selected ? selected.value : '' } })}
-                  placeholder="-- Ketik / Pilih Customer --"
+                  placeholder="-- Cari / Pilih Customer --"
                   isClearable
                   isSearchable
                   required={!selectedCustomerName}
                   styles={{
-                    control: (base) => ({
+                    control: (base, state) => ({
                       ...base,
-                      padding: '2px',
-                      borderRadius: '0.5rem',
-                      borderColor: '#d1d5db',
-                      boxShadow: 'none',
+                      minHeight: '44px',
+                      height: '44px',
+                      borderRadius: '0.75rem',
+                      borderColor: state.isFocused ? '#3b82f6' : '#e5e7eb',
+                      boxShadow: state.isFocused ? '0 0 0 2px rgba(59, 130, 246, 0.2)' : 'none',
                       '&:hover': {
                         borderColor: '#3b82f6'
-                      }
+                      },
+                      fontSize: '0.875rem'
+                    }),
+                    valueContainer: (base) => ({
+                      ...base,
+                      height: '44px',
+                      padding: '0 12px',
+                      display: 'flex',
+                      alignItems: 'center'
+                    }),
+                    input: (base) => ({
+                      ...base,
+                      margin: 0,
+                      padding: 0
+                    }),
+                    placeholder: (base) => ({
+                      ...base,
+                      color: '#9ca3af',
+                      fontSize: '0.875rem',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }),
+                    indicatorsContainer: (base) => ({
+                      ...base,
+                      height: '44px'
+                    }),
+                    menu: (base) => ({
+                      ...base,
+                      borderRadius: '0.75rem',
+                      boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05)',
+                      border: '1px solid #f3f4f6',
+                      zIndex: 9999
                     })
                   }}
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Site / Kota</label>
+              {/* Site / Kota */}
+              <div className="md:col-span-4">
+                <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
+                  <MapPin size={14} className="text-blue-600" />
+                  <span>Site / Kota</span>
+                </label>
                 {allAvailableSites.length > 0 ? (
                   <select 
                     name="site_kota"
                     value={formData.site_kota}
                     onChange={handleSiteChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                    className="w-full h-11 px-3.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white font-medium text-gray-800 transition-colors cursor-pointer"
                   >
                     {allAvailableSites.map((site, i) => (
                       <option key={i} value={site}>{site}</option>
@@ -294,107 +383,144 @@ export default function CatatAktivitas() {
                     value={formData.site_kota}
                     onChange={handleChange}
                     placeholder="Umum / tidak spesifik"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50"
+                    className="w-full h-11 px-3.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-gray-50/70 font-medium text-gray-700 transition-colors"
                   />
                 )}
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Kode CSR</label>
+              {/* Kode CSR */}
+              <div className="md:col-span-3">
+                <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
+                  <Hash size={14} className="text-blue-600" />
+                  <span>Kode CSR</span>
+                </label>
                 <input 
                   type="text"
                   value={currentKodeCsr || ''}
                   readOnly
-                  placeholder="Akan otomatis terisi"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed focus:outline-none"
+                  placeholder="Otomatis terisi"
+                  className="w-full h-11 px-3.5 border border-gray-200 rounded-xl bg-slate-50 font-mono font-bold text-gray-800 text-sm cursor-not-allowed focus:outline-none"
                 />
               </div>
             </div>
 
-            {/* Jenis Aktivitas */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Jenis Aktivitas <span className="text-red-500">*</span></label>
-              <select 
-                name="jenis_aktivitas"
-                value={formData.jenis_aktivitas}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-              >
-                <option value="">-- Pilih Aktivitas --</option>
-                {jenisAktivitasOptions.map((opt, i) => (
-                  <option key={i} value={opt}>{opt}</option>
-                ))}
-              </select>
-            </div>
+            <div className="border-t border-gray-100 my-1"></div>
 
-            {/* Yang Akan Ditemui */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Yang Akan Ditemui (bisa pilih lebih dari 1)</label>
-              <div className="flex flex-wrap gap-4">
-                {ditemuiOptions.map((opt, i) => (
-                  <label key={i} className="flex items-center gap-2 cursor-pointer group">
-                    <input 
-                      type="checkbox"
-                      checked={formData.ditemui.includes(opt)}
-                      onChange={() => handleCheckboxChange(opt)}
-                      className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                    />
-                    <span className="text-sm text-gray-700 group-hover:text-gray-900">{opt}</span>
-                  </label>
-                ))}
+            {/* Jenis Aktivitas & Tanggal */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+              <div className="md:col-span-7">
+                <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
+                  <Briefcase size={14} className="text-blue-600" />
+                  <span>Jenis Aktivitas</span>
+                  <span className="text-red-500">*</span>
+                </label>
+                <select 
+                  name="jenis_aktivitas"
+                  value={formData.jenis_aktivitas}
+                  onChange={handleChange}
+                  required
+                  className="w-full h-11 px-3.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white font-medium text-gray-800 transition-colors cursor-pointer"
+                >
+                  <option value="">-- Pilih Aktivitas --</option>
+                  {jenisAktivitasOptions.map((opt, i) => (
+                    <option key={i} value={opt}>{opt}</option>
+                  ))}
+                </select>
               </div>
-              
-              {formData.ditemui.includes('Lainnya') && (
-                <div className="mt-3">
-                  <input 
-                    type="text"
-                    name="ditemui_lainnya"
-                    value={formData.ditemui_lainnya}
-                    onChange={handleChange}
-                    placeholder="Sebutkan yang ditemui lainnya..."
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                  />
-                </div>
-              )}
-            </div>
 
-            {/* Tanggal & Catatan */}
-            <div className="grid grid-cols-1 gap-6">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Tanggal <span className="text-red-500">*</span></label>
+              <div className="md:col-span-5">
+                <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
+                  <Calendar size={14} className="text-blue-600" />
+                  <span>Tanggal</span>
+                  <span className="text-red-500">*</span>
+                </label>
                 <input 
                   type="date"
                   name="tanggal"
                   value={formData.tanggal}
                   onChange={handleChange}
                   required
-                  className="w-full md:w-1/3 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full h-11 px-3.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white font-medium text-gray-800 transition-colors"
                 />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Catatan (opsional)</label>
-                <textarea 
-                  name="catatan"
-                  value={formData.catatan}
-                  onChange={handleChange}
-                  rows="4"
-                  placeholder="Contoh: Diskusi kebutuhan RTI untuk unit baru..."
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y"
-                ></textarea>
               </div>
             </div>
 
+            {/* Yang Akan Ditemui */}
+            <div>
+              <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">
+                <Users size={14} className="text-blue-600" />
+                <span>Yang Akan Ditemui</span>
+                <span className="text-gray-400 font-normal lowercase">(bisa pilih lebih dari 1)</span>
+              </label>
+              
+              {/* Modern Interactive Chips */}
+              <div className="flex flex-wrap gap-2.5">
+                {ditemuiOptions.map((opt) => {
+                  const isSelected = formData.ditemui.includes(opt);
+                  return (
+                    <button
+                      type="button"
+                      key={opt}
+                      onClick={() => handleCheckboxChange(opt)}
+                      className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-150 border cursor-pointer ${
+                        isSelected
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-500/20 ring-2 ring-blue-500/20'
+                          : 'bg-white text-gray-700 border-gray-200 hover:border-blue-300 hover:bg-blue-50/40'
+                      }`}
+                    >
+                      <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${
+                        isSelected 
+                          ? 'bg-white text-blue-600 border-white' 
+                          : 'border-gray-300 bg-gray-50'
+                      }`}>
+                        {isSelected && <Check size={11} strokeWidth={3.5} />}
+                      </div>
+                      <span>{opt}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              
+              {formData.ditemui.includes('Lainnya') && (
+                <div className="mt-3 animate-in fade-in slide-in-from-top-1 duration-150">
+                  <input 
+                    type="text"
+                    name="ditemui_lainnya"
+                    value={formData.ditemui_lainnya}
+                    onChange={handleChange}
+                    placeholder="Sebutkan yang ditemui lainnya..."
+                    className="w-full h-11 px-3.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-white"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Catatan (opsional) */}
+            <div>
+              <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
+                <FileText size={14} className="text-blue-600" />
+                <span>Catatan</span>
+                <span className="text-gray-400 font-normal lowercase">(opsional)</span>
+              </label>
+              <textarea 
+                name="catatan"
+                value={formData.catatan}
+                onChange={handleChange}
+                rows="4"
+                placeholder="Contoh: Diskusi kebutuhan RTI untuk unit baru..."
+                className="w-full p-3.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-y bg-white placeholder:text-gray-400 transition-colors"
+              ></textarea>
+            </div>
+
             {/* Action Buttons */}
-            <div className="pt-4 border-t border-gray-100 flex justify-end">
+            <div className="pt-4 border-t border-gray-100 flex items-center justify-end gap-3">
               <button 
                 type="submit"
                 disabled={loading}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-medium transition-colors disabled:opacity-70"
+                className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white px-6 py-2.5 rounded-xl font-semibold text-sm shadow-md shadow-blue-500/20 hover:shadow-lg transition-all disabled:opacity-60 cursor-pointer"
               >
                 <Save size={18} />
-                {loading ? 'Menyimpan...' : 'Simpan Aktivitas'}
+                <span>{loading ? 'Menyimpan...' : 'Simpan Aktivitas'}</span>
               </button>
             </div>
             
