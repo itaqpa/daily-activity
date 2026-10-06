@@ -267,13 +267,25 @@ export default function DataCustomer() {
       nama_customer: new Set(),
       site_kota: new Set(),
       sales: new Set(),
+      account_type: new Set(),
     };
 
     customers.forEach(c => {
       if (c.no_akun) opts.no_akun.add(c.no_akun);
       if (c.nama_customer) opts.nama_customer.add(c.nama_customer);
-      if (c.site_kota) c.site_kota.forEach(s => opts.site_kota.add(s));
+      if (c.site_kota) {
+        if (Array.isArray(c.site_kota)) {
+          c.site_kota.forEach(s => opts.site_kota.add(s));
+        } else if (typeof c.site_kota === 'string') {
+          c.site_kota.split(/[;,]/).forEach(s => opts.site_kota.add(s.trim()));
+        }
+      }
       if (c.assigned_sales) c.assigned_sales.forEach(s => opts.sales.add(s.name));
+      
+      let acctType = '-';
+      if (c.assigned_sales && c.assigned_sales.length > 1) acctType = 'Tandem';
+      else if (c.assigned_sales && c.assigned_sales.length === 1) acctType = 'Individu';
+      opts.account_type.add(acctType);
     });
 
     return {
@@ -281,6 +293,7 @@ export default function DataCustomer() {
       nama_customer: Array.from(opts.nama_customer).sort(),
       site_kota: Array.from(opts.site_kota).sort(),
       sales: Array.from(opts.sales).sort(),
+      account_type: Array.from(opts.account_type).sort(),
     };
   }, [customers]);
 
@@ -300,6 +313,12 @@ export default function DataCustomer() {
       if (filters.nama_customer && c.nama_customer !== filters.nama_customer) return false;
       if (filters.site_kota && (!c.site_kota || !c.site_kota.includes(filters.site_kota))) return false;
       if (filters.sales && (!c.assigned_sales || !c.assigned_sales.some(s => s.name === filters.sales))) return false;
+      if (filters.account_type) {
+        let acctType = '-';
+        if (c.assigned_sales && c.assigned_sales.length > 1) acctType = 'Tandem';
+        else if (c.assigned_sales && c.assigned_sales.length === 1) acctType = 'Individu';
+        if (acctType !== filters.account_type) return false;
+      }
       return true;
     });
 
@@ -310,6 +329,11 @@ export default function DataCustomer() {
         else if (sortConfig.key === 'nama_customer') { aVal = a.nama_customer || ''; bVal = b.nama_customer || ''; }
         else if (sortConfig.key === 'site_kota') { aVal = (a.site_kota || []).join(', '); bVal = (b.site_kota || []).join(', '); }
         else if (sortConfig.key === 'sales') { aVal = (a.assigned_sales || []).map(s => s.name).join(', '); bVal = (b.assigned_sales || []).map(s => s.name).join(', '); }
+        else if (sortConfig.key === 'account_type') { 
+          let aType = '-'; if (a.assigned_sales?.length > 1) aType = 'Tandem'; else if (a.assigned_sales?.length === 1) aType = 'Individu';
+          let bType = '-'; if (b.assigned_sales?.length > 1) bType = 'Tandem'; else if (b.assigned_sales?.length === 1) bType = 'Individu';
+          aVal = aType; bVal = bType;
+        }
 
         if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
         if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
@@ -441,7 +465,7 @@ export default function DataCustomer() {
                 <FilterHeader columnKey="nama_customer" label="Nama Customer" />
                 <FilterHeader columnKey="site_kota" label="Site / Kota" />
                 <FilterHeader columnKey="sales" label="Sales" />
-                <th className="p-4 font-semibold text-sm whitespace-nowrap">Customer Account Type</th>
+                <FilterHeader columnKey="account_type" label="Customer Account Type" />
                 <th className="p-4 font-semibold text-sm whitespace-nowrap">Aktivitas</th>
                 <th className="p-4 font-semibold text-sm whitespace-nowrap">Status</th>
                 {(canEdit || canDelete || isSuperAdminOrAdmin) && <th className="p-4 font-semibold text-sm text-right w-24 whitespace-nowrap">Aksi</th>}
