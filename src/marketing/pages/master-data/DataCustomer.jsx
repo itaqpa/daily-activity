@@ -57,11 +57,14 @@ export default function DataCustomer() {
   };
 
   const downloadFormatCSV = () => {
-    // Menambahkan Note pada file CSV
-    const csvContent = "data:text/csv;charset=utf-8,# CATATAN: Pisahkan multi value (seperti site_kota atau sales_email) dengan titik koma (;). Baris ini boleh dihapus atau dibiarkan.\nno_akun,nama_customer,site_kota,sales_email\n1001,PT Satu Sales,\"Jakarta\",sales1@email.com\n1002,PT Multi Sales,\"Bandung;Surabaya\",\"sales1@email.com;sales2@email.com\"\n";
-    const encodedUri = encodeURI(csvContent);
+    const csvContent =
+      `no_akun,nama_customer,site_kota,sales_email
+1001,PT Maju Jaya,Jakarta,sales1@email.com
+1002,PT Multi Lokasi,"Bandung;Surabaya","sales1@email.com;sales2@email.com"`;
+
+    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
+    link.href = URL.createObjectURL(blob);
     link.setAttribute("download", "format_import_customer.csv");
     document.body.appendChild(link);
     link.click();
@@ -281,7 +284,7 @@ export default function DataCustomer() {
         }
       }
       if (c.assigned_sales) c.assigned_sales.forEach(s => opts.sales.add(s.name));
-      
+
       let acctType = '-';
       if (c.assigned_sales && c.assigned_sales.length > 1) acctType = 'Tandem';
       else if (c.assigned_sales && c.assigned_sales.length === 1) acctType = 'Individu';
@@ -329,7 +332,7 @@ export default function DataCustomer() {
         else if (sortConfig.key === 'nama_customer') { aVal = a.nama_customer || ''; bVal = b.nama_customer || ''; }
         else if (sortConfig.key === 'site_kota') { aVal = (a.site_kota || []).join(', '); bVal = (b.site_kota || []).join(', '); }
         else if (sortConfig.key === 'sales') { aVal = (a.assigned_sales || []).map(s => s.name).join(', '); bVal = (b.assigned_sales || []).map(s => s.name).join(', '); }
-        else if (sortConfig.key === 'account_type') { 
+        else if (sortConfig.key === 'account_type') {
           let aType = '-'; if (a.assigned_sales?.length > 1) aType = 'Tandem'; else if (a.assigned_sales?.length === 1) aType = 'Individu';
           let bType = '-'; if (b.assigned_sales?.length > 1) bType = 'Tandem'; else if (b.assigned_sales?.length === 1) bType = 'Individu';
           aVal = aType; bVal = bType;
@@ -424,7 +427,7 @@ export default function DataCustomer() {
               Search
             </button>
           </div>
-          
+
           <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
             {(canImport || canExport) && (
               <>

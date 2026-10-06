@@ -56,10 +56,16 @@ export default function UserManagement() {
   };
 
   const downloadFormatCSV = () => {
-    const csvContent = "data:text/csv;charset=utf-8,# CATATAN: Pisahkan multi value (seperti role_tambahan) dengan titik koma (;). Baris ini boleh dihapus atau dibiarkan.\nnama,username,email,password,divisi_id,jabatan_id,role_tambahan_ids\nJohn Doe,johndoe,john@example.com,password123,1,2,\"3;4\"\n";
-    const encodedUri = encodeURI(csvContent);
+    const csvContent = 
+`# CATATAN PENTING:
+# 1. Baris yang berawalan # akan diabaikan oleh sistem.
+# 2. Format mulai baris ke-4 ke bawah adalah contoh, silakan timpa dengan data asli Anda.
+Nama Lengkap,Username,Email,Password,Status Aktif (1/0),ID Divisi (1:Sales, 4:Management, 9:Engineering),ID Jabatan (1:Super Admin, 2:Manager, 3:Spv, 4:Leader, 5:Staff, 27:Admin)
+Yudo,yudo,yudo@example.com,password123,1,1,5`;
+
+    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
+    link.href = URL.createObjectURL(blob);
     link.setAttribute("download", "format_import_user.csv");
     document.body.appendChild(link);
     link.click();
@@ -191,29 +197,29 @@ export default function UserManagement() {
 
   return (
     <MainLayout>
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div>
           <h2 className="text-2xl font-bold text-gray-800">User Management</h2>
-          <p className="text-gray-600 mt-1">Kelola data akun pengguna, role, dan status aktif.</p>
+          <p className="text-gray-600 mt-1 text-sm md:text-base">Kelola data akun pengguna, role, dan status aktif.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 w-full md:w-auto">
           <button 
             onClick={handleExportCSV}
-            className="flex items-center gap-2 bg-white text-gray-700 border border-gray-300 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+            className="flex items-center justify-center gap-2 bg-white text-gray-700 border border-gray-300 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm whitespace-nowrap flex-1 md:flex-none"
           >
             <Download className="w-4 h-4" />
             <span>Export</span>
           </button>
           <button 
             onClick={handleImportCSV}
-            className="flex items-center gap-2 bg-white text-blue-600 border border-blue-200 px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors shadow-sm"
+            className="flex items-center justify-center gap-2 bg-white text-blue-600 border border-blue-200 px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors shadow-sm whitespace-nowrap flex-1 md:flex-none"
           >
             <UploadCloud className="w-4 h-4" />
             <span>Import</span>
           </button>
           <button 
             onClick={openAddModal}
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+            className="flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm whitespace-nowrap w-full md:w-auto mt-2 md:mt-0"
           >
             <UserPlus className="w-4 h-4" />
             <span>Tambah User</span>
@@ -437,14 +443,14 @@ export default function UserManagement() {
                         for (const row of data) {
                           try {
                             const payload = {
-                              name: row.nama || '',
-                              username: row.username || '',
-                              email: row.email || '',
-                              password: row.password || 'password123',
-                              divisi_id: row.divisi_id || null,
-                              jabatan_id: row.jabatan_id || null,
-                              additional_roles: row.role_tambahan_ids ? row.role_tambahan_ids.split(';').map(r => parseInt(r.trim())).filter(r => !isNaN(r)) : [],
-                              is_active: true
+                              name: row['Nama Lengkap'] || '',
+                              username: row['Username'] || '',
+                              email: row['Email'] || '',
+                              password: row['Password'] || 'password123',
+                              divisi_id: row['ID Divisi (1:Sales, 4:Management, 9:Engineering)'] || null,
+                              jabatan_id: row['ID Jabatan (1:Super Admin, 2:Manager, 3:Spv, 4:Leader, 5:Staff, 27:Admin)'] || null,
+                              additional_roles: [],
+                              is_active: row['Status Aktif (1/0)'] === '1' || row['Status Aktif (1/0)'] === 1
                             };
                             
                             await fetch(apiUrl('/users'), {
