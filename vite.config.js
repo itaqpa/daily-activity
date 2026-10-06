@@ -22,6 +22,9 @@ export default defineConfig({
         short_name: 'Apps Aqpa',
         description: 'Apps Aqpa',
         theme_color: '#ffffff',
+        background_color: '#ffffff',
+        display: 'standalone',
+        start_url: '/',
         icons: [
           {
             src: '/logo/driver-apps-icon.png',
