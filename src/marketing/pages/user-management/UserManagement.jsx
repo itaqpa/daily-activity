@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import MainLayout from '../components/layouts/MainLayout';
-import { Edit2, Trash2, UserPlus, CheckCircle, XCircle } from 'lucide-react';
+import { Edit2, Trash2, UserPlus, CheckCircle, XCircle, Download, UploadCloud, X, FileText } from 'lucide-react';
 import { apiUrl } from '../../../api';
+import FormUserManagement from './components/FormUserManagement';
+import Papa from 'papaparse';
 
 export default function UserManagement() {
   const [users, setUsers] = useState([]);
@@ -19,6 +21,50 @@ export default function UserManagement() {
     jabatan_id: '',
   });
   const [isEditing, setIsEditing] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+
+  const handleExportCSV = () => {
+    const csvData = users.map(u => {
+      const primaryRole = u.nama_jabatan || '';
+      const additionalRoles = (u.additional_roles || []).map(roleId => {
+        const role = jabatans.find(j => j.id === roleId);
+        return role ? role.nama_jabatan : '';
+      }).filter(r => r).join(';');
+      
+      return {
+        'Nama': u.name || '',
+        'Username': u.username || '',
+        'Email': u.email || '',
+        'Divisi': u.nama_divisi || '',
+        'Role Default': primaryRole,
+        'Role Tambahan': additionalRoles,
+        'Status': u.is_active ? 'Aktif' : 'Non-aktif'
+      };
+    });
+    
+    const csv = Papa.unparse(csvData);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'data_user.csv';
+    link.click();
+  };
+
+  const handleImportCSV = () => {
+    setIsImportModalOpen(true);
+  };
+
+  const downloadFormatCSV = () => {
+    const csvContent = "data:text/csv;charset=utf-8,# CATATAN: Pisahkan multi value (seperti role_tambahan) dengan titik koma (;). Baris ini boleh dihapus atau dibiarkan.\nnama,username,email,password,divisi_id,jabatan_id,role_tambahan_ids\nJohn Doe,johndoe,john@example.com,password123,1,2,\"3;4\"\n";
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "format_import_user.csv");
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
 
   const fetchUsers = async () => {
     try {
@@ -99,7 +145,9 @@ export default function UserManagement() {
       password: '', // Kosongkan password saat edit
       is_active: user.is_active !== undefined ? user.is_active : true,
       divisi_id: user.divisi_id || '',
-      jabatan_id: user.jabatan_id || ''
+      jabatan_id: user.jabatan_id || '',
+      additional_roles: user.additional_roles || [],
+      permissions: user.permissions || []
     });
     setIsEditing(true);
     setIsModalOpen(true);
@@ -135,10 +183,8 @@ export default function UserManagement() {
     } catch (error) {
       console.error('Error toggling status:', error);
     }
-  };
-
-  const openAddModal = () => {
-    setFormData({ id: null, name: '', username: '', email: '', password: '', is_active: true, divisi_id: '', jabatan_id: '' });
+  };  const openAddModal = () => {
+    setFormData({ id: null, name: '', username: '', email: '', password: '', is_active: true, divisi_id: '', jabatan_id: '', additional_roles: [], permissions: [] });
     setIsEditing(false);
     setIsModalOpen(true);
   };
@@ -150,13 +196,29 @@ export default function UserManagement() {
           <h2 className="text-2xl font-bold text-gray-800">User Management</h2>
           <p className="text-gray-600 mt-1">Kelola data akun pengguna, role, dan status aktif.</p>
         </div>
-        <button 
-          onClick={openAddModal}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <UserPlus className="w-4 h-4" />
-          <span>Tambah User</span>
-        </button>
+        <div className="flex gap-2">
+          <button 
+            onClick={handleExportCSV}
+            className="flex items-center gap-2 bg-white text-gray-700 border border-gray-300 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+          >
+            <Download className="w-4 h-4" />
+            <span>Export</span>
+          </button>
+          <button 
+            onClick={handleImportCSV}
+            className="flex items-center gap-2 bg-white text-blue-600 border border-blue-200 px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors shadow-sm"
+          >
+            <UploadCloud className="w-4 h-4" />
+            <span>Import</span>
+          </button>
+          <button 
+            onClick={openAddModal}
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+          >
+            <UserPlus className="w-4 h-4" />
+            <span>Tambah User</span>
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -164,20 +226,58 @@ export default function UserManagement() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200 text-gray-600">
+                <th className="p-4 font-semibold text-sm">No</th>
                 <th className="p-4 font-semibold text-sm">Nama</th>
                 <th className="p-4 font-semibold text-sm">Username</th>
                 <th className="p-4 font-semibold text-sm">Divisi & Jabatan</th>
+                <th className="p-4 font-semibold text-sm">Akses Role</th>
+                <th className="p-4 font-semibold text-sm">Role Default</th>
                 <th className="p-4 font-semibold text-sm">Status</th>
                 <th className="p-4 font-semibold text-sm text-right">Aksi</th>
               </tr>
             </thead>
             <tbody>
-              {users.length > 0 ? users.map((u) => (
+              {users.length > 0 ? users.map((u, index) => (
                 <tr key={u.id} className="border-b border-gray-100 hover:bg-gray-50/50">
+                  <td className="p-4 text-sm text-gray-600">{index + 1}</td>
                   <td className="p-4 text-sm text-gray-800 font-medium">{u.name}</td>
                   <td className="p-4 text-sm text-gray-600">{u.username}</td>
                   <td className="p-4 text-sm text-gray-600">
                     {u.nama_divisi ? `${u.nama_divisi} - ${u.nama_jabatan}` : '-'}
+                  </td>
+                  <td className="p-4">
+                    <div className="flex flex-wrap gap-1.5">
+                      {/* Primary Role Badge */}
+                      {u.nama_jabatan && (
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold ${
+                          u.nama_jabatan.toLowerCase().includes('admin') ? 'bg-red-50 text-red-700' :
+                          u.nama_jabatan.toLowerCase().includes('spv') ? 'bg-purple-50 text-purple-700' :
+                          'bg-blue-50 text-blue-700'
+                        }`}>
+                          {u.nama_jabatan.toLowerCase() === 'super admin' && (
+                            <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M2 19h20v2H2v-2zm2-2l3-10 5 6 5-6 3 10H4z"/></svg>
+                          )}
+                          {u.nama_jabatan}
+                        </span>
+                      )}
+                      {/* Additional Roles Badges */}
+                      {u.additional_roles && u.additional_roles.map(roleId => {
+                        const role = jabatans.find(j => j.id === roleId);
+                        if (!role) return null;
+                        return (
+                          <span key={roleId} className={`inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-medium ${
+                            role.nama_jabatan.toLowerCase().includes('admin') ? 'bg-red-50 text-red-700' :
+                            role.nama_jabatan.toLowerCase().includes('spv') ? 'bg-purple-50 text-purple-700' :
+                            'bg-blue-50 text-blue-700'
+                          }`}>
+                            {role.nama_jabatan}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </td>
+                  <td className="p-4 text-sm text-gray-800 font-medium">
+                    {u.nama_jabatan || '-'}
                   </td>
                   <td className="p-4 text-sm">
                     <button 
@@ -211,7 +311,7 @@ export default function UserManagement() {
                 </tr>
               )) : (
                 <tr>
-                  <td colSpan="5" className="p-8 text-center text-gray-500">
+                  <td colSpan="8" className="p-8 text-center text-gray-500">
                     Belum ada data user. (Pastikan backend API berjalan)
                   </td>
                 </tr>
@@ -221,133 +321,179 @@ export default function UserManagement() {
         </div>
       </div>
 
-      {/* Modal Add/Edit */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full overflow-hidden">
-            <div className="flex justify-between items-center p-5 border-b border-gray-100">
-              <h3 className="text-lg font-bold text-gray-800">
-                {isEditing ? 'Edit User' : 'Tambah User Baru'}
-              </h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600">
-                <XCircle className="w-5 h-5" />
+      {/* Import Modal */}
+      {isImportModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-gray-900/60 backdrop-blur-sm p-4 transition-all duration-300">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col transform transition-all scale-100">
+            {/* Header */}
+            <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-white">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                  <UploadCloud size={20} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-800 tracking-tight">Import CSV</h3>
+                  <p className="text-xs text-gray-500 font-medium">Unggah data user secara massal</p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setIsImportModalOpen(false); setSelectedFile(null); }}
+                className="text-gray-400 hover:text-gray-600 bg-white hover:bg-gray-100 p-2 rounded-full transition-colors shadow-sm"
+              >
+                <X size={20} />
               </button>
             </div>
-            
-            <form onSubmit={handleSubmit} className="p-5 space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Nama Lengkap</label>
-                <input 
-                  type="text" 
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required 
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Username</label>
-                <input 
-                  type="text" 
-                  name="username"
-                  value={formData.username}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required 
-                />
-              </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Email</label>
-                <input 
-                  type="email" 
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required 
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Password {isEditing && <span className="text-xs text-gray-400 font-normal">(Kosongkan jika tidak ingin mengubah)</span>}
-                </label>
-                <input 
-                  type="password" 
-                  name="password"
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required={!isEditing} 
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Divisi</label>
-                  <select
-                    name="divisi_id"
-                    value={formData.divisi_id}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Pilih Divisi</option>
-                    {divisis.map(d => (
-                      <option key={d.id} value={d.id}>{d.nama_divisi}</option>
-                    ))}
-                  </select>
+            {/* Body */}
+            <div className="p-6 space-y-6">
+              {/* Step 1 */}
+              <div className="flex gap-4">
+                <div className="flex-shrink-0 flex flex-col items-center">
+                  <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs ring-4 ring-white">1</div>
+                  <div className="w-0.5 h-full bg-gray-100 mt-2"></div>
                 </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Jabatan</label>
-                  <select
-                    name="jabatan_id"
-                    value={formData.jabatan_id}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                <div className="pb-4">
+                  <h4 className="text-sm font-bold text-gray-700 mb-1">Unduh Format CSV</h4>
+                  <p className="text-xs text-gray-500 mb-3 leading-relaxed">
+                    Gunakan template ini untuk memastikan struktur kolom sesuai.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={downloadFormatCSV}
+                    className="px-4 py-2 text-sm font-semibold text-blue-600 bg-white border border-blue-200 shadow-sm rounded-lg hover:bg-blue-50 transition-all flex items-center gap-2 group"
                   >
-                    <option value="">Pilih Jabatan</option>
-                    {jabatans.map(j => (
-                      <option key={j.id} value={j.id}>{j.nama_jabatan}</option>
-                    ))}
-                  </select>
+                    <Download size={16} className="group-hover:-translate-y-0.5 transition-transform" />
+                    Template.csv
+                  </button>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 pt-2">
-                <input 
-                  type="checkbox" 
-                  name="is_active"
-                  id="is_active"
-                  checked={formData.is_active}
-                  onChange={handleInputChange}
-                  className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                />
-                <label htmlFor="is_active" className="text-sm text-gray-700 cursor-pointer">
-                  User Aktif (Bisa login)
-                </label>
-              </div>
+              {/* Step 2 */}
+              <div className="flex gap-4">
+                <div className="flex-shrink-0 flex flex-col items-center">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs ring-4 ring-white transition-colors ${selectedFile ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>
+                    {selectedFile ? <CheckCircle size={14} /> : '2'}
+                  </div>
+                </div>
+                <div className="w-full">
+                  <h4 className="text-sm font-bold text-gray-700 mb-1">Upload File Data</h4>
+                  <p className="text-xs text-gray-500 mb-3">Pilih file CSV yang sudah Anda isi.</p>
 
-              <div className="pt-4 flex gap-3 justify-end">
-                <button 
-                  type="button" 
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-medium"
-                >
-                  Batal
-                </button>
-                <button 
-                  type="submit" 
-                  className="px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors font-medium"
-                >
-                  Simpan
-                </button>
+                  <div className={`relative border-2 border-dashed rounded-xl p-6 transition-all duration-200 text-center ${selectedFile ? 'border-green-400 bg-green-50' : 'border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-blue-300'}`}>
+                    <input
+                      type="file"
+                      accept=".csv"
+                      onChange={(e) => setSelectedFile(e.target.files[0])}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+
+                    {!selectedFile ? (
+                      <div className="flex flex-col items-center justify-center gap-2 pointer-events-none">
+                        <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm text-gray-400 mb-1">
+                          <FileText size={20} />
+                        </div>
+                        <span className="text-sm font-medium text-blue-600">Klik untuk browse file</span>
+                        <span className="text-xs text-gray-400">atau drag & drop file .csv di sini</span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center gap-2 pointer-events-none">
+                        <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm text-green-500 mb-1">
+                          <FileText size={20} />
+                        </div>
+                        <span className="text-sm font-bold text-green-700">{selectedFile.name}</span>
+                        <span className="text-xs text-green-600 font-medium">{(selectedFile.size / 1024).toFixed(1)} KB</span>
+                        <span className="text-xs text-gray-500 underline mt-1">Klik untuk mengganti file</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-            </form>
+            </div>
+
+            {/* Footer */}
+            <div className="p-5 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 rounded-b-2xl">
+              <button
+                type="button"
+                onClick={() => { setIsImportModalOpen(false); setSelectedFile(null); }}
+                className="px-5 py-2.5 text-sm font-semibold text-gray-600 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-all shadow-sm"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={!selectedFile}
+                onClick={() => {
+                  if (selectedFile) {
+                    Papa.parse(selectedFile, {
+                      header: true,
+                      skipEmptyLines: true,
+                      complete: async function(results) {
+                        const data = results.data.filter(row => {
+                          const firstKey = Object.keys(row)[0];
+                          return !row[firstKey]?.toString().startsWith('#');
+                        });
+                        
+                        let successCount = 0;
+                        for (const row of data) {
+                          try {
+                            const payload = {
+                              name: row.nama || '',
+                              username: row.username || '',
+                              email: row.email || '',
+                              password: row.password || 'password123',
+                              divisi_id: row.divisi_id || null,
+                              jabatan_id: row.jabatan_id || null,
+                              additional_roles: row.role_tambahan_ids ? row.role_tambahan_ids.split(';').map(r => parseInt(r.trim())).filter(r => !isNaN(r)) : [],
+                              is_active: true
+                            };
+                            
+                            await fetch(apiUrl('/users'), {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify(payload)
+                            });
+                            successCount++;
+                          } catch (err) {
+                            console.error('Error importing user', row, err);
+                          }
+                        }
+                        alert(`Berhasil mengimport ${successCount} dari ${data.length} baris data user.`);
+                        fetchUsers();
+                        setIsImportModalOpen(false);
+                        setSelectedFile(null);
+                      }
+                    });
+                  }
+                }}
+                className={`px-5 py-2.5 text-sm font-bold text-white rounded-xl transition-all shadow-md flex items-center gap-2
+                  ${selectedFile ? 'bg-blue-600 hover:bg-blue-700 hover:shadow-lg' : 'bg-gray-300 cursor-not-allowed opacity-70'}
+                `}
+              >
+                <UploadCloud size={18} />
+                Import Data Sekarang
+              </button>
+            </div>
           </div>
         </div>
+      )}
+
+      {/* Modal Add/Edit */}
+      {isModalOpen && (
+        <FormUserManagement
+          isEditing={isEditing}
+          formData={formData}
+          divisis={divisis}
+          jabatans={jabatans}
+          onClose={() => setIsModalOpen(false)}
+          onChange={(e) => {
+            const { name, value, type, checked } = e.target;
+            setFormData({
+              ...formData,
+              [name]: type === 'checkbox' ? checked : value
+            });
+          }}
+          onSubmit={handleSubmit}
+        />
       )}
 
     </MainLayout>

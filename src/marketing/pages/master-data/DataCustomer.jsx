@@ -4,11 +4,27 @@ import { Plus, Edit2, Trash2, Search, X, ArrowDown, ArrowUp, ArrowUpDown, Downlo
 import Select from 'react-select';
 import CreatableSelect from 'react-select/creatable';
 import { apiUrl } from '../../../api';
+import FormCustomerPage from '../components/modals/FormCustomerPage';
+import Papa from 'papaparse';
 
 export default function DataCustomer() {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const isSuperAdmin = user.jabatan === 'Super Admin' || user.username === 'admin' || user.role === 'superadmin';
-  const isSuperAdminOrAdmin = isSuperAdmin || user.jabatan === 'Admin' || user.role === 'admin';
+  const roleName = (user.jabatan || '').toLowerCase();
+
+  const isSuperAdmin = roleName === 'super admin' || user.username === 'admin' || user.role === 'superadmin';
+  const isAdmin = roleName.includes('admin') || isSuperAdmin;
+  const isManager = roleName.includes('manager');
+  const isSpv = roleName.includes('spv') || roleName.includes('supervisor');
+  const isLeader = roleName === 'leader';
+
+  // Hak akses murni menggunakan role/jabatan
+  const canEdit = isAdmin || isManager || isSpv || isLeader; // Disesuaikan, misal staff tidak bisa edit
+  const canDelete = isAdmin; // Manager tidak bisa delete
+  const canApprove = isAdmin || isManager; // Manager bisa approve
+  const canImport = isAdmin || isManager;
+  const canExport = isAdmin || isManager;
+
+  const isSuperAdminOrAdmin = isAdmin; // Alias for backward compatibility in render
 
   const [customers, setCustomers] = useState([]);
   const [salesList, setSalesList] = useState([]);
@@ -20,7 +36,20 @@ export default function DataCustomer() {
 
   // Handlers untuk Import/Export
   const handleExportCSV = () => {
-    alert("Fitur Export CSV data customer...");
+    const csvData = customers.map(c => ({
+      'No Akun': c.no_akun || '',
+      'Nama Customer': c.nama_customer || '',
+      'Site Kota': (c.site_kota || []).join(';'),
+      'Sales': (c.assigned_sales || []).map(s => s.name).join(';'),
+      'Status': c.status || ''
+    }));
+
+    const csv = Papa.unparse(csvData);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'data_customer.csv';
+    link.click();
   };
 
   const handleImportCSV = () => {
@@ -28,7 +57,8 @@ export default function DataCustomer() {
   };
 
   const downloadFormatCSV = () => {
-    const csvContent = "data:text/csv;charset=utf-8,no_akun,nama_customer,site_kota,sales_email\n1001,PT Satu Sales,\"Jakarta\",sales1@email.com\n1002,PT Multi Sales,\"Bandung;Surabaya\",\"sales1@email.com;sales2@email.com\"\n";
+    // Menambahkan Note pada file CSV
+    const csvContent = "data:text/csv;charset=utf-8,# CATATAN: Pisahkan multi value (seperti site_kota atau sales_email) dengan titik koma (;). Baris ini boleh dihapus atau dibiarkan.\nno_akun,nama_customer,site_kota,sales_email\n1001,PT Satu Sales,\"Jakarta\",sales1@email.com\n1002,PT Multi Sales,\"Bandung;Surabaya\",\"sales1@email.com;sales2@email.com\"\n";
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -171,7 +201,7 @@ export default function DataCustomer() {
         ...formData,
         site_kota: formData.site_kota.filter(site => site.trim() !== ''),
         status: isSuperAdminOrAdmin ? 'approved' : 'pending',
-        sales_ids: isSuperAdminOrAdmin ? formData.sales_ids : [user.id]
+        sales_ids: (isSuperAdminOrAdmin || isManager) ? formData.sales_ids : [user.id]
       };
 
       const response = await fetch(url, {
@@ -330,35 +360,10 @@ export default function DataCustomer() {
 
   return (
     <MainLayout>
-      <div className="flex justify-between items-center mb-8">
+      <div className="mb-8">
         <div>
           <h2 className="text-2xl font-bold text-gray-800">Data Customer</h2>
           <p className="text-gray-600 mt-1">Kelola data pelanggan dan assign ke Sales.</p>
-        </div>
-        <div className="flex gap-2">
-          {isSuperAdminOrAdmin && (
-            <>
-              <button
-                onClick={handleImportCSV}
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors shadow-sm"
-              >
-                Import CSV
-              </button>
-              <button
-                onClick={handleExportCSV}
-                className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors shadow-sm"
-              >
-                Export CSV
-              </button>
-            </>
-          )}
-          <button
-            onClick={openAddModal}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors shadow-sm"
-          >
-            <Plus size={18} />
-            Tambah Customer
-          </button>
         </div>
       </div>
 
@@ -366,10 +371,9 @@ export default function DataCustomer() {
         {openFilter && (
           <div className="fixed inset-0 z-50" onClick={() => setOpenFilter(null)} />
         )}
-        {/* Search Bar */}
-        <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-          <div className="flex items-center gap-2">
-            <div className="relative w-64">
+        <div className="p-4 border-b border-gray-100 flex flex-col lg:flex-row lg:justify-between items-start lg:items-center bg-gray-50/50 gap-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full lg:w-auto">
+            <div className="relative w-full lg:w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
               <input
                 type="text"
@@ -379,8 +383,38 @@ export default function DataCustomer() {
                 className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
               />
             </div>
-            <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+            <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors sm:w-auto w-full">
               Search
+            </button>
+          </div>
+          
+          <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+            {(canImport || canExport) && (
+              <>
+                {canImport && (
+                  <button
+                    onClick={handleImportCSV}
+                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex justify-center items-center gap-2 text-sm font-medium transition-colors shadow-sm flex-1 sm:flex-none whitespace-nowrap"
+                  >
+                    Import CSV
+                  </button>
+                )}
+                {canExport && (
+                  <button
+                    onClick={handleExportCSV}
+                    className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg flex justify-center items-center gap-2 text-sm font-medium transition-colors shadow-sm flex-1 sm:flex-none whitespace-nowrap"
+                  >
+                    Export CSV
+                  </button>
+                )}
+              </>
+            )}
+            <button
+              onClick={openAddModal}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex justify-center items-center gap-2 text-sm font-medium transition-colors shadow-sm w-full sm:w-auto sm:flex-none whitespace-nowrap"
+            >
+              <Plus size={18} />
+              Tambah Customer
             </button>
           </div>
         </div>
@@ -394,9 +428,10 @@ export default function DataCustomer() {
                 <FilterHeader columnKey="nama_customer" label="Nama Customer" />
                 <FilterHeader columnKey="site_kota" label="Site / Kota" />
                 <FilterHeader columnKey="sales" label="Sales" />
-                <th className="p-4 font-semibold text-sm whitespace-nowrap">Status</th>
+                <th className="p-4 font-semibold text-sm whitespace-nowrap">Customer Account Type</th>
                 <th className="p-4 font-semibold text-sm whitespace-nowrap">Aktivitas</th>
-                {isSuperAdminOrAdmin && <th className="p-4 font-semibold text-sm text-right w-24 whitespace-nowrap">Aksi</th>}
+                <th className="p-4 font-semibold text-sm whitespace-nowrap">Status</th>
+                {(canEdit || canDelete || isSuperAdminOrAdmin) && <th className="p-4 font-semibold text-sm text-right w-24 whitespace-nowrap">Aksi</th>}
               </tr>
             </thead>
             <tbody>
@@ -431,6 +466,15 @@ export default function DataCustomer() {
                     )}
                   </td>
                   <td className="p-4 text-sm text-gray-600">
+                    {c.assigned_sales && c.assigned_sales.length > 1 ? (
+                      <span className="px-2 py-1 bg-purple-50 text-purple-700 text-xs rounded-md font-medium border border-purple-100">Tandem</span>
+                    ) : c.assigned_sales && c.assigned_sales.length === 1 ? (
+                      <span className="px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-md font-medium border border-blue-100">Individu</span>
+                    ) : (
+                      <span className="text-gray-400 italic text-xs">-</span>
+                    )}
+                  </td>
+                  <td className="p-4 text-sm text-gray-600">
                     <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-md text-xs font-medium border border-gray-200">
                       0 Aktivitas
                     </span>
@@ -442,20 +486,19 @@ export default function DataCustomer() {
                       <span className="px-2 py-1 bg-green-50 text-green-700 text-xs rounded-md font-medium border border-green-100">Approved</span>
                     )}
                   </td>
-                  {isSuperAdminOrAdmin && (
-                  <td className="p-4 text-sm">
-                    <div className="flex items-center justify-end gap-2">
-                      {c.status === 'pending' && isSuperAdminOrAdmin && (
-                        <button
-                          onClick={() => handleApprove(c.id)}
-                          className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                          title="Approve"
-                        >
-                          <CheckCircle size={16} />
-                        </button>
-                      )}
-                      {isSuperAdmin ? (
-                        <>
+                  {(canEdit || canDelete || isSuperAdminOrAdmin) && (
+                    <td className="p-4 text-sm">
+                      <div className="flex items-center justify-end gap-2">
+                        {c.status === 'pending' && canApprove && (
+                          <button
+                            onClick={() => handleApprove(c.id)}
+                            className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                            title="Approve"
+                          >
+                            <CheckCircle size={16} />
+                          </button>
+                        )}
+                        {canEdit && (
                           <button
                             onClick={() => openEditModal(c)}
                             className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -463,6 +506,8 @@ export default function DataCustomer() {
                           >
                             <Edit2 size={16} />
                           </button>
+                        )}
+                        {canDelete && (
                           <button
                             onClick={() => handleDelete(c.id)}
                             className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -470,14 +515,9 @@ export default function DataCustomer() {
                           >
                             <Trash2 size={16} />
                           </button>
-                        </>
-                      ) : (
-                        <div className="text-right text-gray-400 text-xs italic">
-                          No Access
-                        </div>
-                      )}
-                    </div>
-                  </td>
+                        )}
+                      </div>
+                    </td>
                   )}
                 </tr>
               )) : (
@@ -492,131 +532,22 @@ export default function DataCustomer() {
         </div>
       </div>
 
-      {/* Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="flex justify-between items-center p-6 border-b border-gray-100">
-              <h3 className="text-xl font-bold text-gray-800">
-                {isEditing ? 'Edit Customer' : 'Tambah Customer'}
-              </h3>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <X size={24} />
-              </button>
-            </div>
-
-            <div className="p-6 overflow-y-auto">
-              <form id="customerForm" onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">No. Akun</label>
-                    <input
-                      type="text"
-                      name="no_akun"
-                      value={formData.no_akun}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Nama Customer</label>
-                    <input
-                      type="text"
-                      name="nama_customer"
-                      value={formData.nama_customer}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <label className="block text-sm font-semibold text-gray-700">Site / Kota</label>
-                    <button
-                      type="button"
-                      onClick={handleAddSite}
-                      className="text-xs font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded transition-colors"
-                    >
-                      <Plus size={14} /> Tambah Site
-                    </button>
-                  </div>
-                  <div className="space-y-2">
-                    {formData.site_kota.map((site, idx) => (
-                      <div key={idx} className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          value={site}
-                          onChange={(e) => handleSiteTextChange(idx, e.target.value)}
-                          placeholder={`Site ${idx + 1}`}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                        {formData.site_kota.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveSite(idx)}
-                            className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                          >
-                            <X size={18} />
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {isSuperAdminOrAdmin && (
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Assign ke Sales</label>
-                    <Select
-                      isMulti
-                      name="sales"
-                      options={salesList.map(sales => ({
-                        value: sales.id,
-                        label: `${sales.name} (${sales.nama_jabatan})`
-                      }))}
-                      className="basic-multi-select"
-                      classNamePrefix="select"
-                      placeholder="Ketik untuk mencari sales..."
-                      menuPortalTarget={document.body}
-                      styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
-                      value={salesList
-                        .filter(sales => formData.sales_ids.includes(sales.id))
-                        .map(sales => ({
-                          value: sales.id,
-                          label: `${sales.name} (${sales.nama_jabatan})`
-                        }))}
-                      onChange={handleSelectChange}
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Anda dapat memilih lebih dari satu sales untuk customer ini.</p>
-                  </div>
-                )}
-              </form>
-            </div>
-
-            <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 mt-auto">
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="px-4 py-2 text-sm font-semibold text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-              >
-                Batal
-              </button>
-              <button
-                type="submit"
-                form="customerForm"
-                className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-sm"
-              >
-                Simpan
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Modal Form Customer */}
+      <FormCustomerPage
+        isModalOpen={isModalOpen}
+        setIsModalOpen={setIsModalOpen}
+        isEditing={isEditing}
+        formData={formData}
+        handleInputChange={handleInputChange}
+        handleAddSite={handleAddSite}
+        handleSiteTextChange={handleSiteTextChange}
+        handleRemoveSite={handleRemoveSite}
+        isSuperAdminOrAdmin={isAdmin}
+        isManager={isManager}
+        salesList={salesList}
+        handleSelectChange={handleSelectChange}
+        handleSubmit={handleSubmit}
+      />
 
       {/* Import Modal */}
       {isImportModalOpen && (
@@ -721,9 +652,43 @@ export default function DataCustomer() {
                 disabled={!selectedFile}
                 onClick={() => {
                   if (selectedFile) {
-                    alert(`Memproses file: ${selectedFile.name}\n\nDi sini nanti logic parsing titik koma (;) untuk multi sales/kota.`);
-                    setIsImportModalOpen(false);
-                    setSelectedFile(null);
+                    Papa.parse(selectedFile, {
+                      header: true,
+                      skipEmptyLines: true,
+                      complete: async function (results) {
+                        const data = results.data.filter(row => {
+                          const firstKey = Object.keys(row)[0];
+                          return !row[firstKey]?.toString().startsWith('#');
+                        });
+
+                        let successCount = 0;
+                        for (const row of data) {
+                          try {
+                            const payload = {
+                              no_akun: row.no_akun || '',
+                              nama_customer: row.nama_customer || '',
+                              site_kota: row.site_kota ? row.site_kota.split(';').map(s => s.trim()) : [],
+                              sales_emails: row.sales_email ? row.sales_email.split(';').map(e => e.trim()) : [], // We use emails to match sales in backend or just send it if backend supports it. For now assuming backend handles it or we just add it to note.
+                              status: isAdmin ? 'approved' : 'pending'
+                            };
+
+                            // Send to backend (adjust endpoint as needed)
+                            await fetch(apiUrl('/customers'), {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify(payload)
+                            });
+                            successCount++;
+                          } catch (err) {
+                            console.error('Error importing row', row, err);
+                          }
+                        }
+                        alert(`Berhasil mengimport ${successCount} dari ${data.length} baris data.`);
+                        fetchCustomers();
+                        setIsImportModalOpen(false);
+                        setSelectedFile(null);
+                      }
+                    });
                   }
                 }}
                 className={`px-5 py-2.5 text-sm font-bold text-white rounded-xl transition-all shadow-md flex items-center gap-2
@@ -747,19 +712,19 @@ export default function DataCustomer() {
                 <Users size={18} className="text-blue-600" />
                 Data Sales
               </h3>
-              <button 
+              <button
                 onClick={() => setViewSalesModal(null)}
                 className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-lg transition-colors"
               >
                 <X size={18} />
               </button>
             </div>
-            
+
             <div className="p-6">
               <p className="text-sm text-gray-500 mb-4">
                 Sales yang di-assign ke <span className="font-semibold text-gray-700">{viewSalesModal.nama_customer}</span>:
               </p>
-              
+
               <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
                 {viewSalesModal.assigned_sales.map((s, i) => (
                   <div key={s.id || i} className="flex items-center gap-3 p-3 bg-blue-50/50 border border-blue-100 rounded-lg">
@@ -773,7 +738,7 @@ export default function DataCustomer() {
                 ))}
               </div>
             </div>
-            
+
             <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end">
               <button
                 onClick={() => setViewSalesModal(null)}

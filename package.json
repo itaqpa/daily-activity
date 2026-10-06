@@ -10,7 +10,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "db:migrate": "cmd /c set PGPASSWORD=postgres&& psql -h 127.0.0.1 -U postgres -d db_aqpa_indonesia -f Server/database/schema.sql"
+    "db:migrate": "powershell -Command \"$env:PGPASSWORD='postgres'; Get-ChildItem Server\\database\\*.sql | ForEach-Object { psql -h 127.0.0.1 -U postgres -d db_aqpa_indonesia -f $_.FullName }\""
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
@@ -22,6 +22,7 @@
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
     "lucide-react": "^1.49.0",
+    "papaparse": "^5.7.0",
     "pg": "^8.23.0",
     "react": "^19.2.8",
     "react-chartjs-2": "^5.3.1",

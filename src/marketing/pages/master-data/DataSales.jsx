@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import MainLayout from '../components/layouts/MainLayout';
-import { Users, X, ArrowDown, ArrowUp, ArrowUpDown, Search } from 'lucide-react';
+import { Users, X, ArrowDown, ArrowUp, ArrowUpDown, Search, Download } from 'lucide-react';
 import { apiUrl } from '../../../api';
+import Papa from 'papaparse';
+import Select from 'react-select';
 
 export default function DataSales() {
   const [salesData, setSalesData] = useState([]);
@@ -15,6 +17,50 @@ export default function DataSales() {
   const [filters, setFilters] = useState({});
   const [openFilter, setOpenFilter] = useState(null);
   const [globalSearch, setGlobalSearch] = useState('');
+
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [exportTarget, setExportTarget] = useState('all');
+  const [exportSalesIds, setExportSalesIds] = useState([]);
+
+  const handleExportCSV = () => {
+    let salesToExport = [];
+    if (exportTarget === 'all') {
+      salesToExport = salesData;
+    } else {
+      if (!exportSalesIds || exportSalesIds.length === 0) {
+        alert('Pilih minimal satu sales terlebih dahulu.');
+        return;
+      }
+      salesToExport = salesData.filter(s => exportSalesIds.includes(s.id));
+    }
+
+    const csvData = [];
+    salesToExport.forEach(sales => {
+      if (sales.assigned_customers && sales.assigned_customers.length > 0) {
+        sales.assigned_customers.forEach(cust => {
+          csvData.push({
+            'No. Pelanggan': cust.no_akun || '',
+            'Nama Perusahaan': cust.nama_customer || '',
+            'Kota': cust.site_kota ? (Array.isArray(cust.site_kota) ? cust.site_kota.join('; ') : cust.site_kota) : '',
+            'Nama Marketing': sales.name || ''
+          });
+        });
+      }
+    });
+
+    if (csvData.length === 0) {
+      alert('Tidak ada data customer untuk di-export pada pilihan ini.');
+      return;
+    }
+
+    const csv = Papa.unparse(csvData);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `data_sales_${new Date().getTime()}.csv`;
+    link.click();
+    setIsExportModalOpen(false);
+  };
 
   useEffect(() => {
     fetchSalesData();
@@ -173,9 +219,9 @@ export default function DataSales() {
         )}
 
         {/* Search Bar */}
-        <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-          <div className="flex items-center gap-2">
-            <div className="relative w-64">
+        <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-gray-50/50 gap-4">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="relative w-full sm:w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
               <input
                 type="text"
@@ -187,6 +233,15 @@ export default function DataSales() {
             </div>
             <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
               Search
+            </button>
+          </div>
+          <div className="flex w-full sm:w-auto">
+            <button
+              onClick={() => setIsExportModalOpen(true)}
+              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors shadow-sm whitespace-nowrap w-full sm:w-auto justify-center"
+            >
+              <Download size={16} />
+              Export CSV
             </button>
           </div>
         </div>
@@ -301,6 +356,106 @@ export default function DataSales() {
                 className="px-5 py-2 text-sm font-semibold text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
               >
                 Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Export Modal */}
+      {isExportModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-gray-900/60 backdrop-blur-sm p-4 transition-all duration-300">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col transform transition-all scale-100">
+            <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-white">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                  <Download size={20} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-800 tracking-tight">Export Data Sales</h3>
+                  <p className="text-xs text-gray-500 font-medium">Download data customer dari sales</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsExportModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 bg-white hover:bg-gray-100 p-2 rounded-full transition-colors shadow-sm"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Target Export</label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="exportTarget"
+                      value="all"
+                      checked={exportTarget === 'all'}
+                      onChange={() => setExportTarget('all')}
+                      className="text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-700">Semua Sales</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="exportTarget"
+                      value="specific"
+                      checked={exportTarget === 'specific'}
+                      onChange={() => setExportTarget('specific')}
+                      className="text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-700">Sales Tertentu</span>
+                  </label>
+                </div>
+              </div>
+
+              {exportTarget === 'specific' && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Pilih Sales</label>
+                  <Select
+                    isMulti
+                    options={salesData.map(sales => ({
+                      value: sales.id,
+                      label: `${sales.name} (${sales.nama_jabatan})`
+                    }))}
+                    className="text-sm"
+                    placeholder="Cari sales..."
+                    menuPortalTarget={document.body}
+                    styles={{
+                      menuPortal: base => ({ ...base, zIndex: 9999 }),
+                    }}
+                    value={
+                      exportSalesIds.map(id => ({
+                        value: id,
+                        label: salesData.find(s => s.id === id)?.name || ''
+                      }))
+                    }
+                    onChange={(selected) => setExportSalesIds(selected ? selected.map(s => s.value) : [])}
+                    isClearable
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="p-5 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 rounded-b-2xl">
+              <button
+                type="button"
+                onClick={() => setIsExportModalOpen(false)}
+                className="px-5 py-2.5 text-sm font-semibold text-gray-600 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-all shadow-sm"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleExportCSV}
+                className="px-5 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-all shadow-md flex items-center gap-2"
+              >
+                <Download size={18} />
+                Export Sekarang
               </button>
             </div>
           </div>
