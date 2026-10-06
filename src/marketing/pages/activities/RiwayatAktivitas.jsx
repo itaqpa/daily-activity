@@ -6,28 +6,24 @@ import { apiUrl } from '../../../api';
 export default function RiwayatAktivitas() {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   
-  const getVisibilityRoles = (jabatan) => {
-    if (!jabatan) return [];
-    const jName = jabatan.toLowerCase();
-    
-    if (jName.includes('super admin') || jName.includes('admin') || user.role === 'admin') {
-      return ['Super Admin', 'Admin', 'Manager', 'Spv', 'Supervisor', 'Leader', 'Staff'];
-    }
-    if (jName.includes('manager')) {
-      return ['Spv', 'Supervisor', 'Leader', 'Staff'];
-    }
-    if (jName.includes('spv') || jName.includes('supervisor')) {
-      return ['Leader', 'Staff'];
-    }
-    if (jName.includes('leader')) {
-      return ['Staff'];
-    }
-    return [];
+  const roleName = (user.jabatan || '').toLowerCase();
+  
+  const isSuperAdmin = roleName === 'super admin' || user.username === 'admin' || user.role === 'superadmin';
+  const isAdmin = roleName.includes('admin') || isSuperAdmin;
+  const isManager = roleName.includes('manager');
+  const isSpv = roleName.includes('spv') || roleName.includes('supervisor');
+  const isLeader = roleName === 'leader';
+  
+  const getVisibilityRoles = () => {
+    if (isAdmin) return ['all'];
+    if (isManager) return ['manager', 'spv', 'supervisor', 'leader', 'staff', 'sales'];
+    if (isSpv) return ['spv', 'supervisor', 'leader', 'staff', 'sales'];
+    if (isLeader) return ['leader', 'staff', 'sales'];
+    return ['staff', 'sales'];
   };
 
-  const roleName = (user.jabatan || '').toLowerCase();
   const canSeeAll = roleName !== 'staff';
-  const canAction = roleName.includes('super admin') || roleName.includes('admin') || user.role === 'admin';
+  const canAction = isAdmin || isManager;
 
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -46,12 +42,11 @@ export default function RiwayatAktivitas() {
       if (response.ok) {
         let data = await response.json();
         
-        const visibleRoles = getVisibilityRoles(user.jabatan).map(r => r.toLowerCase());
-        const isSuperAdminOrAdmin = roleName.includes('super admin') || roleName.includes('admin') || user.role === 'admin';
+        const visibleRoles = getVisibilityRoles();
 
         data = data.filter(act => {
-          // Super Admin/Admin bisa melihat semuanya
-          if (isSuperAdminOrAdmin) return true;
+          // Super Admin/Admin/View All bisa melihat semuanya
+          if (isAdmin || visibleRoles.includes('all')) return true;
           // Selalu bisa melihat catatannya sendiri
           if (act.user_id === user.id) return true;
           // Atau sesuai rule visibilitas role-nya DAN berada di divisi yang sama
