@@ -10,21 +10,27 @@ import Papa from 'papaparse';
 export default function DataCustomer() {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const roleName = (user.jabatan || '').toLowerCase();
+  const additionalRoles = user.additional_roles_data || [];
+  const hasAdminRole = additionalRoles.some(r => (r.nama_jabatan || '').toLowerCase().includes('admin'));
 
   const isSuperAdmin = roleName === 'super admin' || user.username === 'admin' || user.role === 'superadmin';
-  const isAdmin = roleName.includes('admin') || isSuperAdmin;
-  const isManager = roleName.includes('manager');
-  const isSpv = roleName.includes('spv') || roleName.includes('supervisor');
-  const isLeader = roleName === 'leader';
+  const isAdmin = roleName.includes('admin') || isSuperAdmin || hasAdminRole || (user.username || '').toLowerCase().includes('admin');
+  const isManager = roleName.includes('manager') || additionalRoles.some(r => (r.nama_jabatan || '').toLowerCase().includes('manager'));
+  const isSpv = roleName.includes('spv') || roleName.includes('supervisor') || additionalRoles.some(r => (r.nama_jabatan || '').toLowerCase().includes('spv') || (r.nama_jabatan || '').toLowerCase().includes('supervisor'));
+  const isLeader = roleName === 'leader' || additionalRoles.some(r => (r.nama_jabatan || '').toLowerCase() === 'leader');
+
+  console.log('DEBUG USER ROLE:', { user, roleName, additionalRoles, hasAdminRole, isAdmin, isSuperAdmin });
 
   // Hak akses murni menggunakan role/jabatan
-  const canEdit = isAdmin || isManager || isSpv || isLeader; // Disesuaikan, misal staff tidak bisa edit
+  const canEdit = isAdmin || isManager; // SPV dan Leader tidak bisa edit
   const canDelete = isAdmin; // Manager tidak bisa delete
   const canApprove = isAdmin || isManager; // Manager bisa approve
+
+
   const canImport = isAdmin || isManager;
   const canExport = isAdmin || isManager;
 
-  const isSuperAdminOrAdmin = isAdmin; // Alias for backward compatibility in render
+  const isSuperAdminOrAdmin = isAdmin || isManager; // Alias for backward compatibility in render
 
   const [customers, setCustomers] = useState([]);
   const [salesList, setSalesList] = useState([]);
