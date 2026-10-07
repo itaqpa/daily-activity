@@ -94,7 +94,7 @@ export default function ListCostMPPage() {
     return (
     <MainLayout>
       <div className="p-6 w-full max-w-[1800px] mx-auto space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
               Data Pengeluaran Proyek
@@ -105,23 +105,24 @@ export default function ListCostMPPage() {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg shadow-sm text-sm">
-              <Calendar className="w-4 h-4 text-gray-500" />
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3 w-full md:w-auto mt-4 md:mt-0">
+            {/* Date Picker */}
+            <div className="flex items-center justify-between gap-1 sm:gap-2 px-2 sm:px-3 py-2 bg-white border border-gray-200 rounded-lg shadow-sm text-sm w-full lg:w-auto">
+              <Calendar className="w-4 h-4 text-gray-500 shrink-0 hidden sm:block" />
               <input
                 id="filter-start"
                 type="date"
                 value={range.start}
                 onChange={(e) => setRange((r) => ({ ...r, start: e.target.value }))}
-                className="outline-none text-gray-700"
+                className="outline-none text-gray-700 w-full min-w-0 bg-transparent text-xs sm:text-sm"
               />
-              <span className="text-gray-400">-</span>
+              <span className="text-gray-400 shrink-0">-</span>
               <input
                 id="filter-end"
                 type="date"
                 value={range.end}
                 onChange={(e) => setRange((r) => ({ ...r, end: e.target.value }))}
-                className="outline-none text-gray-700"
+                className="outline-none text-gray-700 w-full min-w-0 bg-transparent text-xs sm:text-sm text-right sm:text-left"
               />
             </div>
 
@@ -129,7 +130,7 @@ export default function ListCostMPPage() {
               id="filter-project"
               value={projectId}
               onChange={(e) => setProjectId(e.target.value)}
-              className="px-3 py-2 bg-white border border-gray-200 rounded-lg shadow-sm text-sm text-gray-700 outline-none"
+              className="px-3 py-2 bg-white border border-gray-200 rounded-lg shadow-sm text-sm text-gray-700 outline-none w-full lg:w-auto appearance-none"
             >
               <option value="all">Semua Project</option>
               {data.map((p) => (
@@ -141,7 +142,7 @@ export default function ListCostMPPage() {
               id="btn-refresh"
               onClick={fetchAllCosts}
               disabled={loading}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm font-medium disabled:opacity-50"
+              className="flex justify-center items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm font-medium disabled:opacity-50 w-full lg:w-auto"
             >
               <RefreshCcw
                 className={`w-4 h-4 ${loading ? 'animate-spin text-blue-500' : ''
@@ -164,10 +165,10 @@ export default function ListCostMPPage() {
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           {/* Toolbar: search + filter corong */}
-          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-gray-200">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 border-b border-gray-200">
             <h2 className="font-semibold text-gray-800">Daftar Pengeluaran Project</h2>
-            <div className="flex items-center gap-2">
-              <div className="relative">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+              <div className="relative w-full sm:w-auto">
                 <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   id="table-search"
@@ -175,7 +176,7 @@ export default function ListCostMPPage() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Cari no project / unit..."
-                  className="w-64 pl-9 pr-8 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition"
+                  className="w-full sm:w-64 pl-9 pr-8 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition"
                 />
                 {search && (
                   <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
@@ -186,7 +187,7 @@ export default function ListCostMPPage() {
               <button
                 id="btn-filter"
                 onClick={() => setShowFilter((v) => !v)}
-                className={`relative flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${showFilter || activeFilterCount ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}
+                className={`relative flex justify-center items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${showFilter || activeFilterCount ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}
               >
                 <Filter className="w-4 h-4" />
                 Filter
@@ -237,7 +238,8 @@ export default function ListCostMPPage() {
             </div>
           )}
 
-          <div className="overflow-x-auto min-h-[840px]">
+          {/* Desktop View: Table */}
+          <div className="hidden md:block overflow-x-auto min-h-[840px]">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-gray-50/80 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -287,6 +289,29 @@ export default function ListCostMPPage() {
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile View: Cards */}
+          <div className="md:hidden flex flex-col gap-4 p-4 bg-slate-50 min-h-[400px]">
+            {loading ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                    <Loader2 className="w-8 h-8 animate-spin text-blue-500 mb-3" />
+                    <p className="text-sm text-gray-500">Memuat data pengeluaran...</p>
+                </div>
+            ) : tableRows.length === 0 ? (
+                <div className="text-center py-12 bg-white rounded-xl border border-gray-200 shadow-sm text-sm text-gray-500">
+                    Tidak ada data proyek.
+                </div>
+            ) : (
+                paged.map((proj, idx) => (
+                    <TableDetailCostMP
+                        key={proj.id}
+                        proj={proj}
+                        index={startIdx + idx}
+                        isMobile={true}
+                    />
+                ))
+            )}
           </div>
 
           {/* Footer: page size + pagination */}

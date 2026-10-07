@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Menu, Download, Settings, Users, LogOut } from 'lucide-react';
+import { Menu, Download, Settings, Users, LogOut, LayoutDashboard } from 'lucide-react';
 
 export default function MobileHeader({ 
   user, 
@@ -101,6 +101,16 @@ export default function MobileHeader({
                   </div>
                 </div>
 
+                <div className="p-2 border-b border-gray-100">
+                  <Link
+                    to="/portal"
+                    onClick={() => setIsMobileProfileOpen(false)}
+                    className="flex items-center gap-3 px-3 py-2.5 text-sm text-blue-600 hover:bg-blue-50 rounded-xl transition-colors font-medium"
+                  >
+                    <LayoutDashboard className="w-5 h-5 text-blue-500" />
+                    Pindah Modul Aplikasi
+                  </Link>
+                </div>
                 <div className="p-2">
                   <Link
                     to="/marketing/settings"

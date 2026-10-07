@@ -16,11 +16,10 @@ export default function ListInstallPage() {
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [editId, setEditId] = useState(null);
   
-  // Ref to handle clicking outside dropdown
-  const dropdownRef = useRef(null);
+  // Handle clicking outside dropdown
   useEffect(() => {
     function handleClickOutside(event) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+      if (!event.target.closest('.action-dropdown-container')) {
         setActiveDropdown(null);
       }
     }
@@ -182,116 +181,229 @@ export default function ListInstallPage() {
           
         </div>
 
-        {/* Table Container - min height to fit at least 15 items comfortably and to prevent clipping dropdowns */}
-        <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm min-h-[500px] relative pb-16">
+        {/* Table / Card Container */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm min-h-[500px] relative pb-16">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center h-64 gap-3 text-gray-500">
               <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
               <p className="font-medium">Memuat data project...</p>
             </div>
           ) : (
-            <table className="w-full text-sm text-left">
-              <thead className="text-xs text-gray-600 uppercase bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-4 py-4 font-bold text-center">No</th>
-                  <th className="px-4 py-4 font-bold whitespace-nowrap">No Project</th>
-                  <th className="px-4 py-4 font-bold min-w-[200px]">Nama Project</th>
-                  <th className="px-4 py-4 font-bold min-w-[150px]">Customer</th>
-                  <th className="px-4 py-4 font-bold min-w-[120px]">Lokasi</th>
-                  <th className="px-4 py-4 font-bold min-w-[120px]">Leader</th>
-                  <th className="px-4 py-4 font-bold whitespace-nowrap">Mulai</th>
-                  <th className="px-4 py-4 font-bold whitespace-nowrap">Target Selesai</th>
-                  <th className="px-4 py-4 font-bold min-w-[200px]">Catatan</th>
-                  <th className="px-4 py-4 font-bold text-center">Status</th>
-                  <th className="px-4 py-4 font-bold text-center sticky right-0 bg-gray-50 border-l border-gray-200">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 relative">
-                {currentItems.map((row, index) => (
-                  <tr key={row.id} className="bg-white hover:bg-blue-50/30 transition-colors">
-                    <td className="px-4 py-3.5 text-center text-gray-500">{indexOfFirstItem + index + 1}</td>
-                    <td 
-                      onClick={() => handleView(row.id)}
-                      className="px-4 py-3.5 font-semibold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
-                    >
-                      {row.no_project}
-                    </td>
-                    <td 
-                      onClick={() => handleView(row.id)}
-                      className="px-4 py-3.5 font-semibold text-gray-900 hover:text-blue-600 cursor-pointer"
-                    >
-                      {row.nama_project}
-                    </td>
-                    <td className="px-4 py-3.5 text-gray-600">{row.customer}</td>
-                    <td className="px-4 py-3.5 text-gray-600">{row.lokasi}</td>
-                    <td className="px-4 py-3.5 text-gray-600">{row.leader}</td>
-                    <td className="px-4 py-3.5 text-gray-600 whitespace-nowrap">{row.mulai}</td>
-                    <td className="px-4 py-3.5 text-gray-600 whitespace-nowrap">{row.target_selesai}</td>
-                    <td className="px-4 py-3.5 text-gray-500 text-sm">
-                      <div className="line-clamp-2" title={row.catatan}>{row.catatan}</div>
-                    </td>
-                    <td className="px-4 py-3.5 text-center">
-                      <span className={`px-2.5 py-1 text-xs font-semibold rounded-full border whitespace-nowrap capitalize ${
-                        row.status.toLowerCase() === 'registered' ? 'bg-blue-50 text-blue-700 border-blue-200' : 
-                        row.status.toLowerCase() === 'running' || row.status.toLowerCase() === 'in progress' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
-                        row.status.toLowerCase() === 'draft' ? 'bg-amber-50 text-amber-700 border-amber-200' : 
-                        'bg-gray-50 text-gray-700 border-gray-200'
-                      }`}>
-                        {row.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3.5 relative text-center sticky right-0 bg-white border-l border-gray-100 group-hover:bg-blue-50/30">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveDropdown(activeDropdown === row.id ? null : row.id);
-                        }}
-                        className={`p-1.5 rounded-lg transition-colors ${activeDropdown === row.id ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-100'}`}
-                      >
-                        <MoreVertical className="w-5 h-5" />
-                      </button>
-                      
-                      {/* Dropdown Menu - using z-[9999] for top-level stacking */}
-                      {activeDropdown === row.id && (
-                        <div 
-                          ref={dropdownRef}
-                          className="absolute right-12 top-10 w-40 bg-white rounded-xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.15)] border border-gray-200 py-2 z-[9999]"
+            <>
+              {/* Desktop View: Table */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="text-xs text-gray-600 uppercase bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-4 py-4 font-bold text-center">No</th>
+                      <th className="px-4 py-4 font-bold whitespace-nowrap">No Project</th>
+                      <th className="px-4 py-4 font-bold min-w-[200px]">Nama Project</th>
+                      <th className="px-4 py-4 font-bold min-w-[150px]">Customer</th>
+                      <th className="px-4 py-4 font-bold min-w-[120px]">Lokasi</th>
+                      <th className="px-4 py-4 font-bold min-w-[120px]">Leader</th>
+                      <th className="px-4 py-4 font-bold whitespace-nowrap">Mulai</th>
+                      <th className="px-4 py-4 font-bold whitespace-nowrap">Target Selesai</th>
+                      <th className="px-4 py-4 font-bold min-w-[200px]">Catatan</th>
+                      <th className="px-4 py-4 font-bold text-center">Status</th>
+                      <th className="px-4 py-4 font-bold text-center sticky right-0 bg-gray-50 border-l border-gray-200">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 relative">
+                    {currentItems.map((row, index) => (
+                      <tr key={row.id} className="bg-white hover:bg-blue-50/30 transition-colors">
+                        <td className="px-4 py-3.5 text-center text-gray-500">{indexOfFirstItem + index + 1}</td>
+                        <td 
+                          onClick={() => handleView(row.id)}
+                          className="px-4 py-3.5 font-semibold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
                         >
-                          <button 
-                            onClick={() => { setActiveDropdown(null); handleView(row.id); }}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors text-left font-medium"
+                          {row.no_project}
+                        </td>
+                        <td 
+                          onClick={() => handleView(row.id)}
+                          className="px-4 py-3.5 font-semibold text-gray-900 hover:text-blue-600 cursor-pointer"
+                        >
+                          {row.nama_project}
+                        </td>
+                        <td className="px-4 py-3.5 text-gray-600">{row.customer}</td>
+                        <td className="px-4 py-3.5 text-gray-600">{row.lokasi}</td>
+                        <td className="px-4 py-3.5 text-gray-600">{row.leader}</td>
+                        <td className="px-4 py-3.5 text-gray-600 whitespace-nowrap">{row.mulai}</td>
+                        <td className="px-4 py-3.5 text-gray-600 whitespace-nowrap">{row.target_selesai}</td>
+                        <td className="px-4 py-3.5 text-gray-500 text-sm">
+                          <div className="line-clamp-2" title={row.catatan}>{row.catatan}</div>
+                        </td>
+                        <td className="px-4 py-3.5 text-center">
+                          <span className={`px-2.5 py-1 text-xs font-semibold rounded-full border whitespace-nowrap capitalize ${
+                            row.status.toLowerCase() === 'registered' ? 'bg-blue-50 text-blue-700 border-blue-200' : 
+                            row.status.toLowerCase() === 'running' || row.status.toLowerCase() === 'in progress' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
+                            row.status.toLowerCase() === 'draft' ? 'bg-amber-50 text-amber-700 border-amber-200' : 
+                            'bg-gray-50 text-gray-700 border-gray-200'
+                          }`}>
+                            {row.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3.5 relative text-center sticky right-0 bg-white border-l border-gray-100 group-hover:bg-blue-50/30 action-dropdown-container">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveDropdown(activeDropdown === row.id ? null : row.id);
+                            }}
+                            className={`p-1.5 rounded-lg transition-colors ${activeDropdown === row.id ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-100'}`}
                           >
-                            <Eye className="w-[18px] h-[18px]" /> Lihat Detail
+                            <MoreVertical className="w-5 h-5" />
                           </button>
-                          <button 
-                            onClick={() => { setActiveDropdown(null); handleEdit(row.id); }}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-amber-50 hover:text-amber-600 transition-colors text-left font-medium"
-                          >
-                            <Edit className="w-[18px] h-[18px]" /> Edit
-                          </button>
-                          <div className="h-px bg-gray-100 my-1"></div>
-                          <button 
-                            onClick={() => { setActiveDropdown(null); handleDelete(row.id); }}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors text-left font-medium"
-                          >
-                            <Trash2 className="w-[18px] h-[18px]" /> Hapus
-                          </button>
+                          
+                          {/* Dropdown Menu - Desktop */}
+                          {activeDropdown === row.id && (
+                            <div 
+                              className="absolute right-12 top-10 w-40 bg-white rounded-xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.15)] border border-gray-200 py-2 z-[9999]"
+                            >
+                              <button 
+                                onClick={() => { setActiveDropdown(null); handleView(row.id); }}
+                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors text-left font-medium"
+                              >
+                                <Eye className="w-[18px] h-[18px]" /> Lihat Detail
+                              </button>
+                              <button 
+                                onClick={() => { setActiveDropdown(null); handleEdit(row.id); }}
+                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-amber-50 hover:text-amber-600 transition-colors text-left font-medium"
+                              >
+                                <Edit className="w-[18px] h-[18px]" /> Edit
+                              </button>
+                              <div className="h-px bg-gray-100 my-1"></div>
+                              <button 
+                                onClick={() => { setActiveDropdown(null); handleDelete(row.id); }}
+                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors text-left font-medium"
+                              >
+                                <Trash2 className="w-[18px] h-[18px]" /> Hapus
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                    
+                    {/* Jika data kosong (Search filter) */}
+                    {currentItems.length === 0 && (
+                      <tr>
+                        <td colSpan="11" className="px-4 py-12 text-center text-gray-500">
+                          Tidak ada data project yang ditemukan.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile View: Cards */}
+              <div className="md:hidden flex flex-col gap-4 p-4 bg-slate-50 border-t border-gray-100">
+                {currentItems.map((row) => (
+                  <div key={row.id} className="p-4 flex flex-col gap-3 relative bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-all">
+                    <div className="flex justify-between items-start gap-2">
+                      <div>
+                        <div 
+                          onClick={() => handleView(row.id)}
+                          className="font-bold text-blue-600 hover:underline cursor-pointer text-base"
+                        >
+                          {row.no_project}
                         </div>
-                      )}
-                    </td>
-                  </tr>
+                        <div 
+                          onClick={() => handleView(row.id)}
+                          className="font-semibold text-gray-900 mt-0.5 cursor-pointer hover:text-blue-600 transition-colors line-clamp-2"
+                        >
+                          {row.nama_project}
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-1.5 action-dropdown-container">
+                        <span className={`px-2.5 py-1 text-xs font-semibold rounded-full border whitespace-nowrap capitalize ${
+                          row.status.toLowerCase() === 'registered' ? 'bg-blue-50 text-blue-700 border-blue-200' : 
+                          row.status.toLowerCase() === 'running' || row.status.toLowerCase() === 'in progress' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
+                          row.status.toLowerCase() === 'draft' ? 'bg-amber-50 text-amber-700 border-amber-200' : 
+                          'bg-gray-50 text-gray-700 border-gray-200'
+                        }`}>
+                          {row.status}
+                        </span>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveDropdown(activeDropdown === row.id ? null : row.id);
+                          }}
+                          className={`p-1.5 rounded-lg transition-colors ${activeDropdown === row.id ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-100'}`}
+                        >
+                          <MoreVertical className="w-5 h-5" />
+                        </button>
+
+                        {/* Dropdown Menu - Mobile */}
+                        {activeDropdown === row.id && (
+                          <div 
+                            className="absolute right-4 top-12 w-40 bg-white rounded-xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.15)] border border-gray-200 py-2 z-[9999]"
+                          >
+                            <button 
+                              onClick={() => { setActiveDropdown(null); handleView(row.id); }}
+                              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors text-left font-medium"
+                            >
+                              <Eye className="w-[18px] h-[18px]" /> Lihat Detail
+                            </button>
+                            <button 
+                              onClick={() => { setActiveDropdown(null); handleEdit(row.id); }}
+                              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-amber-50 hover:text-amber-600 transition-colors text-left font-medium"
+                            >
+                              <Edit className="w-[18px] h-[18px]" /> Edit
+                            </button>
+                            <div className="h-px bg-gray-100 my-1"></div>
+                            <button 
+                              onClick={() => { setActiveDropdown(null); handleDelete(row.id); }}
+                              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors text-left font-medium"
+                            >
+                              <Trash2 className="w-[18px] h-[18px]" /> Hapus
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-sm mt-1">
+                      <div>
+                        <span className="text-gray-500 text-xs block mb-0.5">Customer</span>
+                        <span className="text-gray-700 font-medium">{row.customer}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500 text-xs block mb-0.5">Leader</span>
+                        <span className="text-gray-700">{row.leader}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500 text-xs block mb-0.5">Mulai</span>
+                        <span className="text-gray-700">{row.mulai}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500 text-xs block mb-0.5">Target Selesai</span>
+                        <span className="text-gray-700">{row.target_selesai}</span>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="text-gray-500 text-xs block mb-0.5">Lokasi</span>
+                        <span className="text-gray-700">{row.lokasi}</span>
+                      </div>
+                    </div>
+
+                    {row.catatan && row.catatan !== '-' && (
+                      <div className="mt-1 bg-amber-50/50 p-3 rounded-lg text-sm border border-amber-100">
+                        <span className="font-semibold text-amber-800 text-xs block mb-1">Catatan:</span>
+                        <p className="text-amber-900 line-clamp-3">{row.catatan}</p>
+                      </div>
+                    )}
+                  </div>
                 ))}
                 
                 {/* Jika data kosong (Search filter) */}
                 {currentItems.length === 0 && (
-                  <tr>
-                    <td colSpan="11" className="px-4 py-12 text-center text-gray-500">
-                      Tidak ada data project yang ditemukan.
-                    </td>
-                  </tr>
+                  <div className="px-4 py-12 text-center text-gray-500 bg-white rounded-xl border border-gray-100">
+                    Tidak ada data project yang ditemukan.
+                  </div>
                 )}
-              </tbody>
-            </table>
+              </div>
+            </>
           )}
         </div>
 

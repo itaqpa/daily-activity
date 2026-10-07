@@ -8,20 +8,20 @@ export default function ProjectDetailReport({ reportData }) {
     <>
       {reportData.map((project, idx) => (
         <div key={idx} className="bg-white rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden mb-6">
-          <div className="bg-gradient-to-r from-blue-900 to-blue-800 px-6 py-5 flex items-center justify-between text-white">
+          <div className="bg-gradient-to-r from-blue-900 to-blue-800 px-4 sm:px-6 py-4 sm:py-5 flex flex-col sm:flex-row sm:items-center justify-between text-white gap-4">
             <div>
-                <h3 className="font-bold text-xl">{project.no_project} - {project.nama}</h3>
-                <div className="flex items-center gap-4 mt-2 text-sm text-blue-100 opacity-90">
+                <h3 className="font-bold text-lg sm:text-xl">{project.no_project} - {project.nama}</h3>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xs sm:text-sm text-blue-100 opacity-90">
                   <span>Customer: {project.customer || '-'}</span>
-                  <span>•</span>
+                  <span className="hidden sm:inline">•</span>
                   <span>Leader: {project.leader || '-'}</span>
-                  <span>•</span>
+                  <span className="hidden sm:inline">•</span>
                   <span>Durasi: {project.durasi_hari} Hari</span>
                 </div>
             </div>
-            <div className="text-right">
-                <div className="text-sm text-blue-100">Status</div>
-                <div className="font-semibold uppercase tracking-wider text-green-300">
+            <div className="text-left sm:text-right border-t sm:border-t-0 border-blue-700/50 pt-3 sm:pt-0">
+                <div className="text-xs sm:text-sm text-blue-100">Status</div>
+                <div className="font-semibold uppercase tracking-wider text-green-300 text-sm sm:text-base">
                   {project.status === 'running' ? 'Berjalan' : project.status}
                 </div>
             </div>
@@ -57,8 +57,8 @@ export default function ProjectDetailReport({ reportData }) {
                                   </div>
                               </div>
                               
-                              {/* Scope Table */}
-                              <div className="overflow-x-auto p-4">
+                              {/* Scope Table Desktop */}
+                              <div className="hidden md:block overflow-x-auto p-4">
                                   <table className="w-full text-sm text-left border border-gray-100">
                                     <thead className="bg-blue-50 text-blue-900 text-xs uppercase">
                                         <tr>
@@ -88,6 +88,39 @@ export default function ProjectDetailReport({ reportData }) {
                                         )}
                                     </tbody>
                                   </table>
+                              </div>
+
+                              {/* Scope Cards Mobile */}
+                              <div className="md:hidden flex flex-col gap-3 p-4 bg-gray-50/50">
+                                  {unit.scopes && unit.scopes.length > 0 ? (
+                                      unit.scopes.map((scope, sIdx) => (
+                                          <div key={sIdx} className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm flex flex-col gap-2">
+                                              <div className="flex justify-between items-start gap-2 border-b border-gray-100 pb-2">
+                                                  <div className="font-medium text-gray-800 text-sm">
+                                                      {scope.nama_scope}
+                                                      {scope.tipe === 'additional' && <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] bg-amber-100 text-amber-700 font-medium">Additional</span>}
+                                                  </div>
+                                                  <span className="text-[10px] uppercase font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded shrink-0">{scope.tipe}</span>
+                                              </div>
+                                              <div className="grid grid-cols-3 gap-2 text-xs">
+                                                  <div>
+                                                      <span className="text-gray-500 block mb-0.5">Bobot (Unit)</span>
+                                                      <span className="font-semibold text-gray-700">{scope.bobot_unit}%</span>
+                                                  </div>
+                                                  <div>
+                                                      <span className="text-gray-500 block mb-0.5">Bobot (Proj)</span>
+                                                      <span className="font-semibold text-gray-700">{scope.bobot_project}%</span>
+                                                  </div>
+                                                  <div>
+                                                      <span className="text-gray-500 block mb-0.5">Actual Capaian</span>
+                                                      <span className="font-bold text-blue-600">{scope.capaian}%</span>
+                                                  </div>
+                                              </div>
+                                          </div>
+                                      ))
+                                  ) : (
+                                      <div className="text-center text-sm text-gray-400 py-4 bg-white border border-gray-100 rounded-lg shadow-sm">Belum ada scope</div>
+                                  )}
                               </div>
                             </div>
                           ))}

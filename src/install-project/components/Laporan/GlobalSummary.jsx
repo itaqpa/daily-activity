@@ -5,10 +5,11 @@ export default function GlobalSummary({ computedMetrics, dateFrom, dateTo, forma
 
   return (
     <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm">
-      <h3 className="font-bold text-gray-900 mb-4 text-lg border-b pb-2">
-        {title} <span className="text-sm font-normal text-gray-500 ml-2">(Dari {dateFrom} Hingga {dateTo})</span>
+      <h3 className="font-bold text-gray-900 mb-4 text-lg border-b pb-2 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+        <span>{title}</span>
+        <span className="text-sm font-normal text-gray-500">(Dari {dateFrom} Hingga {dateTo})</span>
       </h3>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 shadow-sm">
           <div className="text-xs font-semibold text-blue-800 uppercase">Rata-rata Plan Progress</div>
           <div className="text-2xl font-bold text-blue-900 mt-1">

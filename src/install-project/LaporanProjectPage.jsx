@@ -495,44 +495,44 @@ export default function LaporanProjectPage() {
       <div className="max-w-[1800px] mx-auto space-y-6">
         
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Laporan Project</h1>
             <p className="text-gray-500 text-sm mt-1">
               Pantau kurva S, progress unit, dan pengeluaran secara menyeluruh.
             </p>
           </div>
-          <div className="flex items-center gap-3">
-             <button onClick={handleExportExcel} className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+             <button onClick={handleExportExcel} className="flex-1 sm:flex-none justify-center flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
                 <Download size={16} /> Excel
              </button>
-             <button onClick={handleExportPDF} className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
+             <button onClick={handleExportPDF} className="flex-1 sm:flex-none justify-center flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
                 <FileText size={16} /> PDF
              </button>
           </div>
         </div>
 
         {/* Filters */}
-        <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-sm flex flex-wrap gap-4 items-end">
-          <div className="flex flex-col gap-1.5">
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-200/80 shadow-sm flex flex-col sm:flex-row flex-wrap gap-4 items-stretch sm:items-end">
+          <div className="flex flex-col gap-1.5 w-full sm:w-auto">
             <label className="text-xs font-semibold text-gray-600 uppercase">Dari Tanggal</label>
             <input 
               type="date" 
-              className="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none w-full"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
             />
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1.5 w-full sm:w-auto">
             <label className="text-xs font-semibold text-gray-600 uppercase">Sampai Tanggal</label>
             <input 
               type="date" 
-              className="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none w-full"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
             />
           </div>
-          <div className="flex flex-col gap-1.5 flex-1 min-w-[200px]">
+          <div className="flex flex-col gap-1.5 flex-1 min-w-[200px] w-full sm:w-auto">
             <label className="text-xs font-semibold text-gray-600 uppercase">Pilih Project</label>
             <select 
               className="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none w-full"
@@ -548,7 +548,7 @@ export default function LaporanProjectPage() {
           <button 
             onClick={fetchReportData}
             disabled={loading}
-            className="flex items-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-5 py-2 rounded-lg font-medium transition disabled:opacity-50"
+            className="flex items-center justify-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-5 py-2 rounded-lg font-medium transition disabled:opacity-50 w-full sm:w-auto"
           >
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> 
             {loading ? 'Memuat...' : 'Refresh'}

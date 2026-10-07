@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import MainLayout from '../../../components/layouts/MainLayout';
-import { useAuth } from '../../../context/AuthContext';
+import MainLayout from '../components/layouts/MainLayout';
+import { useAuth } from '../context/AuthContext';
 import { 
   Users, 
   Plus, 
@@ -19,7 +19,7 @@ import {
   HardHat,
   BadgePercent
 } from 'lucide-react';
-import { apiUrl } from '../../../api';
+import { apiUrl } from '../api';
 import Papa from 'papaparse';
 
 export default function DataManpower() {
@@ -436,9 +436,11 @@ export default function DataManpower() {
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
+            <>
+              {/* Desktop View */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
                   <tr className="bg-gray-50/80 border-b border-gray-200/80 text-[11px] font-bold text-gray-500 uppercase tracking-wider">
                     <th className="py-3.5 px-4 w-12 text-center">No</th>
                     <th className="py-3.5 px-4">Nama Manpower</th>
@@ -527,6 +529,80 @@ export default function DataManpower() {
                 </tbody>
               </table>
             </div>
+
+            {/* Mobile View */}
+            <div className="md:hidden flex flex-col divide-y divide-gray-100">
+              {filteredList.map((item, idx) => (
+                <div key={item.id} className="p-4 flex flex-col gap-3 hover:bg-gray-50 transition-colors">
+                  {/* Header: Name and ID */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-blue-100 border border-blue-200 flex items-center justify-center text-blue-700 font-bold text-sm uppercase shadow-2xs shrink-0">
+                      {item.nama ? item.nama.charAt(0) : 'M'}
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-gray-900">{item.nama}</h4>
+                      <p className="text-xs text-gray-500 font-mono">ID: #{item.id}</p>
+                    </div>
+                    {(canEdit || canDelete) && (
+                      <div className="flex items-center gap-1">
+                        {canEdit && (
+                          <button
+                            onClick={() => handleOpenEdit(item)}
+                            className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button
+                            onClick={() => setDeleteConfirmId(item.id)}
+                            className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Details Grid */}
+                  <div className="grid grid-cols-2 gap-2 mt-1">
+                    <div className="bg-gray-50 p-2 rounded-lg border border-gray-100">
+                      <p className="text-[10px] text-gray-400 font-medium uppercase mb-1">Posisi</p>
+                      <span className={`inline-block px-2 py-0.5 text-[11px] font-semibold rounded-md border ${getPositionBadge(item.posisi)}`}>
+                        {item.posisi || 'Helper'}
+                      </span>
+                    </div>
+                    <div className="bg-gray-50 p-2 rounded-lg border border-gray-100">
+                      <p className="text-[10px] text-gray-400 font-medium uppercase mb-1">Rate / Jam</p>
+                      <p className="text-xs font-mono font-semibold text-gray-900">
+                        Rp {formatRupiah(item.rate_per_jam)}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {/* Lingkup */}
+                  <div className="flex items-center gap-2 mt-1">
+                    <p className="text-[11px] text-gray-500 w-16">Lingkup:</p>
+                    {item.project_id ? (
+                      <div className="flex items-center gap-1.5 flex-1 overflow-hidden">
+                        <span className="inline-block px-2 py-0.5 text-[10px] font-medium rounded-full bg-purple-50 text-purple-700 border border-purple-200 shrink-0">
+                          Khusus
+                        </span>
+                        <span className="text-[11px] text-gray-600 font-medium truncate">
+                          {item.project_nama || `#${item.project_id}`}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="inline-block px-2 py-0.5 text-[10px] font-medium rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                        Public
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
           )}
         </div>
 

@@ -3,7 +3,7 @@ import Login from './pages/Login';
 import Dashboard from './marketing/pages/Dashboard';
 import DataSales from './marketing/pages/master-data/DataSales';
 import DataCustomer from './marketing/pages/master-data/DataCustomer';
-import DataManpower from './marketing/pages/master-data/DataManpower';
+import DataManpower from './master-admin/DataManpower';
 import UserManagement from './marketing/pages/user-management/UserManagement';
 import HistoryLogPage from './marketing/pages/master-data/HistoryLogPage';
 

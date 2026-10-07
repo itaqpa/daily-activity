@@ -5,7 +5,7 @@ import SidebarMarketing from "./commons/SidebarMarketing";
 import SidebarInstallation from "./commons/SidebarInstallation";
 import SidebarMasterData from "./commons/SidebarMasterData";
 
-export default function Sidebar({ isOpen, setIsOpen }) {
+export default function Sidebar({ isOpen, setIsOpen, currentModule }) {
   const location = useLocation();
   
   const isActive = (path) => {
@@ -21,8 +21,8 @@ export default function Sidebar({ isOpen, setIsOpen }) {
     }
   };
 
-  const isMarketing = location.pathname.startsWith("/marketing");
-  const isInstallation = location.pathname.startsWith("/installation-project") || location.pathname.startsWith("/data-pengeluaran");
+  const isMarketing = currentModule === 'Daily Activity Sales';
+  const isInstallation = currentModule === 'Installation Project';
 
   return (
     <>

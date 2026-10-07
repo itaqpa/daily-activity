@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Home, PlusCircle, List, FolderKanban, PlusSquare, Coins, X, Plus } from 'lucide-react';
+import { Home, PlusCircle, List, FolderKanban, PlusSquare, Coins, X, Plus, PieChart } from 'lucide-react';
 
 export default function MobileBottomNav({ currentModule, isActive, canAddActivity }) {
   const [showInstallMenu, setShowInstallMenu] = useState(false);
@@ -16,10 +16,19 @@ export default function MobileBottomNav({ currentModule, isActive, canAddActivit
           ></div>
         )}
 
-        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 px-8 py-3 flex justify-between items-center pb-safe">
+        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 px-4 py-3 flex justify-between items-center pb-safe">
+          <Link 
+            to="/portal" 
+            className="flex flex-col items-center gap-1 text-gray-500"
+            onClick={() => setShowInstallMenu(false)}
+          >
+            <Home className="w-6 h-6" />
+            <span className="text-[10px] font-medium">Home</span>
+          </Link>
+
           <Link 
             to="/installation-project" 
-            className={`flex flex-col items-center gap-1 ${isActive('/installation-project') ? 'text-blue-600' : 'text-gray-500'}`}
+            className={`flex flex-col items-center gap-1 ${isActive('/installation-project') && !isActive('/installation-project/reports') ? 'text-blue-600' : 'text-gray-500'}`}
             onClick={() => setShowInstallMenu(false)}
           >
             <FolderKanban className="w-6 h-6" />
@@ -30,21 +39,25 @@ export default function MobileBottomNav({ currentModule, isActive, canAddActivit
           <div className="relative flex flex-col items-center -mt-8">
             {/* Popup Menu */}
             {showInstallMenu && (
-              <div className="absolute bottom-16 flex flex-col gap-3 items-center animate-in slide-in-from-bottom-2 fade-in duration-200">
+              <div className="absolute bottom-16 flex items-center justify-center gap-4 animate-in slide-in-from-bottom-2 fade-in duration-200 w-max px-4">
                 <Link 
                   to="/installation-project/add-activity" 
-                  className="flex items-center gap-3 bg-white px-4 py-2 rounded-full shadow-lg border border-gray-100 text-sm font-medium text-gray-700 hover:bg-gray-50 whitespace-nowrap"
+                  className="flex flex-col items-center gap-2 bg-white p-3 rounded-2xl shadow-xl border border-gray-100 text-sm font-bold text-gray-700 hover:bg-gray-50 whitespace-nowrap min-w-[130px] transition-transform active:scale-95"
                   onClick={() => setShowInstallMenu(false)}
                 >
-                  <PlusSquare className="w-4 h-4 text-blue-600" />
+                  <div className="bg-blue-50 text-blue-600 p-2.5 rounded-full shadow-sm">
+                    <PlusSquare className="w-6 h-6" />
+                  </div>
                   Tambah Aktivitas
                 </Link>
                 <Link 
                   to="/installation-project/add-cost" 
-                  className="flex items-center gap-3 bg-white px-4 py-2 rounded-full shadow-lg border border-gray-100 text-sm font-medium text-gray-700 hover:bg-gray-50 whitespace-nowrap"
+                  className="flex flex-col items-center gap-2 bg-white p-3 rounded-2xl shadow-xl border border-gray-100 text-sm font-bold text-gray-700 hover:bg-gray-50 whitespace-nowrap min-w-[130px] transition-transform active:scale-95"
                   onClick={() => setShowInstallMenu(false)}
                 >
-                  <PlusCircle className="w-4 h-4 text-green-600" />
+                  <div className="bg-green-50 text-green-600 p-2.5 rounded-full shadow-sm">
+                    <PlusCircle className="w-6 h-6" />
+                  </div>
                   Tambah Biaya
                 </Link>
               </div>
@@ -64,7 +77,16 @@ export default function MobileBottomNav({ currentModule, isActive, canAddActivit
             onClick={() => setShowInstallMenu(false)}
           >
             <Coins className="w-6 h-6" />
-            <span className="text-[10px] font-medium">Data Biaya</span>
+            <span className="text-[10px] font-medium">Keuangan</span>
+          </Link>
+
+          <Link 
+            to="/installation-project/reports" 
+            className={`flex flex-col items-center gap-1 ${isActive('/installation-project/reports') ? 'text-blue-600' : 'text-gray-500'}`}
+            onClick={() => setShowInstallMenu(false)}
+          >
+            <PieChart className="w-6 h-6" />
+            <span className="text-[10px] font-medium">Laporan</span>
           </Link>
         </div>
       </>

@@ -14,11 +14,29 @@ export default function MainLayout({ children }) {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isMobileProfileOpen, setIsMobileProfileOpen] = useState(false);
 
-  // Determine current module based on URL
-  let currentModule = 'Daily Activity Sales';
-  if (location.pathname.startsWith('/installation-project')) {
-    currentModule = 'Installation Project';
-  }
+  // Determine current module based on URL, but persist in localStorage
+  // so shared routes (like master data) don't lose context.
+  const [currentModule, setCurrentModule] = useState(() => {
+    return localStorage.getItem('activeAppModule') || 'Daily Activity Sales';
+  });
+
+  useEffect(() => {
+    const path = location.pathname;
+    const isSharedRoute = path.startsWith('/marketing/master-data') || 
+                          path.startsWith('/marketing/settings') || 
+                          path.startsWith('/marketing/users') || 
+                          path.startsWith('/master-admin/manajemen-akses');
+                          
+    if (!isSharedRoute) {
+      if (path.startsWith('/installation-project') || path.startsWith('/data-pengeluaran')) {
+        localStorage.setItem('activeAppModule', 'Installation Project');
+        setCurrentModule('Installation Project');
+      } else if (path.startsWith('/marketing')) {
+        localStorage.setItem('activeAppModule', 'Daily Activity Sales');
+        setCurrentModule('Daily Activity Sales');
+      }
+    }
+  }, [location.pathname]);
 
   // Role checking for Add Activity button
   const userString = localStorage.getItem('user');
@@ -118,7 +136,7 @@ export default function MainLayout({ children }) {
       <TopBar currentModule={currentModule} />
 
       <div className="flex-1 flex overflow-hidden">
-        <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
+        <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} currentModule={currentModule} />
 
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto w-full pb-20 md:pb-0 relative">

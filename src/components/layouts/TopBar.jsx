@@ -5,7 +5,7 @@ import { Search, Bell, ChevronDown, LayoutDashboard, Wrench, Shield, LogOut, Set
 
 export default function Topbar({ currentModule }) {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, hasPermission } = useAuth();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isModuleOpen, setIsModuleOpen] = useState(false);
 
@@ -14,12 +14,13 @@ export default function Topbar({ currentModule }) {
     navigate('/');
   };
 
-  const modules = [
-    { name: 'Daily Activity Sales', icon: <LayoutDashboard className="w-4 h-4 text-blue-600" />, path: '/marketing/dashboard' },
-    { name: 'Installation Project', icon: <Wrench className="w-4 h-4 text-orange-600" />, path: '/installation-project' }
+  const allModules = [
+    { name: 'Daily Activity Sales', icon: <LayoutDashboard className="w-4 h-4 text-blue-600" />, path: '/marketing/dashboard', permission: 'dashboard_view' },
+    { name: 'Installation Project', icon: <Wrench className="w-4 h-4 text-orange-600" />, path: '/installation-project', permission: 'install_project_view' }
   ];
 
-  const currentMod = modules.find(m => m.name === currentModule) || modules[0];
+  const modules = allModules.filter(mod => hasPermission(mod.permission));
+  const currentMod = modules.find(m => m.name === currentModule) || modules[0] || allModules[0];
 
   return (
     <header className="bg-white border-b border-gray-100 px-6 py-3 flex items-center justify-between sticky top-0 z-30 hidden md:flex">

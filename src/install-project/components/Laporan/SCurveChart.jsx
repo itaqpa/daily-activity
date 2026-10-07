@@ -31,7 +31,8 @@ export default function SCurveChart({ reportData, chartData, chartOptions }) {
       <div className="flex items-center justify-between mb-6">
         <h3 className="font-bold text-gray-900">Kurva Aktual vs Perencanaan (S-Curve)</h3>
       </div>
-      <div className="w-full h-[400px] mt-4">
+      <div className="w-full h-[400px] mt-4 overflow-x-auto overflow-y-hidden rounded-lg">
+        <div className="min-w-[750px] w-full h-full relative">
           {reportData && reportData.length > 0 ? (
             <Chart type="line" data={chartData} options={chartOptions} />
           ) : (
@@ -39,6 +40,7 @@ export default function SCurveChart({ reportData, chartData, chartOptions }) {
                 Belum ada data
             </div>
           )}
+        </div>
       </div>
     </div>
   );

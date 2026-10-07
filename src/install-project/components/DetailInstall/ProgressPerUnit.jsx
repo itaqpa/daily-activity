@@ -78,8 +78,8 @@ export default function ProgressPerUnit({ project = {} }) {
         </span>
       </div>
 
-      {/* Main Table */}
-      <div className="overflow-x-auto">
+      {/* Main Table Desktop */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-left text-xs sm:text-sm">
           <thead>
             <tr className="bg-[#f0f4f8] text-gray-700 font-semibold text-xs border-b border-gray-200">
@@ -249,6 +249,127 @@ export default function ProgressPerUnit({ project = {} }) {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile Cards */}
+      <div className="md:hidden flex flex-col gap-4 p-4 bg-slate-50 border-t border-gray-100">
+        {unitsList.length === 0 ? (
+           <div className="text-center text-gray-400 text-xs italic p-4 bg-white rounded-lg border border-gray-200">
+             Belum ada unit kerja yang terdaftar.
+           </div>
+        ) : (
+           unitsList.map((unit) => {
+             const isExpanded = expandedUnitIds.has(unit.unitKey);
+             const actualVal = parseFloat(unit.capaian_unit || 0);
+             const planVal = 100.0;
+             const deviasi = parseFloat((actualVal - planVal).toFixed(1));
+             const scopes = unit.scopes || [];
+
+             return (
+               <div key={unit.unitKey} className="bg-white border border-gray-200 rounded-xl shadow-sm flex flex-col overflow-hidden">
+                 <div 
+                   onClick={() => toggleRow(unit.unitKey)}
+                   className="p-4 flex flex-col gap-3 cursor-pointer hover:bg-slate-50 transition-colors"
+                 >
+                    <div className="flex justify-between items-start gap-2">
+                       <div className="flex items-center gap-1.5 font-bold text-gray-900 text-sm">
+                          {isExpanded ? (
+                            <ChevronUp className="w-4 h-4 text-gray-400 shrink-0" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
+                          )}
+                          <span>{unit.areaName} - {unit.unitName}</span>
+                       </div>
+                       {getUnitStatusBadge(actualVal)}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-xs">
+                        <div className="col-span-2">
+                            <span className="text-gray-500 block mb-0.5">Group</span>
+                            <span className="text-gray-700 font-medium">{unit.group_name || 'Tim Gabungan'}</span>
+                        </div>
+                        <div className="col-span-2">
+                            <span className="text-gray-500 block mb-0.5">Target</span>
+                            <span className="text-gray-700 font-mono">{formatTargetRange(unit.target_start, unit.target_finish)}</span>
+                        </div>
+                        <div>
+                            <span className="text-gray-500 block mb-0.5">Plan</span>
+                            <span className="font-medium text-gray-800">{planVal.toFixed(1)}%</span>
+                        </div>
+                        <div>
+                            <span className="text-gray-500 block mb-0.5">Deviasi</span>
+                            <span className="font-medium text-gray-700">{deviasi.toFixed(1)}%</span>
+                        </div>
+                        <div className="col-span-2">
+                            <span className="text-gray-500 block mb-1">Actual</span>
+                            <div className="flex items-center gap-3">
+                              <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                <div 
+                                  className="h-full bg-amber-700 rounded-full transition-all duration-300"
+                                  style={{ width: `${Math.min(100, actualVal)}%` }}
+                                />
+                              </div>
+                              <span className="font-bold text-gray-900 text-xs shrink-0 w-8 text-right">
+                                {actualVal}%
+                              </span>
+                            </div>
+                        </div>
+                    </div>
+                 </div>
+
+                 {/* Scope Sub-cards */}
+                 {isExpanded && (
+                    <div className="p-4 bg-[#f4f7f9] border-t border-gray-200 flex flex-col gap-3">
+                       <h4 className="text-xs font-semibold text-gray-600 uppercase mb-1">Scope Pekerjaan</h4>
+                       {scopes.length === 0 ? (
+                           <div className="text-gray-400 text-xs italic bg-white p-3 rounded-lg border border-gray-200">Belum ada scope pekerjaan yang ditambahkan ke unit ini.</div>
+                       ) : (
+                           scopes.map((s, sIdx) => {
+                               const sCapaian = parseFloat(s.capaian || 0);
+                               const bobotUnit = parseFloat(s.bobot_unit || 0);
+                               const bobotProj = parseFloat(s.bobot_project || 0);
+
+                               return (
+                                   <div key={s.id || sIdx} className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm flex flex-col gap-2">
+                                       <div className="flex justify-between items-start gap-2 border-b border-gray-100 pb-2">
+                                           <div className="font-medium text-gray-800 text-sm">
+                                               {s.nama_scope}
+                                           </div>
+                                       </div>
+                                       <div className="grid grid-cols-2 gap-2 text-xs">
+                                           <div>
+                                               <span className="text-gray-500 block mb-0.5">Bobot (Unit)</span>
+                                               <span className="font-semibold text-gray-700">{bobotUnit}%</span>
+                                           </div>
+                                           <div>
+                                               <span className="text-gray-500 block mb-0.5">Bobot (Proj)</span>
+                                               <span className="font-semibold text-gray-700">{bobotProj}%</span>
+                                           </div>
+                                           <div className="col-span-2 mt-1">
+                                               <span className="text-gray-500 block mb-1">Capaian Aktual</span>
+                                               <div className="flex items-center gap-3">
+                                                 <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                                   <div 
+                                                     className="h-full bg-emerald-700 rounded-full transition-all duration-300"
+                                                     style={{ width: `${Math.min(100, sCapaian)}%` }}
+                                                   />
+                                                 </div>
+                                                 <span className="font-bold text-gray-900 shrink-0 w-9 text-right">
+                                                   {sCapaian}%
+                                                 </span>
+                                               </div>
+                                           </div>
+                                       </div>
+                                   </div>
+                               );
+                           })
+                       )}
+                    </div>
+                 )}
+               </div>
+             );
+           })
+        )}
       </div>
     </div>
   );
