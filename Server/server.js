@@ -71,10 +71,20 @@ app.post('/api/login', async (req, res) => {
                   WHERE uar.user_id = u.id), '[]'::json
                ) as additional_roles_data,
                COALESCE(
-                 (SELECT json_agg(p.nama_permission)
-                  FROM user_permissions up
-                  JOIN permissions p ON p.id = up.permission_id
-                  WHERE up.user_id = u.id), '[]'::json
+                 (SELECT json_agg(DISTINCT p.nama_permission)
+                  FROM (
+                    SELECT permission_id FROM divisi_permissions WHERE divisi_id = u.divisi_id
+                    UNION
+                    SELECT permission_id FROM jabatan_permissions WHERE jabatan_id = u.jabatan_id
+                    UNION
+                    SELECT jp.permission_id FROM user_additional_roles uar 
+                      JOIN jabatan_permissions jp ON jp.jabatan_id = uar.jabatan_id 
+                      WHERE uar.user_id = u.id
+                    UNION
+                    SELECT permission_id FROM user_permissions WHERE user_id = u.id
+                  ) all_perms
+                  JOIN permissions p ON p.id = all_perms.permission_id
+                 ), '[]'::json
                ) as permissions
         FROM users u
         LEFT JOIN divisis d ON u.divisi_id = d.id
@@ -91,10 +101,20 @@ app.post('/api/login', async (req, res) => {
                   WHERE uar.user_id = u.id), '[]'::json
                ) as additional_roles_data,
                COALESCE(
-                 (SELECT json_agg(p.nama_permission)
-                  FROM user_permissions up
-                  JOIN permissions p ON p.id = up.permission_id
-                  WHERE up.user_id = u.id), '[]'::json
+                 (SELECT json_agg(DISTINCT p.nama_permission)
+                  FROM (
+                    SELECT permission_id FROM divisi_permissions WHERE divisi_id = u.divisi_id
+                    UNION
+                    SELECT permission_id FROM jabatan_permissions WHERE jabatan_id = u.jabatan_id
+                    UNION
+                    SELECT jp.permission_id FROM user_additional_roles uar 
+                      JOIN jabatan_permissions jp ON jp.jabatan_id = uar.jabatan_id 
+                      WHERE uar.user_id = u.id
+                    UNION
+                    SELECT permission_id FROM user_permissions WHERE user_id = u.id
+                  ) all_perms
+                  JOIN permissions p ON p.id = all_perms.permission_id
+                 ), '[]'::json
                ) as permissions
         FROM users u
         LEFT JOIN divisis d ON u.divisi_id = d.id
@@ -478,6 +498,103 @@ app.post('/api/activities', async (req, res) => {
   }
 });
 
+// ==========================================
+// API MANAJEMEN HAK AKSES (PRIVILEGE)
+// ==========================================
+
+// 1. Ambil semua master permissions
+app.get('/api/permissions', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM permissions ORDER BY id ASC');
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: 'Gagal mengambil data permissions' });
+  }
+});
+
+// 2. Divisi Permissions (GET & POST)
+app.get('/api/permissions/divisi/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query('SELECT permission_id FROM divisi_permissions WHERE divisi_id = $1', [id]);
+    res.json(result.rows.map(row => row.permission_id));
+  } catch (error) {
+    res.status(500).json({ error: 'Gagal mengambil permission divisi' });
+  }
+});
+
+app.post('/api/permissions/divisi/:id', async (req, res) => {
+  const { id } = req.params;
+  const { permissions } = req.body; // array of permission_id
+  try {
+    await pool.query('BEGIN');
+    await pool.query('DELETE FROM divisi_permissions WHERE divisi_id = $1', [id]);
+    for (let perm_id of permissions) {
+      await pool.query('INSERT INTO divisi_permissions (divisi_id, permission_id) VALUES ($1, $2)', [id, perm_id]);
+    }
+    await pool.query('COMMIT');
+    res.json({ message: 'Hak akses divisi berhasil diperbarui' });
+  } catch (error) {
+    await pool.query('ROLLBACK');
+    res.status(500).json({ error: 'Gagal memperbarui permission divisi' });
+  }
+});
+
+// 3. Jabatan Permissions (GET & POST)
+app.get('/api/permissions/jabatan/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query('SELECT permission_id FROM jabatan_permissions WHERE jabatan_id = $1', [id]);
+    res.json(result.rows.map(row => row.permission_id));
+  } catch (error) {
+    res.status(500).json({ error: 'Gagal mengambil permission jabatan' });
+  }
+});
+
+app.post('/api/permissions/jabatan/:id', async (req, res) => {
+  const { id } = req.params;
+  const { permissions } = req.body; 
+  try {
+    await pool.query('BEGIN');
+    await pool.query('DELETE FROM jabatan_permissions WHERE jabatan_id = $1', [id]);
+    for (let perm_id of permissions) {
+      await pool.query('INSERT INTO jabatan_permissions (jabatan_id, permission_id) VALUES ($1, $2)', [id, perm_id]);
+    }
+    await pool.query('COMMIT');
+    res.json({ message: 'Hak akses jabatan berhasil diperbarui' });
+  } catch (error) {
+    await pool.query('ROLLBACK');
+    res.status(500).json({ error: 'Gagal memperbarui permission jabatan' });
+  }
+});
+
+// 4. User Permissions Bypass (GET & POST)
+app.get('/api/permissions/user/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query('SELECT permission_id FROM user_permissions WHERE user_id = $1', [id]);
+    res.json(result.rows.map(row => row.permission_id));
+  } catch (error) {
+    res.status(500).json({ error: 'Gagal mengambil permission user' });
+  }
+});
+
+app.post('/api/permissions/user/:id', async (req, res) => {
+  const { id } = req.params;
+  const { permissions } = req.body; 
+  try {
+    await pool.query('BEGIN');
+    await pool.query('DELETE FROM user_permissions WHERE user_id = $1', [id]);
+    for (let perm_id of permissions) {
+      await pool.query('INSERT INTO user_permissions (user_id, permission_id) VALUES ($1, $2)', [id, perm_id]);
+    }
+    await pool.query('COMMIT');
+    res.json({ message: 'Hak akses user bypass berhasil diperbarui' });
+  } catch (error) {
+    await pool.query('ROLLBACK');
+    res.status(500).json({ error: 'Gagal memperbarui permission user' });
+  }
+});
 app.use('/api/install-projects', installationProjectsRoutes);
 app.use('/api/manpower', manpowerRoutes(pool));
 app.use('/api/install-projects/manpower', manpowerRoutes(pool));

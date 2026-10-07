@@ -6,31 +6,24 @@ import CreatableSelect from 'react-select/creatable';
 import { apiUrl } from '../../../api';
 import FormCustomerPage from '../components/modals/FormCustomerPage';
 import Papa from 'papaparse';
+import { useAuth } from '../../../context/AuthContext';
 
 export default function DataCustomer() {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const roleName = (user.jabatan || '').toLowerCase();
-  const additionalRoles = user.additional_roles_data || [];
-  const hasAdminRole = additionalRoles.some(r => (r.nama_jabatan || '').toLowerCase().includes('admin'));
+  const { hasPermission } = useAuth();
 
-  const isSuperAdmin = roleName === 'super admin' || user.username === 'admin' || user.role === 'superadmin';
-  const isAdmin = roleName.includes('admin') || isSuperAdmin || hasAdminRole || (user.username || '').toLowerCase().includes('admin');
-  const isManager = roleName.includes('manager') || additionalRoles.some(r => (r.nama_jabatan || '').toLowerCase().includes('manager'));
-  const isSpv = roleName.includes('spv') || roleName.includes('supervisor') || additionalRoles.some(r => (r.nama_jabatan || '').toLowerCase().includes('spv') || (r.nama_jabatan || '').toLowerCase().includes('supervisor'));
-  const isLeader = roleName === 'leader' || additionalRoles.some(r => (r.nama_jabatan || '').toLowerCase() === 'leader');
+  // Hak akses menggunakan RBAC system (hasPermission)
+  const canEdit = hasPermission('customer_edit');
+  const canDelete = hasPermission('customer_delete');
+  const canCreate = hasPermission('customer_create');
+  const canApprove = hasPermission('customer_edit'); // Jika butuh explicit approve, gunakan customer_approve jika ada
+  
+  const canImport = hasPermission('customer_import');
+  const canExport = hasPermission('customer_export');
 
-  console.log('DEBUG USER ROLE:', { user, roleName, additionalRoles, hasAdminRole, isAdmin, isSuperAdmin });
+  const isAdmin = hasPermission('customer_delete'); // Alias untuk cek view_all atau fitur admin (sementara)
+  const isSuperAdminOrAdmin = canEdit || canDelete; 
 
-  // Hak akses murni menggunakan role/jabatan
-  const canEdit = isAdmin || isManager; // SPV dan Leader tidak bisa edit
-  const canDelete = isAdmin; // Manager tidak bisa delete
-  const canApprove = isAdmin || isManager; // Manager bisa approve
-
-
-  const canImport = isAdmin || isManager;
-  const canExport = isAdmin || isManager;
-
-  const isSuperAdminOrAdmin = isAdmin || isManager; // Alias for backward compatibility in render
 
   const [customers, setCustomers] = useState([]);
   const [salesList, setSalesList] = useState([]);
@@ -463,13 +456,15 @@ export default function DataCustomer() {
                 )}
               </>
             )}
-            <button
-              onClick={openAddModal}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex justify-center items-center gap-2 text-sm font-medium transition-colors shadow-sm w-full sm:w-auto sm:flex-none whitespace-nowrap"
-            >
-              <Plus size={18} />
-              Tambah Customer
-            </button>
+            {canCreate && (
+              <button
+                onClick={openAddModal}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex justify-center items-center gap-2 text-sm font-medium transition-colors shadow-sm w-full sm:w-auto sm:flex-none whitespace-nowrap"
+              >
+                <Plus size={18} />
+                Tambah Customer
+              </button>
+            )}
           </div>
         </div>
 

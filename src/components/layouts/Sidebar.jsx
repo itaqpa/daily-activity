@@ -1,171 +1,60 @@
-import { useState, useEffect } from "react";
-import { useNavigate, useLocation, Link } from "react-router-dom";
+import React, { useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
-  LogOut,
   Activity,
-  Users,
-  Settings,
-  X,
-  Database,
-  ChevronDown,
-  ChevronRight,
-  Briefcase,
-  UserCircle,
-  FileText,
   List,
   Edit3,
-  Download,
-  Wrench,
-  TrendingUp,
-  Coins,
-  FolderKanban,
+  FileText,
+  Settings,
+  X,
+  UserCircle,
+  Briefcase,
+  Users,
   HardHat,
-  History,
+  ChevronDown,
+  ChevronRight,
+  TrendingUp,
+  FolderKanban,
+  Wrench,
+  Download,
+  Coins,
+  Shield,
+  Database,
+  History
 } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
 
 export default function Sidebar({ isOpen, setIsOpen }) {
-  const navigate = useNavigate();
   const location = useLocation();
-  const [isDataMasterOpen, setIsDataMasterOpen] = useState(
-    location.pathname.includes("/master-data"),
-  );
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
-
-  // State Section Expand/Collapse khusus Super Admin
-  const [isMarketingSectionOpen, setIsMarketingSectionOpen] = useState(true);
-  const [isInstallSectionOpen, setIsInstallSectionOpen] = useState(true);
-  const [isDataMasterSectionOpen, setIsDataMasterSectionOpen] = useState(
-    location.pathname.includes("/master-data") || location.pathname.includes("/users") || true
-  );
-
-  // Parse user dari localStorage untuk mengecek role
-  const userString = localStorage.getItem("user");
-  const user = userString ? JSON.parse(userString) : {};
-
-  // Ambil active jabatan, jika belum pilih, gunakan jabatan utama
-  const activeJabatan = user.active_jabatan || user.jabatan;
-  const activeJabatanId = user.active_jabatan_id || user.jabatan_id;
-
-  // Logika role (sesuaikan dengan data user dari database Anda)
-  const isSuperAdmin =
-    user.username === "admin" ||
-    activeJabatan === "Super Admin" ||
-    user.role === "superadmin";
-    
-  const isAdmin = 
-    activeJabatan === "Admin" || 
-    user.role === "admin" || 
-    activeJabatan?.toLowerCase() === "admin sales";
-
-  const isSales =
-    user.divisi?.toLowerCase() === "sales" ||
-    user.kode_divisi === "SLS" ||
-    user.divisi_id === 1;
-
-  // Jika bukan super admin, maka ia adalah user biasa (termasuk sales)
-  const isRegularUser = !isSuperAdmin;
-
-  // Cek apakah user adalah Staff (bukan SPV) di divisi Sales
-  const isStaffSales =
-    isSales &&
-    (activeJabatan?.toLowerCase() === "staff" || activeJabatanId === 5);
-
-  const isSPV =
-    activeJabatan?.toLowerCase().includes("spv") ||
-    activeJabatan?.toLowerCase().includes("supervisor");
-  const isManager = activeJabatan?.toLowerCase().includes("manager");
-  const canViewTimSales = isSuperAdmin || isSPV || isManager;
-
-  const roleName = (activeJabatan || '').toLowerCase();
-  const canCatatAktivitas = 
-    roleName === 'staff' || 
-    roleName === 'leader' || 
-    roleName.includes('spv') || 
-    roleName.includes('supervisor') || 
-    roleName.includes('manager');
-
-  // Siapkan daftar role (Jabatan Utama + Jabatan Tambahan)
-  const availableRoles = [];
-  if (user.jabatan) {
-    availableRoles.push({ id: user.jabatan_id, nama_jabatan: user.jabatan });
-  }
-  if (user.additional_roles_data && Array.isArray(user.additional_roles_data)) {
-    user.additional_roles_data.forEach(role => {
-       if (!availableRoles.some(r => r.id === role.id)) {
-          availableRoles.push(role);
-       }
-    });
-  }
-
-  const handleSwitchRole = (roleId, roleName) => {
-    const updatedUser = { ...user, active_jabatan_id: roleId, active_jabatan: roleName };
-    localStorage.setItem("user", JSON.stringify(updatedUser));
-    window.location.reload();
+  const navigate = useNavigate();
+  const { hasPermission } = useAuth();
+  
+  const isActive = (path) => {
+    return location.pathname === path || location.pathname.startsWith(`${path}/`);
   };
 
-  // PWA Install Prompt State
-  const [deferredPrompt, setDeferredPrompt] = useState(null);
-
-  // Online/Offline State
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
-
-  useEffect(() => {
-    const handleBeforeInstallPrompt = (e) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-      window.deferredPrompt = e; // Simpan di global agar bisa diakses oleh topbar
-    };
-
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-
-    return () => {
-      window.removeEventListener(
-        "beforeinstallprompt",
-        handleBeforeInstallPrompt,
-      );
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
-    };
-  }, []);
-
-  const handleInstallClick = async () => {
-    if (deferredPrompt) {
-      // Tampilkan prompt bawaan OS/Browser
-      deferredPrompt.prompt();
-
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === "accepted") {
-        console.log("User accepted the install prompt");
-      } else {
-        console.log("User dismissed the install prompt");
-      }
-
-      // Prompt hanya bisa dipakai 1 kali
-      setDeferredPrompt(null);
+  const handleInstallClick = () => {
+    const installBtn = document.getElementById('pwa-install-btn');
+    if (installBtn) {
+      installBtn.click();
     } else {
-      // Fallback jika tidak ada prompt (misal di iOS atau sudah diinstal)
-      alert(
-        "Untuk menginstal aplikasi:\n\n- iOS/Safari: Tap tombol Share, lalu pilih 'Add to Home Screen'.\n- Android/Chrome: Tap ikon titik tiga, lalu pilih 'Install App' atau 'Add to Home Screen'.\n\n(Pesan ini muncul jika aplikasi sudah terinstal atau browser belum mendukung install prompt otomatis).",
-      );
+      alert("Aplikasi sudah terinstall atau tidak mendukung instalasi.");
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    navigate("/");
-  };
-
-  const isActive = (path) => location.pathname === path;
+  // State Section Expand/Collapse
+  const [isMarketingSectionOpen, setIsMarketingSectionOpen] = useState(
+    location.pathname.includes("/marketing") || location.pathname === "/portal"
+  );
+  const [isInstallSectionOpen, setIsInstallSectionOpen] = useState(
+    location.pathname.includes("/installation-project") || location.pathname.includes("/data-pengeluaran")
+  );
+  const [isDataMasterSectionOpen, setIsDataMasterSectionOpen] = useState(
+    location.pathname.includes("/master-data") || location.pathname.includes("/users") || location.pathname.includes("/manajemen-akses")
+  );
 
   return (
     <>
-      {/* Overlay for mobile when sidebar is open */}
       {isOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-40 md:hidden transition-opacity"
@@ -192,21 +81,11 @@ export default function Sidebar({ isOpen, setIsOpen }) {
           </button>
         </div>
 
-        <div className="p-6 pt-4 md:pt-6 flex items-center justify-center shrink-0">
-          <div className="bg-white px-4 py-2 rounded-xl shadow-sm">
-            <img
-              src="/logo/aqpa-indonesia-logo.png"
-              alt="AQPA Logo"
-              className="h-8 w-auto object-contain"
-            />
-          </div>
-        </div>
-
         <nav className="flex-1 px-4 space-y-2 mt-2 overflow-y-auto pb-4">
-          {isSuperAdmin ? (
-            /* ================= KHUSUS SUPER ADMIN ================= */
-            <div className="space-y-3">
-              {/* SECTION 1: MARKETING */}
+          <div className="space-y-3">
+            
+            {/* SECTION 1: MARKETING */}
+            {(hasPermission('dashboard_view') || hasPermission('aktivitas_view') || hasPermission('laporan_marketing_view')) && (
               <div className="space-y-1">
                 <button
                   type="button"
@@ -227,48 +106,56 @@ export default function Sidebar({ isOpen, setIsOpen }) {
                 {isMarketingSectionOpen && (
                   <div className="space-y-1 pl-1">
                     {/* Dashboard */}
-                    <Link
-                      to="/marketing/dashboard"
-                      className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
-                        isActive("/marketing/dashboard")
-                          ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10 font-semibold"
-                          : "text-blue-100/70 hover:bg-white/5 hover:text-white font-medium"
-                      }`}
-                    >
-                      <Activity className="w-4 h-4" />
-                      <span>Dashboard</span>
-                    </Link>
+                    {hasPermission('dashboard_view') && (
+                      <Link
+                        to="/marketing/dashboard"
+                        className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
+                          isActive("/marketing/dashboard")
+                            ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10 font-semibold"
+                            : "text-blue-100/70 hover:bg-white/5 hover:text-white font-medium"
+                        }`}
+                      >
+                        <Activity className="w-4 h-4" />
+                        <span>Summary Dashboard</span>
+                      </Link>
+                    )}
 
                     {/* Semua aktivitas */}
-                    <Link
-                      to="/marketing/activities"
-                      className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
-                        isActive("/marketing/activities")
-                          ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10 font-semibold"
-                          : "text-blue-100/70 hover:bg-white/5 hover:text-white font-medium"
-                      }`}
-                    >
-                      <List className="w-4 h-4" />
-                      <span>Semua aktivitas</span>
-                    </Link>
+                    {hasPermission('aktivitas_view') && (
+                      <Link
+                        to="/marketing/activities"
+                        className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
+                          isActive("/marketing/activities")
+                            ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10 font-semibold"
+                            : "text-blue-100/70 hover:bg-white/5 hover:text-white font-medium"
+                        }`}
+                      >
+                        <List className="w-4 h-4" />
+                        <span>Semua aktivitas</span>
+                      </Link>
+                    )}
 
                     {/* Laporan */}
-                    <Link
-                      to="/marketing/reports"
-                      className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
-                        isActive("/marketing/reports")
-                          ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10 font-semibold"
-                          : "text-blue-100/70 hover:bg-white/5 hover:text-white font-medium"
-                      }`}
-                    >
-                      <FileText className="w-4 h-4" />
-                      <span>Laporan</span>
-                    </Link>
+                    {hasPermission('laporan_marketing_view') && (
+                      <Link
+                        to="/marketing/reports"
+                        className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
+                          isActive("/marketing/reports")
+                            ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10 font-semibold"
+                            : "text-blue-100/70 hover:bg-white/5 hover:text-white font-medium"
+                        }`}
+                      >
+                        <FileText className="w-4 h-4" />
+                        <span>Laporan</span>
+                      </Link>
+                    )}
                   </div>
                 )}
               </div>
+            )}
 
-              {/* SECTION 2: INSTALLATION PROJECT */}
+            {/* SECTION 2: INSTALLATION PROJECT */}
+            {(hasPermission('install_project_view') || hasPermission('pengeluaran_view') || hasPermission('laporan_project_view')) && (
               <div className="space-y-1 pt-1 border-t border-white/5">
                 <button
                   type="button"
@@ -288,49 +175,54 @@ export default function Sidebar({ isOpen, setIsOpen }) {
 
                 {isInstallSectionOpen && (
                   <div className="space-y-1 pl-1">
-                    {/* Data Project (sebelumnya bernama Installation Project) */}
-                    <Link
-                      to="/installation-project"
-                      className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
-                        isActive("/installation-project") || location.pathname.startsWith("/installation-project")
-                          ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10 font-semibold"
-                          : "text-blue-100/70 hover:bg-white/5 hover:text-white font-medium"
-                      }`}
-                    >
-                      <FolderKanban className="w-4 h-4" />
-                      <span>Data Project</span>
-                    </Link>
+                    {hasPermission('install_project_view') && (
+                      <Link
+                        to="/installation-project"
+                        className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
+                          isActive("/installation-project") || location.pathname.startsWith("/installation-project")
+                            ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10 font-semibold"
+                            : "text-blue-100/70 hover:bg-white/5 hover:text-white font-medium"
+                        }`}
+                      >
+                        <FolderKanban className="w-4 h-4" />
+                        <span>Data Project</span>
+                      </Link>
+                    )}
 
-                    {/* Data Pengeluaran */}
-                    <Link
-                      to="/data-pengeluaran"
-                      className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
-                        isActive("/data-pengeluaran") || location.pathname.startsWith("/data-pengeluaran")
-                          ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10 font-semibold"
-                          : "text-blue-100/70 hover:bg-white/5 hover:text-white font-medium"
-                      }`}
-                    >
-                      <Coins className="w-4 h-4" />
-                      <span>Data Pengeluaran</span>
-                    </Link>
+                    {hasPermission('pengeluaran_view') && (
+                      <Link
+                        to="/data-pengeluaran"
+                        className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
+                          isActive("/data-pengeluaran") || location.pathname.startsWith("/data-pengeluaran")
+                            ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10 font-semibold"
+                            : "text-blue-100/70 hover:bg-white/5 hover:text-white font-medium"
+                        }`}
+                      >
+                        <Coins className="w-4 h-4" />
+                        <span>Data Pengeluaran</span>
+                      </Link>
+                    )}
 
-                    {/* Laporan */}
-                    <Link
-                      to="/installation-project/reports"
-                      className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
-                        location.pathname === '/installation-project/reports'
-                          ? 'bg-blue-600 text-white shadow-md'
-                          : 'text-blue-100/70 hover:bg-white/10 hover:text-white'
-                      }`}
-                    >
-                      <FileText className="w-4 h-4" />
-                      <span>Laporan</span>
-                    </Link>
+                    {hasPermission('laporan_project_view') && (
+                      <Link
+                        to="/installation-project/reports"
+                        className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
+                          location.pathname === '/installation-project/reports'
+                            ? 'bg-blue-600 text-white shadow-md'
+                            : 'text-blue-100/70 hover:bg-white/10 hover:text-white'
+                        }`}
+                      >
+                        <FileText className="w-4 h-4" />
+                        <span>Laporan</span>
+                      </Link>
+                    )}
                   </div>
                 )}
               </div>
+            )}
 
-              {/* SECTION 3: DATA MASTER */}
+            {/* SECTION 3: DATA MASTER */}
+            {(hasPermission('sales_view') || hasPermission('customer_view') || hasPermission('manpower_view') || hasPermission('user_management_view') || hasPermission('manajemen_akses_view') || hasPermission('history_view')) && (
               <div className="space-y-1 pt-1 border-t border-white/5">
                 <button
                   type="button"
@@ -350,293 +242,120 @@ export default function Sidebar({ isOpen, setIsOpen }) {
 
                 {isDataMasterSectionOpen && (
                   <div className="space-y-1 pl-1">
-                    <Link
-                      to="/marketing/master-data/sales"
-                      className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
-                        isActive("/marketing/master-data/sales")
-                          ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10 font-semibold"
-                          : "text-blue-100/70 hover:bg-white/5 hover:text-white font-medium"
-                      }`}
-                    >
-                      <Briefcase className="w-4 h-4" />
-                      <span>Data Sales</span>
-                    </Link>
+                    {hasPermission('sales_view') && (
+                      <Link
+                        to="/marketing/master-data/sales"
+                        className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
+                          isActive("/marketing/master-data/sales")
+                            ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10 font-semibold"
+                            : "text-blue-100/70 hover:bg-white/5 hover:text-white font-medium"
+                        }`}
+                      >
+                        <Briefcase className="w-4 h-4" />
+                        <span>Data Sales</span>
+                      </Link>
+                    )}
 
-                    <Link
-                      to="/marketing/master-data/customer"
-                      className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
-                        isActive("/marketing/master-data/customer")
-                          ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10 font-semibold"
-                          : "text-blue-100/70 hover:bg-white/5 hover:text-white font-medium"
-                      }`}
-                    >
-                      <UserCircle className="w-4 h-4" />
-                      <span>Data Customer</span>
-                    </Link>
+                    {hasPermission('customer_view') && (
+                      <Link
+                        to="/marketing/master-data/customer"
+                        className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
+                          isActive("/marketing/master-data/customer")
+                            ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10 font-semibold"
+                            : "text-blue-100/70 hover:bg-white/5 hover:text-white font-medium"
+                        }`}
+                      >
+                        <UserCircle className="w-4 h-4" />
+                        <span>Data Customer</span>
+                      </Link>
+                    )}
 
-                    <Link
-                      to="/marketing/master-data/manpower"
-                      className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
-                        isActive("/marketing/master-data/manpower")
-                          ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10 font-semibold"
-                          : "text-blue-100/70 hover:bg-white/5 hover:text-white font-medium"
-                      }`}
-                    >
-                      <HardHat className="w-4 h-4" />
-                      <span>Data Manpower</span>
-                    </Link>
+                    {hasPermission('manpower_view') && (
+                      <Link
+                        to="/marketing/master-data/manpower"
+                        className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
+                          isActive("/marketing/master-data/manpower")
+                            ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10 font-semibold"
+                            : "text-blue-100/70 hover:bg-white/5 hover:text-white font-medium"
+                        }`}
+                      >
+                        <HardHat className="w-4 h-4" />
+                        <span>Data Manpower</span>
+                      </Link>
+                    )}
 
-                    <Link
-                      to="/marketing/users"
-                      className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
-                        isActive("/marketing/users")
-                          ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10 font-semibold"
-                          : "text-blue-100/70 hover:bg-white/5 hover:text-white font-medium"
-                      }`}
-                    >
-                      <Users className="w-4 h-4" />
-                      <span>User Management</span>
-                    </Link>
+                    {hasPermission('user_management_view') && (
+                      <Link
+                        to="/marketing/users"
+                        className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
+                          isActive("/marketing/users")
+                            ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10 font-semibold"
+                            : "text-blue-100/70 hover:bg-white/5 hover:text-white font-medium"
+                        }`}
+                      >
+                        <Users className="w-4 h-4" />
+                        <span>User Management</span>
+                      </Link>
+                    )}
 
-                    <Link
-                      to="/marketing/master-data/history-log"
-                      className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
-                        isActive("/marketing/master-data/history-log")
-                          ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10 font-semibold"
-                          : "text-blue-100/70 hover:bg-white/5 hover:text-white font-medium"
-                      }`}
-                    >
-                      <History className="w-4 h-4" />
-                      <span>History & Activity Log</span>
-                    </Link>
+                    {hasPermission('manajemen_akses_view') && (
+                      <Link
+                        to="/master-admin/manajemen-akses"
+                        className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
+                          isActive("/master-admin/manajemen-akses")
+                            ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10 font-semibold"
+                            : "text-blue-100/70 hover:bg-white/5 hover:text-white font-medium"
+                        }`}
+                      >
+                        <Shield className="w-4 h-4" />
+                        <span>Manajemen Akses</span>
+                      </Link>
+                    )}
+
+                    {hasPermission('history_view') && (
+                      <Link
+                        to="/marketing/master-data/history-log"
+                        className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
+                          isActive("/marketing/master-data/history-log")
+                            ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10 font-semibold"
+                            : "text-blue-100/70 hover:bg-white/5 hover:text-white font-medium"
+                        }`}
+                      >
+                        <History className="w-4 h-4" />
+                        <span>History & Activity Log</span>
+                      </Link>
+                    )}
                   </div>
                 )}
               </div>
+            )}
 
-              {/* SECTION 4: SETTING */}
-              <div className="pt-2 border-t border-white/10">
-                <Link
-                  to="/marketing/settings"
-                  className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
-                    isActive("/marketing/settings")
-                      ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10 font-semibold"
-                      : "text-blue-100/70 hover:bg-white/5 hover:text-white font-medium"
-                  }`}
-                >
-                  <Settings className="w-4 h-4" />
-                  <span>Setting</span>
-                </Link>
-              </div>
-
-              {/* Install Apps */}
-              <button
-                onClick={handleInstallClick}
-                className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-blue-100/70 hover:bg-white/5 hover:text-white text-sm font-medium"
-              >
-                <Download className="w-4 h-4" />
-                <span className="flex-1 text-left">Install Apps</span>
-              </button>
-            </div>
-          ) : (
-            /* ================= USER LAINNYA (JANGAN SENTUH / TETAP SAMA) ================= */
-            <>
-              {/* Dashboard */}
-              <Link
-                to="/marketing/dashboard"
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                  isActive("/marketing/dashboard")
-                    ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
-                    : "text-blue-100/70 hover:bg-white/5 hover:text-white"
-                }`}
-              >
-                <Activity className="w-5 h-5" />
-                <span className="font-medium">Dashboard</span>
-              </Link>
-
-              {/* Data Customer - Untuk User Biasa */}
-              {isRegularUser && (
-                <Link
-                  to="/marketing/master-data/customer"
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                    isActive("/marketing/master-data/customer")
-                      ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
-                      : "text-blue-100/70 hover:bg-white/5 hover:text-white"
-                  }`}
-                >
-                  <UserCircle className="w-5 h-5" />
-                  <span className="font-medium">Data Customer</span>
-                </Link>
-              )}
-
-              {/* Tim Sales / Data Sales */}
-              {(canViewTimSales || isAdmin) && !isSuperAdmin && (
-                <Link
-                  to="/marketing/master-data/sales"
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                    isActive("/marketing/master-data/sales")
-                      ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
-                      : "text-blue-100/70 hover:bg-white/5 hover:text-white"
-                  }`}
-                >
-                  <Briefcase className="w-5 h-5" />
-                  <span className="font-medium">{isAdmin ? "Data Sales" : "Tim Sales"}</span>
-                </Link>
-              )}
-
-              {/* Data Manpower */}
-              {isAdmin && !isSuperAdmin && (
-                <Link
-                  to="/marketing/master-data/manpower"
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                    isActive("/marketing/master-data/manpower")
-                      ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
-                      : "text-blue-100/70 hover:bg-white/5 hover:text-white"
-                  }`}
-                >
-                  <HardHat className="w-5 h-5" />
-                  <span className="font-medium">Data Manpower</span>
-                </Link>
-              )}
-
-              {/* Semua Aktivitas */}
-              <Link
-                to="/marketing/activities"
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                  isActive("/marketing/activities")
-                    ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
-                    : "text-blue-100/70 hover:bg-white/5 hover:text-white"
-                }`}
-              >
-                <List className="w-5 h-5" />
-                <span className="font-medium">Semua Aktivitas</span>
-              </Link>
-
-              {/* Catat Aktivitas - Khusus Staff, Leader, SPV, Manager */}
-              {canCatatAktivitas && (
-                <Link
-                  to="/marketing/activities/new"
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                    isActive("/marketing/activities/new")
-                      ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
-                      : "text-blue-100/70 hover:bg-white/5 hover:text-white"
-                  }`}
-                >
-                  <Edit3 className="w-5 h-5" />
-                  <span className="font-medium">Catat Aktivitas</span>
-                </Link>
-              )}
-
-              {/* Installation Project */}
-              <Link
-                to="/installation-project"
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                  isActive("/installation-project")
-                    ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
-                    : "text-blue-100/70 hover:bg-white/5 hover:text-white"
-                }`}
-              >
-                <Wrench className="w-5 h-5" />
-                <span className="font-medium">Installation Project</span>
-              </Link>
-
-              {/* Laporan - Paling Akhir */}
-              <Link
-                to="/marketing/reports"
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                  isActive("/marketing/reports")
-                    ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
-                    : "text-blue-100/70 hover:bg-white/5 hover:text-white"
-                }`}
-              >
-                <FileText className="w-5 h-5" />
-                <span className="font-medium">Laporan</span>
-              </Link>
-
-              {/* Settings */}
+            {/* SECTION 4: SETTING */}
+            <div className="pt-2 border-t border-white/10">
               <Link
                 to="/marketing/settings"
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
                   isActive("/marketing/settings")
-                    ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
-                    : "text-blue-100/70 hover:bg-white/5 hover:text-white"
+                    ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10 font-semibold"
+                    : "text-blue-100/70 hover:bg-white/5 hover:text-white font-medium"
                 }`}
               >
-                <Settings className="w-5 h-5" />
-                <span className="font-medium">Edit Profil</span>
+                <Settings className="w-4 h-4" />
+                <span>Setting</span>
               </Link>
+            </div>
 
-              {/* Install Apps */}
-              <button
-                onClick={handleInstallClick}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-blue-100/70 hover:bg-white/5 hover:text-white"
-              >
-                <Download className="w-5 h-5" />
-                <span className="font-medium flex-1 text-left">Install Apps</span>
-              </button>
-            </>
-          )}
-        </nav>
-
-        <div className="p-4 border-t border-white/10 shrink-0 flex flex-col gap-2">
-          {/* Profile Dropdown */}
-          <div className="w-full relative">
+            {/* Install Apps */}
             <button
-              onClick={() => setIsProfileOpen(!isProfileOpen)}
-              className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors text-blue-100/70 hover:bg-white/5 hover:text-white"
+              onClick={handleInstallClick}
+              className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-blue-100/70 hover:bg-white/5 hover:text-white text-sm font-medium"
             >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-300 font-bold shadow-inner">
-                  {user.nama ? user.nama.substring(0, 2).toUpperCase() : 'U'}
-                </div>
-                <div className="flex flex-col text-left">
-                  <span className="font-bold text-sm text-white truncate max-w-[120px]">{user.nama || user.username}</span>
-                  <span className="text-xs text-blue-200/70 truncate max-w-[120px]">{activeJabatan}</span>
-                </div>
-              </div>
-              {isProfileOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+              <Download className="w-4 h-4" />
+              <span className="flex-1 text-left">Install Apps</span>
             </button>
-            
-            {isProfileOpen && (
-              <div className="absolute bottom-full left-0 w-full mb-2 bg-[#1a2d47] border border-white/10 rounded-xl shadow-xl overflow-hidden z-50">
-                <div className="px-4 py-3 border-b border-white/5 bg-[#1c3350]">
-                  <p className="text-xs font-bold text-white uppercase tracking-wider">Pilih Role Aktif</p>
-                </div>
-                <div className="flex flex-col max-h-48 overflow-y-auto py-1">
-                  {availableRoles.length > 0 ? availableRoles.map(role => (
-                    <button
-                      key={role.id}
-                      onClick={() => handleSwitchRole(role.id, role.nama_jabatan)}
-                      className={`flex items-center gap-3 px-4 py-3 text-sm transition-colors text-left
-                        ${activeJabatanId === role.id ? 'bg-blue-600/20 text-blue-300 font-bold border-l-2 border-blue-400' : 'text-blue-100/70 hover:bg-white/5 hover:text-white border-l-2 border-transparent'}
-                      `}
-                    >
-                      <div className="w-4 flex justify-center flex-shrink-0">
-                        {activeJabatanId === role.id && <span className="text-blue-400">✓</span>}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {role.nama_jabatan.toLowerCase().includes('admin') ? <Settings className="w-4 h-4" /> : <Users className="w-4 h-4" />}
-                        <span>{role.nama_jabatan}</span>
-                      </div>
-                    </button>
-                  )) : (
-                    <div className="px-4 py-3 text-sm text-blue-200/50 italic">Tidak ada role lain</div>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
-
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-3 text-red-400 hover:bg-red-500/10 hover:text-red-300 px-4 py-3 rounded-lg transition-colors"
-          >
-            <LogOut className="w-5 h-5" />
-            <span className="font-medium">Logout</span>
-          </button>
-        </div>
+        </nav>
       </aside>
     </>
   );
 }
-
-

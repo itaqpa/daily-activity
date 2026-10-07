@@ -430,7 +430,7 @@ export default function Dashboard() {
     <MainLayout>
       <div className="mb-6 flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-gray-800">Dashboard</h2>
+          <h2 className="text-2xl font-bold text-gray-800">Summary</h2>
           <p className="text-gray-600 mt-1">
             {canSeeAll 
               ? 'Melihat ringkasan aktivitas seluruh tim.' 

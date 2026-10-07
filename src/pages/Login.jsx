@@ -17,8 +17,10 @@ import {
   LoaderCircle,
 } from 'lucide-react';
 import { apiUrl } from '../api';
+import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
+  const { updateUser } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -28,25 +30,9 @@ export default function Login() {
 
   const navigate = useNavigate();
 
-  // Helper function to redirect based on user's division
+  // Redirect unconditionally to Portal
   const redirectBasedOnRole = (userData) => {
-    if (!userData) {
-      navigate('/marketing/dashboard');
-      return;
-    }
-    const divisi = userData.divisi?.toLowerCase() || '';
-    
-    if (divisi === 'sales' || divisi === 'marketing') {
-      navigate('/marketing/dashboard');
-    } else if (divisi === 'hrga') {
-      navigate('/hrga/dashboard');
-    } else if (userData.role === 'superadmin' || userData.username === 'admin') {
-      // Default to marketing for superadmin for now
-      navigate('/marketing/dashboard'); 
-    } else {
-      // Fallback
-      navigate('/marketing/dashboard');
-    }
+    navigate('/portal');
   };
 
   useEffect(() => {
@@ -86,10 +72,7 @@ export default function Login() {
         localStorage.setItem('token', data.token);
 
         if (data.user) {
-          localStorage.setItem(
-            'user',
-            JSON.stringify(data.user)
-          );
+          updateUser(data.user);
         }
 
         if (rememberMe) {
