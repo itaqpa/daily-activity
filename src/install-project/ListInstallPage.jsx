@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Plus, Edit, Trash2, Eye, MoreVertical, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { apiUrl } from '../api';
-import MainLayout from '../marketing/pages/components/layouts/MainLayout';
+import MainLayout from '../components/layouts/MainLayout';
 import WizardModal from './components/WizardModal';
 
 export default function ListInstallPage() {

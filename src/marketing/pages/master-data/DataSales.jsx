@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import MainLayout from '../components/layouts/MainLayout';
+import MainLayout from '../../../components/layouts/MainLayout';
 import { Users, X, ArrowDown, ArrowUp, ArrowUpDown, Search, Download } from 'lucide-react';
 import { apiUrl } from '../../../api';
 import Papa from 'papaparse';

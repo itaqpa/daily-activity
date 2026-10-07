@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import MainLayout from '../components/layouts/MainLayout';
+import MainLayout from '../../../components/layouts/MainLayout';
 import { 
   Users, 
   Plus, 

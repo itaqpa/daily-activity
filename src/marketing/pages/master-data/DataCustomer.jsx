@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import MainLayout from '../components/layouts/MainLayout';
+import MainLayout from '../../../components/layouts/MainLayout';
 import { Plus, Edit2, Trash2, Search, X, ArrowDown, ArrowUp, ArrowUpDown, Download, UploadCloud, FileText, CheckCircle, Users } from 'lucide-react';
 import Select from 'react-select';
 import CreatableSelect from 'react-select/creatable';

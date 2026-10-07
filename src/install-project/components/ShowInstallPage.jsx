@@ -13,7 +13,7 @@ import {
   ArrowLeft
 } from 'lucide-react';
 import { apiUrl } from '../../api';
-import MainLayout from '../../marketing/pages/components/layouts/MainLayout';
+import MainLayout from '../../components/layouts/MainLayout';
 import DetailInstall from './DetailInstall';
 import WizardModal from './WizardModal';
 

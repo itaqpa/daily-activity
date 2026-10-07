@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
-import MainLayout from '../../../marketing/pages/components/layouts/MainLayout';
+import MainLayout from '../../../components/layouts/MainLayout';
 import FormDailyInput from './FormDailyInput';
 import { apiUrl } from '../../../api';
 

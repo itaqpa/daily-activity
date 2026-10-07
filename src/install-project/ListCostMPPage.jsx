@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Coins, Loader2, RefreshCcw, Calendar, ChevronLeft, ChevronRight, Search, Filter, X } from 'lucide-react';
-import MainLayout from '../marketing/pages/components/layouts/MainLayout';
+import MainLayout from '../components/layouts/MainLayout';
 import TableDetailCostMP from './components/CostProject/TableDetailCostMP';
 import CostDashboard from './components/DataPengeluaran/CostDashboard';
 import { currentMonthRange } from './components/DataPengeluaran/costSummary';

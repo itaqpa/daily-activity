@@ -5,6 +5,7 @@ import DataSales from './marketing/pages/master-data/DataSales';
 import DataCustomer from './marketing/pages/master-data/DataCustomer';
 import DataManpower from './marketing/pages/master-data/DataManpower';
 import UserManagement from './marketing/pages/user-management/UserManagement';
+import HistoryLogPage from './marketing/pages/master-data/HistoryLogPage';
 
 import CatatAktivitas from './marketing/pages/activities/CatatAktivitas';
 import RiwayatAktivitas from './marketing/pages/activities/RiwayatAktivitas';
@@ -38,6 +39,7 @@ function App() {
           <Route path="master-data/sales" element={<DataSales />} />
           <Route path="master-data/customer" element={<DataCustomer />} />
           <Route path="master-data/manpower" element={<DataManpower />} />
+          <Route path="master-data/history-log" element={<HistoryLogPage />} />
           <Route path="users" element={<UserManagement />} />
           
           {/* Activities & Reports */}

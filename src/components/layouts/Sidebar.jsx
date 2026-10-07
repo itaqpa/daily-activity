@@ -20,6 +20,7 @@ import {
   Coins,
   FolderKanban,
   HardHat,
+  History,
 } from "lucide-react";
 
 export default function Sidebar({ isOpen, setIsOpen }) {
@@ -395,6 +396,18 @@ export default function Sidebar({ isOpen, setIsOpen }) {
                     >
                       <Users className="w-4 h-4" />
                       <span>User Management</span>
+                    </Link>
+
+                    <Link
+                      to="/marketing/master-data/history-log"
+                      className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
+                        isActive("/marketing/master-data/history-log")
+                          ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10 font-semibold"
+                          : "text-blue-100/70 hover:bg-white/5 hover:text-white font-medium"
+                      }`}
+                    >
+                      <History className="w-4 h-4" />
+                      <span>History & Activity Log</span>
                     </Link>
                   </div>
                 )}

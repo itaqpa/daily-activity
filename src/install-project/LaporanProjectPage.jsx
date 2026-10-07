@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Download, Search, Filter, RefreshCw, FileText, ArrowRight } from 'lucide-react';
 import { apiUrl } from '../api';
-import MainLayout from '../marketing/pages/components/layouts/MainLayout';
+import MainLayout from '../components/layouts/MainLayout';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import * as XLSX from 'xlsx';

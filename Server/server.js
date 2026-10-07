@@ -10,6 +10,7 @@ import manpowerRoutes from './routes/manpowerRoutes.js';
 import dailyProgressRoutes from './routes/dailyProgressRoutes.js';
 import costProjectRoutes from './routes/costProjectRoutes.js';
 import reportRoutes from './routes/reportRoutes.js';
+import activityLogsRoutes from './routes/activityLogsRoutes.js';
 
 // Load environment variables from .env
 dotenv.config();
@@ -483,6 +484,7 @@ app.use('/api/install-projects/manpower', manpowerRoutes(pool));
 app.use('/api/daily-progress', dailyProgressRoutes(pool));
 app.use('/api/cost-project', costProjectRoutes(pool));
 app.use('/api/report', reportRoutes(pool));
+app.use('/api/activity-logs', activityLogsRoutes);
 
 // Start Server
 app.listen(port, () => {
