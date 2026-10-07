@@ -35,13 +35,13 @@ DELETE FROM jabatan_permissions;
 INSERT INTO jabatan_permissions (jabatan_id, permission_id)
 SELECT 5, id FROM permissions WHERE nama_permission LIKE '%_create';
 
--- Jabatan 4: Leader (Create + Edit)
+-- Jabatan 4: Leader
 INSERT INTO jabatan_permissions (jabatan_id, permission_id)
-SELECT 4, id FROM permissions WHERE nama_permission LIKE '%_create' OR nama_permission LIKE '%_edit';
+SELECT 4, id FROM permissions WHERE nama_permission LIKE '%_create' OR nama_permission LIKE '%_edit' OR nama_permission IN ('customer_approve', 'laporan_marketing_view_team');
 
--- Jabatan 3: Spv (Create + Edit)
+-- Jabatan 3: Spv
 INSERT INTO jabatan_permissions (jabatan_id, permission_id)
-SELECT 3, id FROM permissions WHERE nama_permission LIKE '%_create' OR nama_permission LIKE '%_edit';
+SELECT 3, id FROM permissions WHERE nama_permission LIKE '%_create' OR nama_permission LIKE '%_edit' OR nama_permission IN ('customer_approve', 'laporan_marketing_view_team');
 
 -- Jabatan 2: Manager (Create, Edit, Delete, Export, Import)
 INSERT INTO jabatan_permissions (jabatan_id, permission_id)

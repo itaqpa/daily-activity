@@ -11,18 +11,22 @@ import { useAuth } from '../../../context/AuthContext';
 export default function DataCustomer() {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const { hasPermission } = useAuth();
+  
+  const roleName = (user.jabatan || '').toLowerCase();
+  const isManager = roleName.includes('manager');
+  const isSPV = roleName.includes('spv') || roleName.includes('supervisor');
+  const isAdmin = roleName.includes('admin');
 
   // Hak akses menggunakan RBAC system (hasPermission)
   const canEdit = hasPermission('customer_edit');
+  
+  const isSuperAdminOrAdmin = isAdmin || canEdit;
   const canDelete = hasPermission('customer_delete');
   const canCreate = hasPermission('customer_create');
-  const canApprove = hasPermission('customer_edit'); // Jika butuh explicit approve, gunakan customer_approve jika ada
+  const canApprove = hasPermission('customer_approve');
   
   const canImport = hasPermission('customer_import');
-  const canExport = hasPermission('customer_export');
-
-  const isAdmin = hasPermission('customer_delete'); // Alias untuk cek view_all atau fitur admin (sementara)
-  const isSuperAdminOrAdmin = canEdit || canDelete; 
+  const canExport = hasPermission('customer_export'); 
 
 
   const [customers, setCustomers] = useState([]);
@@ -87,9 +91,6 @@ export default function DataCustomer() {
   const fetchCustomers = async () => {
     try {
       const url = new URL(apiUrl('/customers'), window.location.origin);
-
-      const isSPV = user.jabatan?.toLowerCase().includes('spv') || user.jabatan?.toLowerCase().includes('supervisor');
-      const isManager = user.jabatan?.toLowerCase().includes('manager');
 
       // Jika bukan Admin, SPV, dan Manager, hanya tampilkan customer miliknya sendiri
       if (!isAdmin && !isSPV && !isManager) {
@@ -217,8 +218,8 @@ export default function DataCustomer() {
       const payload = {
         ...formData,
         site_kota: formData.site_kota.filter(site => site.trim() !== ''),
-        status: isSuperAdminOrAdmin ? 'approved' : 'pending',
-        sales_ids: (isSuperAdminOrAdmin || isManager) ? formData.sales_ids : [user.id]
+        status: canApprove ? 'approved' : 'pending',
+        sales_ids: canApprove ? formData.sales_ids : [user.id]
       };
 
       const response = await fetch(url, {
@@ -481,7 +482,7 @@ export default function DataCustomer() {
                 <FilterHeader columnKey="account_type" label="Customer Account Type" />
                 <th className="p-4 font-semibold text-sm whitespace-nowrap">Aktivitas</th>
                 <th className="p-4 font-semibold text-sm whitespace-nowrap">Status</th>
-                {(canEdit || canDelete || isSuperAdminOrAdmin) && <th className="p-4 font-semibold text-sm text-right w-24 whitespace-nowrap">Aksi</th>}
+                {(canEdit || canDelete || canApprove) && <th className="p-4 font-semibold text-sm text-right w-24 whitespace-nowrap">Aksi</th>}
               </tr>
             </thead>
             <tbody>
@@ -551,7 +552,7 @@ export default function DataCustomer() {
                       <span className="px-2 py-1 bg-green-50 text-green-700 text-xs rounded-md font-medium border border-green-100">Approved</span>
                     )}
                   </td>
-                  {(canEdit || canDelete || isSuperAdminOrAdmin) && (
+                  {(canEdit || canDelete || canApprove) && (
                     <td className="p-4 text-sm">
                       <div className="flex items-center justify-end gap-2">
                         {c.status === 'pending' && canApprove && (
@@ -607,8 +608,8 @@ export default function DataCustomer() {
         handleAddSite={handleAddSite}
         handleSiteTextChange={handleSiteTextChange}
         handleRemoveSite={handleRemoveSite}
-        isSuperAdminOrAdmin={isAdmin}
-        isManager={isManager}
+        isSuperAdminOrAdmin={canApprove}
+        isManager={canApprove}
         salesList={salesList}
         handleSelectChange={handleSelectChange}
         handleSubmit={handleSubmit}
@@ -735,7 +736,7 @@ export default function DataCustomer() {
                               site_kota: row.site_kota ? row.site_kota.split(';').map(s => s.trim()) : [],
                               note: row.note || '',
                               sales_emails: row.sales_email ? row.sales_email.split(';').map(e => e.trim()) : [], // We use emails to match sales in backend or just send it if backend supports it. For now assuming backend handles it or we just add it to note.
-                              status: isAdmin ? 'approved' : 'pending'
+                              status: canApprove ? 'approved' : 'pending'
                             };
 
                             // Send to backend (adjust endpoint as needed)

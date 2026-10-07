@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import MainLayout from '../../../components/layouts/MainLayout';
+import { useAuth } from '../../../context/AuthContext';
 import { 
   Users, 
   Plus, 
@@ -22,6 +23,13 @@ import { apiUrl } from '../../../api';
 import Papa from 'papaparse';
 
 export default function DataManpower() {
+  const { hasPermission } = useAuth();
+  
+  const canCreate = hasPermission('manpower_create');
+  const canEdit = hasPermission('manpower_edit');
+  const canDelete = hasPermission('manpower_delete');
+  const canExport = hasPermission('manpower_export');
+
   const [manpowerList, setManpowerList] = useState([]);
   const [projectsList, setProjectsList] = useState([]);
   const [positionsList, setPositionsList] = useState([]);
@@ -288,14 +296,16 @@ export default function DataManpower() {
           </div>
 
           <div className="flex items-center gap-2.5 flex-wrap">
-            <button
-              onClick={handleExportCSV}
-              className="px-3.5 py-2 text-xs md:text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 border border-gray-200 rounded-xl transition-colors flex items-center gap-2 shadow-2xs"
-              title="Download Data CSV"
-            >
-              <Download className="w-4 h-4 text-gray-500" />
-              <span>Export CSV</span>
-            </button>
+            {canExport && (
+              <button
+                onClick={handleExportCSV}
+                className="px-3.5 py-2 text-xs md:text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 border border-gray-200 rounded-xl transition-colors flex items-center gap-2 shadow-2xs"
+                title="Download Data CSV"
+              >
+                <Download className="w-4 h-4 text-gray-500" />
+                <span>Export CSV</span>
+              </button>
+            )}
 
             <button
               onClick={fetchManpower}
@@ -305,13 +315,15 @@ export default function DataManpower() {
               <RotateCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
             </button>
 
-            <button
-              onClick={handleOpenAdd}
-              className="px-4 py-2 text-xs md:text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors flex items-center gap-2 shadow-sm"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Tambah Manpower</span>
-            </button>
+            {canCreate && (
+              <button
+                onClick={handleOpenAdd}
+                className="px-4 py-2 text-xs md:text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors flex items-center gap-2 shadow-sm"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Tambah Manpower</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -413,7 +425,7 @@ export default function DataManpower() {
                     : 'Belum ada data tenaga kerja. Klik tombol "Tambah Manpower" untuk mulai menambahkan.'}
                 </p>
               </div>
-              {(!searchTerm && selectedPosisi === 'ALL' && selectedLingkup === 'ALL') && (
+              {(!searchTerm && selectedPosisi === 'ALL' && selectedLingkup === 'ALL' && canCreate) && (
                 <button
                   onClick={handleOpenAdd}
                   className="mt-2 px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors flex items-center gap-1.5 shadow-sm"
@@ -433,7 +445,7 @@ export default function DataManpower() {
                     <th className="py-3.5 px-4">Posisi / Keahlian</th>
                     <th className="py-3.5 px-4 text-right">Rate / Jam</th>
                     <th className="py-3.5 px-4">Lingkup Penugasan</th>
-                    <th className="py-3.5 px-4 text-center w-28">Aksi</th>
+                    {(canEdit || canDelete) && <th className="py-3.5 px-4 text-center w-28">Aksi</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 text-sm">
@@ -486,24 +498,30 @@ export default function DataManpower() {
                           </span>
                         )}
                       </td>
-                      <td className="py-3.5 px-4 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <button
-                            onClick={() => handleOpenEdit(item)}
-                            className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="Edit Manpower"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => setDeleteConfirmId(item.id)}
-                            className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Hapus Manpower"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
+                      {(canEdit || canDelete) && (
+                        <td className="py-3.5 px-4 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            {canEdit && (
+                              <button
+                                onClick={() => handleOpenEdit(item)}
+                                className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                title="Edit Manpower"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                            )}
+                            {canDelete && (
+                              <button
+                                onClick={() => setDeleteConfirmId(item.id)}
+                                className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Hapus Manpower"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { X, Save, ArrowLeft, Loader2, Calendar } from "lucide-react";
 
-export default function FormCostProject({ project, onClose, onSuccess, isMobile = false }) {
+export default function FormCostProject({ project, onClose, onSuccess, isMobile = false, inline = false }) {
   const [formData, setFormData] = useState({
     tanggal: new Date().toISOString().split('T')[0],
     kategori: "",
@@ -168,6 +168,10 @@ export default function FormCostProject({ project, onClose, onSuccess, isMobile 
       </div>
     </div>
   );
+
+  if (inline) {
+    return formContent;
+  }
 
   if (isMobile) {
     return (

@@ -4,8 +4,12 @@ import { Users, X, ArrowDown, ArrowUp, ArrowUpDown, Search, Download } from 'luc
 import { apiUrl } from '../../../api';
 import Papa from 'papaparse';
 import Select from 'react-select';
+import { useAuth } from '../../../context/AuthContext';
 
 export default function DataSales() {
+  const { hasPermission } = useAuth();
+  const canExport = hasPermission('sales_export');
+  
   const [salesData, setSalesData] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -236,13 +240,15 @@ export default function DataSales() {
             </button>
           </div>
           <div className="flex w-full sm:w-auto">
-            <button
-              onClick={() => setIsExportModalOpen(true)}
-              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors shadow-sm whitespace-nowrap w-full sm:w-auto justify-center"
-            >
-              <Download size={16} />
-              Export CSV
-            </button>
+            {canExport && (
+              <button
+                onClick={() => setIsExportModalOpen(true)}
+                className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors shadow-sm whitespace-nowrap w-full sm:w-auto justify-center"
+              >
+                <Download size={16} />
+                Export CSV
+              </button>
+            )}
           </div>
         </div>
 

@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import MainLayout from '../../../components/layouts/MainLayout';
 import { Clock, Filter, Trash2, Search, ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import { apiUrl } from '../../../api';
+import { useAuth } from '../../../context/AuthContext';
 
 export default function RiwayatAktivitas() {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const { hasPermission } = useAuth();
   
   const roleName = (user.jabatan || '').toLowerCase();
   
@@ -23,7 +25,7 @@ export default function RiwayatAktivitas() {
   };
 
   const canSeeAll = roleName !== 'staff';
-  const canAction = isAdmin || isManager;
+  const canAction = hasPermission('aktivitas_delete');
 
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);

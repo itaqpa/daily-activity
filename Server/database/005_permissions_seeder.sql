@@ -21,6 +21,7 @@ INSERT INTO permissions (nama_permission, deskripsi) VALUES
 ('customer_delete', 'Menghapus Data Customer'),
 ('customer_export', 'Export Data Customer'),
 ('customer_import', 'Import Data Customer'),
+('customer_approve', 'Approve Data Customer'),
 
 -- 4. Modul Data Manpower
 ('manpower_view', 'Melihat Data Manpower'),
@@ -56,6 +57,8 @@ INSERT INTO permissions (nama_permission, deskripsi) VALUES
 
 -- 10. Modul Laporan Marketing
 ('laporan_marketing_view', 'Melihat Laporan Marketing'),
+('laporan_marketing_view_all', 'Melihat Laporan Seluruh Tim'),
+('laporan_marketing_view_team', 'Melihat Laporan Bawahan/Tim'),
 ('laporan_marketing_export', 'Export Laporan Marketing'),
 
 -- 11. Modul Installation Project

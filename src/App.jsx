@@ -18,6 +18,8 @@ import FormDailyInputPage from './install-project/components/DailyProgress/FormD
 import ListCostMPPage from './install-project/ListCostMPPage';
 import LaporanProjectPage from './install-project/LaporanProjectPage';
 import ManajemenAkses from './master-admin/ManajemenAkses';
+import StandaloneAddActivity from './install-project/pages/StandaloneAddActivity';
+import StandaloneAddCost from './install-project/pages/StandaloneAddCost';
 
 function ProtectedRoute() {
   const token = localStorage.getItem('token');
@@ -61,6 +63,8 @@ function App() {
           <Route path="/installation-project" element={<ProtectedRoute />}>
             <Route index element={<ListInstallPage />} />
             <Route path="reports" element={<LaporanProjectPage />} />
+            <Route path="add-activity" element={<StandaloneAddActivity />} />
+            <Route path="add-cost" element={<StandaloneAddCost />} />
             <Route path=":id" element={<ShowInstallPage />} />
             <Route path=":id/daily-progress/new" element={<FormDailyInputPage />} />
           </Route>
