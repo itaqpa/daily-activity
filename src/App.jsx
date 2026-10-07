@@ -14,6 +14,7 @@ import ListInstallPage from './install-project/ListInstallPage';
 import ShowInstallPage from './install-project/components/ShowInstallPage';
 import FormDailyInputPage from './install-project/components/DailyProgress/FormDailyInputPage';
 import ListCostMPPage from './install-project/ListCostMPPage';
+import LaporanProjectPage from './install-project/LaporanProjectPage';
 
 function ProtectedRoute() {
   const token = localStorage.getItem('token');
@@ -48,6 +49,7 @@ function App() {
 
         <Route path="/installation-project" element={<ProtectedRoute />}>
           <Route index element={<ListInstallPage />} />
+          <Route path="reports" element={<LaporanProjectPage />} />
           <Route path=":id" element={<ShowInstallPage />} />
           <Route path=":id/daily-progress/new" element={<FormDailyInputPage />} />
         </Route>

@@ -313,19 +313,18 @@ export default function Sidebar({ isOpen, setIsOpen }) {
                       <span>Data Pengeluaran</span>
                     </Link>
 
-                    {/* Laporan (Label saja, belum ada route) */}
-                    <div
-                      className="flex items-center justify-between px-3.5 py-2.5 rounded-lg text-blue-100/40 text-sm font-medium cursor-default select-none"
-                      title="Belum ada route"
+                    {/* Laporan */}
+                    <Link
+                      to="/installation-project/reports"
+                      className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
+                        location.pathname === '/installation-project/reports'
+                          ? 'bg-blue-600 text-white shadow-md'
+                          : 'text-blue-100/70 hover:bg-white/10 hover:text-white'
+                      }`}
                     >
-                      <div className="flex items-center gap-3">
-                        <FileText className="w-4 h-4 text-blue-200/30" />
-                        <span>Laporan</span>
-                      </div>
-                      <span className="text-[10px] font-semibold text-blue-200/40 bg-white/5 px-1.5 py-0.5 rounded border border-white/5">
-                        Soon
-                      </span>
-                    </div>
+                      <FileText className="w-4 h-4" />
+                      <span>Laporan</span>
+                    </Link>
                   </div>
                 )}
               </div>
