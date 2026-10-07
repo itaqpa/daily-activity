@@ -92,8 +92,8 @@ export default function DataCustomer() {
       const isSPV = user.jabatan?.toLowerCase().includes('spv') || user.jabatan?.toLowerCase().includes('supervisor');
       const isManager = user.jabatan?.toLowerCase().includes('manager');
 
-      // Jika bukan Super Admin, SPV, dan Manager, hanya tampilkan customer miliknya sendiri
-      if (!isSuperAdmin && !isSPV && !isManager) {
+      // Jika bukan Admin, SPV, dan Manager, hanya tampilkan customer miliknya sendiri
+      if (!isAdmin && !isSPV && !isManager) {
         url.searchParams.append('sales_id', user.id);
       }
 
