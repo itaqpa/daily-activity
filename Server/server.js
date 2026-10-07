@@ -278,13 +278,13 @@ app.get('/api/customers', async (req, res) => {
 });
 
 app.post('/api/customers', async (req, res) => {
-  const { no_akun, nama_customer, site_kota, sales_ids, status } = req.body;
+  const { no_akun, nama_customer, site_kota, sales_ids, status, note } = req.body;
   try {
     await pool.query('BEGIN');
     
     const custResult = await pool.query(
-      'INSERT INTO customers (no_akun, nama_customer, site_kota, status) VALUES ($1, $2, $3, $4) RETURNING *',
-      [no_akun, nama_customer, JSON.stringify(site_kota), status || 'pending']
+      'INSERT INTO customers (no_akun, nama_customer, site_kota, status, note) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [no_akun, nama_customer, JSON.stringify(site_kota), status || 'pending', note || null]
     );
     const newCust = custResult.rows[0];
 
@@ -311,7 +311,7 @@ app.post('/api/customers/bulk', async (req, res) => {
     await pool.query('BEGIN');
     
     for (const cust of customers) {
-      const { no_akun, nama_customer, site_kota, sales_ids, status } = cust;
+      const { no_akun, nama_customer, site_kota, sales_ids, status, note } = cust;
       
       let custId;
       
@@ -322,8 +322,8 @@ app.post('/api/customers/bulk', async (req, res) => {
         if (existingCust.rows.length > 0) {
           // Update data jika sudah ada
           const updated = await pool.query(
-            'UPDATE customers SET nama_customer=$1, site_kota=$2, status=$3, updated_at=CURRENT_TIMESTAMP WHERE no_akun=$4 RETURNING id',
-            [nama_customer, JSON.stringify(site_kota || []), status || 'approved', no_akun]
+            'UPDATE customers SET nama_customer=$1, site_kota=$2, status=$3, note=$4, updated_at=CURRENT_TIMESTAMP WHERE no_akun=$5 RETURNING id',
+            [nama_customer, JSON.stringify(site_kota || []), status || 'approved', note || null, no_akun]
           );
           custId = updated.rows[0].id;
           
@@ -335,8 +335,8 @@ app.post('/api/customers/bulk', async (req, res) => {
       // Jika no_akun tidak ada / customer belum ada, insert baru
       if (!custId) {
         const inserted = await pool.query(
-          'INSERT INTO customers (no_akun, nama_customer, site_kota, status) VALUES ($1, $2, $3, $4) RETURNING id',
-          [no_akun, nama_customer, JSON.stringify(site_kota || []), status || 'approved']
+          'INSERT INTO customers (no_akun, nama_customer, site_kota, status, note) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+          [no_akun, nama_customer, JSON.stringify(site_kota || []), status || 'approved', note || null]
         );
         custId = inserted.rows[0].id;
       }
@@ -362,13 +362,13 @@ app.post('/api/customers/bulk', async (req, res) => {
 
 app.put('/api/customers/:id', async (req, res) => {
   const { id } = req.params;
-  const { no_akun, nama_customer, site_kota, sales_ids } = req.body;
+  const { no_akun, nama_customer, site_kota, sales_ids, note } = req.body;
   try {
     await pool.query('BEGIN');
     
     const custResult = await pool.query(
-      'UPDATE customers SET no_akun=$1, nama_customer=$2, site_kota=$3 WHERE id=$4 RETURNING *',
-      [no_akun, nama_customer, JSON.stringify(site_kota), id]
+      'UPDATE customers SET no_akun=$1, nama_customer=$2, site_kota=$3, note=$4, updated_at=CURRENT_TIMESTAMP WHERE id=$5 RETURNING *',
+      [no_akun, nama_customer, JSON.stringify(site_kota), note || null, id]
     );
     const updatedCust = custResult.rows[0];
 

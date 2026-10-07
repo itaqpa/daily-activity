@@ -119,6 +119,27 @@ export default function FormCustomerPage({
               </div>
             </div>
 
+            {/* Note */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wide">
+                Note
+              </label>
+              <select
+                name="note"
+                value={formData.note || ''}
+                onChange={handleInputChange}
+                disabled={isReadOnlyForm}
+                className={`w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${isReadOnlyForm ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
+              >
+                <option value="">-- Pilih Note (Opsional) --</option>
+                <option value="Register">Register</option>
+                <option value="Not Register">Not Register</option>
+                {formData.note && formData.note !== 'Register' && formData.note !== 'Not Register' && (
+                  <option value={formData.note}>{formData.note}</option>
+                )}
+              </select>
+            </div>
+
             {/* Assign Sales */}
             {canAssignSales && (
               <div>
