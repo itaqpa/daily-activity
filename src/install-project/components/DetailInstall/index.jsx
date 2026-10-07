@@ -7,13 +7,16 @@ import DetailDaerah from './DetailDaerah';
 import DetailUnit from './DetailUnit';
 import DetailScope from './DetailScope';
 import UserTerkait from './UserTerkait';
+import DailyInputTab from './DailyInputTab';
+import ReportTab from './ReportTab';
+import BiayaProyekTab from './BiayaProyekTab';
 import { 
   LayoutDashboard, 
-  TrendingUp, 
-  Boxes, 
   MapPin, 
-  ListChecks, 
-  Users 
+  Users,
+  Calendar,
+  FileText,
+  DollarSign
 } from 'lucide-react';
 
 export {
@@ -24,7 +27,10 @@ export {
   DetailDaerah,
   DetailUnit,
   DetailScope,
-  UserTerkait
+  UserTerkait,
+  DailyInputTab,
+  ReportTab,
+  BiayaProyekTab
 };
 
 export default function DetailInstall({ project = {}, onEdit }) {
@@ -32,11 +38,9 @@ export default function DetailInstall({ project = {}, onEdit }) {
 
   const tabs = [
     { id: 'ALL', label: 'Semua Tampilan', icon: LayoutDashboard },
-    { id: 'KPI_KURVA', label: 'KPI & Kurva S', icon: TrendingUp },
-    { id: 'PROGRESS_UNIT', label: 'Progress Unit & Scope', icon: Boxes },
-    { id: 'DAERAH', label: 'Detail Daerah', icon: MapPin },
-    { id: 'SCOPE', label: 'Scope of Work', icon: ListChecks },
-    { id: 'USER', label: 'User & Tim Terkait', icon: Users },
+    { id: 'DAILY_INPUT', label: 'Daily Input', icon: Calendar },
+    { id: 'REPORT', label: 'Report', icon: FileText },
+    { id: 'BIAYA', label: 'Biaya Proyek', icon: DollarSign },
   ];
 
   return (
@@ -87,41 +91,19 @@ export default function DetailInstall({ project = {}, onEdit }) {
         </div>
       )}
 
-      {/* Tab: KPI & Kurva S */}
-      {activeTab === 'KPI_KURVA' && (
-        <div className="space-y-6">
-          <KpiSection project={project} />
-          <KurvaSection project={project} />
-        </div>
+      {/* Tab: Daily Input */}
+      {activeTab === 'DAILY_INPUT' && (
+        <DailyInputTab project={project} />
       )}
 
-      {/* Tab: Progress Unit & Scope */}
-      {activeTab === 'PROGRESS_UNIT' && (
-        <div className="space-y-6">
-          <ProgressPerUnit project={project} />
-          <DetailScope project={project} />
-        </div>
+      {/* Tab: Report */}
+      {activeTab === 'REPORT' && (
+        <ReportTab project={project} />
       )}
 
-      {/* Tab: Detail Daerah */}
-      {activeTab === 'DAERAH' && (
-        <div className="space-y-6">
-          <DetailDaerah project={project} />
-        </div>
-      )}
-
-      {/* Tab: Scope of Work */}
-      {activeTab === 'SCOPE' && (
-        <div className="space-y-6">
-          <DetailScope project={project} />
-        </div>
-      )}
-
-      {/* Tab: User & Tim Terkait */}
-      {activeTab === 'USER' && (
-        <div className="space-y-6">
-          <UserTerkait project={project} />
-        </div>
+      {/* Tab: Biaya Proyek */}
+      {activeTab === 'BIAYA' && (
+        <BiayaProyekTab project={project} />
       )}
     </div>
   );

@@ -1,11 +1,11 @@
 import React from 'react';
 
 export default function KpiSection({ project = {} }) {
-  const { 
-    tgl_mulai, 
-    durasi_hari, 
-    nilai_kontrak = 0, 
-    budget_biaya = 0, 
+  const {
+    tgl_mulai,
+    durasi_hari,
+    nilai_kontrak = 0,
+    budget_biaya = 0,
     total_biaya = 0,
     progress_actual = 0,
     areas = []
@@ -71,90 +71,83 @@ export default function KpiSection({ project = {} }) {
   };
 
   return (
-    <div className="space-y-4">
-      {/* Top Row: 5 KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3.5">
-        
-        {/* Card 1: Progress actual */}
-        <div className="bg-white rounded-xl border border-gray-200/90 p-4 shadow-2xs flex flex-col justify-between">
-          <div>
-            <p className="text-xs text-gray-500 font-medium">Progress actual</p>
-            <p className="text-2xl font-bold tracking-tight text-gray-900 mt-1">
-              {actualNum.toFixed(1)}%
-            </p>
-          </div>
-          <p className="text-xs text-gray-400 font-mono mt-2">
-            s.d. {todayFormatted}
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
+      {/* Card 1: Progress actual */}
+      <div className="bg-white rounded-xl border border-gray-200/90 p-4 shadow-2xs flex flex-col justify-between">
+        <div>
+          <p className="text-xs text-gray-500 font-medium">Progress actual</p>
+          <p className="text-xl xl:text-2xl font-bold tracking-tight text-gray-900 mt-1">
+            {actualNum.toFixed(1)}%
           </p>
         </div>
-
-        {/* Card 2: Progress plan */}
-        <div className="bg-white rounded-xl border border-gray-200/90 p-4 shadow-2xs flex flex-col justify-between">
-          <div>
-            <p className="text-xs text-gray-500 font-medium">Progress plan</p>
-            <p className="text-2xl font-bold tracking-tight text-gray-900 mt-1">
-              {planNum.toFixed(1)}%
-            </p>
-          </div>
-          <p className="text-xs text-gray-400 font-mono mt-2">
-            rencana s.d. hari ini
-          </p>
-        </div>
-
-        {/* Card 3: Deviasi */}
-        <div className="bg-white rounded-xl border border-gray-200/90 p-4 shadow-2xs flex flex-col justify-between">
-          <div>
-            <p className="text-xs text-gray-500 font-medium">Deviasi</p>
-            <p className={`text-2xl font-bold tracking-tight mt-1 ${deviasiNum < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-              {deviasiNum >= 0 ? `+${deviasiNum.toFixed(1)}%` : `${deviasiNum.toFixed(1)}%`}
-            </p>
-          </div>
-          <p className="text-xs text-gray-400 font-mono mt-2">
-            actual - plan
-          </p>
-        </div>
-
-        {/* Card 4: Hari berjalan */}
-        <div className="bg-white rounded-xl border border-gray-200/90 p-4 shadow-2xs flex flex-col justify-between">
-          <div>
-            <p className="text-xs text-gray-500 font-medium">Hari berjalan</p>
-            <p className="text-2xl font-bold tracking-tight text-gray-900 mt-1">
-              {elapsedDays} / {totalDays}
-            </p>
-          </div>
-          <p className="text-xs text-gray-400 font-mono mt-2">
-            sisa {remainingDays} hari
-          </p>
-        </div>
-
-        {/* Card 5: Forecast selesai */}
-        <div className="bg-white rounded-xl border border-gray-200/90 p-4 shadow-2xs flex flex-col justify-between">
-          <div>
-            <p className="text-xs text-gray-500 font-medium">Forecast selesai</p>
-            <p className="text-2xl font-bold tracking-tight text-gray-900 mt-1">
-              {forecastDate}
-            </p>
-          </div>
-          <p className="text-xs text-gray-400 font-mono mt-2">
-            dari laju rata-rata
-          </p>
-        </div>
-
+        <p className="text-xs text-gray-400 font-mono mt-2">
+          s.d. {todayFormatted}
+        </p>
       </div>
 
-      {/* Bottom Row: Total biaya */}
-      <div className="w-full sm:w-64">
-        <div className="bg-white rounded-xl border border-gray-200/90 p-4 shadow-2xs flex flex-col justify-between">
-          <div>
-            <p className="text-xs text-gray-500 font-medium">Total biaya</p>
-            <p className="text-2xl font-bold tracking-tight text-gray-900 mt-1">
-              Rp {formatRupiah(costsNum)}
-            </p>
-          </div>
-          <p className="text-xs text-gray-400 font-mono mt-2">
-            {budgetRatio}% dari budget
+      {/* Card 2: Progress plan */}
+      <div className="bg-white rounded-xl border border-gray-200/90 p-4 shadow-2xs flex flex-col justify-between">
+        <div>
+          <p className="text-xs text-gray-500 font-medium">Progress plan</p>
+          <p className="text-xl xl:text-2xl font-bold tracking-tight text-gray-900 mt-1">
+            {planNum.toFixed(1)}%
           </p>
         </div>
+        <p className="text-xs text-gray-400 font-mono mt-2">
+          rencana s.d. hari ini
+        </p>
+      </div>
+
+      {/* Card 3: Deviasi */}
+      <div className="bg-white rounded-xl border border-gray-200/90 p-4 shadow-2xs flex flex-col justify-between">
+        <div>
+          <p className="text-xs text-gray-500 font-medium">Deviasi</p>
+          <p className={`text-xl xl:text-2xl font-bold tracking-tight mt-1 ${deviasiNum < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+            {deviasiNum >= 0 ? `+${deviasiNum.toFixed(1)}%` : `${deviasiNum.toFixed(1)}%`}
+          </p>
+        </div>
+        <p className="text-xs text-gray-400 font-mono mt-2">
+          actual - plan
+        </p>
+      </div>
+
+      {/* Card 4: Hari berjalan */}
+      <div className="bg-white rounded-xl border border-gray-200/90 p-4 shadow-2xs flex flex-col justify-between">
+        <div>
+          <p className="text-xs text-gray-500 font-medium">Hari berjalan</p>
+          <p className="text-xl xl:text-2xl font-bold tracking-tight text-gray-900 mt-1">
+            {elapsedDays} / {totalDays}
+          </p>
+        </div>
+        <p className="text-xs text-gray-400 font-mono mt-2">
+          sisa {remainingDays} hari
+        </p>
+      </div>
+
+      {/* Card 5: Forecast selesai */}
+      <div className="bg-white rounded-xl border border-gray-200/90 p-4 shadow-2xs flex flex-col justify-between">
+        <div>
+          <p className="text-xs text-gray-500 font-medium">Forecast selesai</p>
+          <p className="text-xl xl:text-2xl font-bold tracking-tight text-gray-900 mt-1 truncate" title={forecastDate}>
+            {forecastDate}
+          </p>
+        </div>
+        <p className="text-xs text-gray-400 font-mono mt-2">
+          dari laju rata-rata
+        </p>
+      </div>
+
+      {/* Card 6: Total biaya */}
+      <div className="bg-white rounded-xl border border-gray-200/90 p-4 shadow-2xs flex flex-col justify-between">
+        <div>
+          <p className="text-xs text-gray-500 font-medium">Total biaya</p>
+          <p className="text-xl xl:text-2xl font-bold tracking-tight text-gray-900 mt-1 truncate" title={`Rp ${formatRupiah(costsNum)}`}>
+            Rp {formatRupiah(costsNum)}
+          </p>
+        </div>
+        <p className="text-xs text-gray-400 font-mono mt-2">
+          {budgetRatio}% dari budget
+        </p>
       </div>
     </div>
   );

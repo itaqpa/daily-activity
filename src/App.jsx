@@ -3,6 +3,7 @@ import Login from './pages/Login';
 import Dashboard from './marketing/pages/Dashboard';
 import DataSales from './marketing/pages/master-data/DataSales';
 import DataCustomer from './marketing/pages/master-data/DataCustomer';
+import DataManpower from './marketing/pages/master-data/DataManpower';
 import UserManagement from './marketing/pages/user-management/UserManagement';
 
 import CatatAktivitas from './marketing/pages/activities/CatatAktivitas';
@@ -11,6 +12,9 @@ import Laporan from './marketing/pages/reports/Laporan';
 import Settings from './marketing/pages/Settings';
 import ListInstallPage from './install-project/ListInstallPage';
 import ShowInstallPage from './install-project/components/ShowInstallPage';
+import FormDailyInputPage from './install-project/components/DailyProgress/FormDailyInputPage';
+import ListCostMPPage from './install-project/ListCostMPPage';
+
 function ProtectedRoute() {
   const token = localStorage.getItem('token');
   if (!token) {
@@ -32,6 +36,7 @@ function App() {
           {/* Master Data */}
           <Route path="master-data/sales" element={<DataSales />} />
           <Route path="master-data/customer" element={<DataCustomer />} />
+          <Route path="master-data/manpower" element={<DataManpower />} />
           <Route path="users" element={<UserManagement />} />
           
           {/* Activities & Reports */}
@@ -44,6 +49,11 @@ function App() {
         <Route path="/installation-project" element={<ProtectedRoute />}>
           <Route index element={<ListInstallPage />} />
           <Route path=":id" element={<ShowInstallPage />} />
+          <Route path=":id/daily-progress/new" element={<FormDailyInputPage />} />
+        </Route>
+
+        <Route path="/data-pengeluaran" element={<ProtectedRoute />}>
+          <Route index element={<ListCostMPPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

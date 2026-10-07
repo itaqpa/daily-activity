@@ -19,6 +19,7 @@ import {
   TrendingUp,
   Coins,
   FolderKanban,
+  HardHat,
 } from "lucide-react";
 
 export default function Sidebar({ isOpen, setIsOpen }) {
@@ -299,19 +300,18 @@ export default function Sidebar({ isOpen, setIsOpen }) {
                       <span>Data Project</span>
                     </Link>
 
-                    {/* Data Pengeluaran (Label saja, belum ada route) */}
-                    <div
-                      className="flex items-center justify-between px-3.5 py-2.5 rounded-lg text-blue-100/40 text-sm font-medium cursor-default select-none"
-                      title="Belum ada route"
+                    {/* Data Pengeluaran */}
+                    <Link
+                      to="/data-pengeluaran"
+                      className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
+                        isActive("/data-pengeluaran") || location.pathname.startsWith("/data-pengeluaran")
+                          ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10 font-semibold"
+                          : "text-blue-100/70 hover:bg-white/5 hover:text-white font-medium"
+                      }`}
                     >
-                      <div className="flex items-center gap-3">
-                        <Coins className="w-4 h-4 text-blue-200/30" />
-                        <span>Data Pengeluaran</span>
-                      </div>
-                      <span className="text-[10px] font-semibold text-blue-200/40 bg-white/5 px-1.5 py-0.5 rounded border border-white/5">
-                        Soon
-                      </span>
-                    </div>
+                      <Coins className="w-4 h-4" />
+                      <span>Data Pengeluaran</span>
+                    </Link>
 
                     {/* Laporan (Label saja, belum ada route) */}
                     <div
@@ -372,6 +372,18 @@ export default function Sidebar({ isOpen, setIsOpen }) {
                     >
                       <UserCircle className="w-4 h-4" />
                       <span>Data Customer</span>
+                    </Link>
+
+                    <Link
+                      to="/marketing/master-data/manpower"
+                      className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
+                        isActive("/marketing/master-data/manpower")
+                          ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10 font-semibold"
+                          : "text-blue-100/70 hover:bg-white/5 hover:text-white font-medium"
+                      }`}
+                    >
+                      <HardHat className="w-4 h-4" />
+                      <span>Data Manpower</span>
                     </Link>
 
                     <Link
@@ -456,6 +468,21 @@ export default function Sidebar({ isOpen, setIsOpen }) {
                 >
                   <Briefcase className="w-5 h-5" />
                   <span className="font-medium">{isAdmin ? "Data Sales" : "Tim Sales"}</span>
+                </Link>
+              )}
+
+              {/* Data Manpower */}
+              {isAdmin && !isSuperAdmin && (
+                <Link
+                  to="/marketing/master-data/manpower"
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                    isActive("/marketing/master-data/manpower")
+                      ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10"
+                      : "text-blue-100/70 hover:bg-white/5 hover:text-white"
+                  }`}
+                >
+                  <HardHat className="w-5 h-5" />
+                  <span className="font-medium">Data Manpower</span>
                 </Link>
               )}
 

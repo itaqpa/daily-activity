@@ -1,12 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import { Plus, Trash2, Users, X } from 'lucide-react';
+import { apiUrl } from '../../../api';
 
 // --- NO DUMMY DATA ---
 // ------------------
 
 export default function Step2AreaUnit({ data, updateData }) {
   const [showUserSelect, setShowUserSelect] = useState({}); // { [unitId]: boolean }
-  
+  const [manpowerList, setManpowerList] = useState([]);
+
+  useEffect(() => {
+    fetch(apiUrl('/manpower'))
+      .then(res => res.json())
+      .then(data => setManpowerList(data || []))
+      .catch(err => console.error('Error fetching manpower in Step2:', err));
+  }, []);
+
   useEffect(() => {
     if (!data.areas || data.areas.length === 0) {
       updateData((prev) => ({
@@ -140,8 +149,43 @@ export default function Step2AreaUnit({ data, updateData }) {
   };
 
   const handleAddUserToUnit = (areaId, unitId, userId) => {
-    // We no longer have DUMMY_ALL_USERS, so this function does nothing for now.
-    // Hide the select dropdown after adding
+    if (!userId) return;
+    const found = manpowerList.find(m => String(m.id) === String(userId));
+    if (!found) return;
+
+    updateData(prev => ({
+      ...prev,
+      areas: prev.areas.map(a => {
+        if (a.id === areaId) {
+          return {
+            ...a,
+            units: a.units.map(u => {
+              if (u.id === unitId) {
+                const existing = u.selected_users || [];
+                if (existing.some(cu => String(cu.id) === String(found.id))) {
+                  return u;
+                }
+                return {
+                  ...u,
+                  selected_users: [
+                    ...existing,
+                    {
+                      id: found.id,
+                      name: found.nama,
+                      posisi: found.posisi,
+                      rate_per_jam: found.rate_per_jam
+                    }
+                  ]
+                };
+              }
+              return u;
+            })
+          };
+        }
+        return a;
+      })
+    }));
+
     setShowUserSelect(prev => ({ ...prev, [unitId]: false }));
   };
 
@@ -367,9 +411,16 @@ export default function Step2AreaUnit({ data, updateData }) {
                                   id={`userSelect-${unit.id}`}
                                   className="border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-blue-500 bg-white"
                                   onChange={(e) => handleAddUserToUnit(area.id, unit.id, e.target.value)}
+                                  defaultValue=""
                                 >
-                                  <option value="">Pilih User...</option>
-                                  <option value="" disabled>User Kosong (Belum ada data)</option>
+                                  <option value="">Pilih Manpower...</option>
+                                  {manpowerList
+                                    .filter(m => !(unit.selected_users || []).some(su => String(su.id) === String(m.id)))
+                                    .map(m => (
+                                      <option key={m.id} value={m.id}>
+                                        {m.nama} ({m.posisi})
+                                      </option>
+                                    ))}
                                 </select>
                                 <button 
                                   onClick={() => setShowUserSelect(prev => ({ ...prev, [unit.id]: false }))}

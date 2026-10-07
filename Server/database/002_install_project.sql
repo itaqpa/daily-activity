@@ -274,6 +274,7 @@ CREATE TABLE daily_progress (
   unit_scope_id  INTEGER NOT NULL,
   tanggal        DATE         NOT NULL,
   pct            DECIMAL(7,6) NOT NULL,
+  catatan        TEXT         NULL,
   created_by     INTEGER NULL,
   created_at     TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),

@@ -6,6 +6,10 @@ import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
 import userRoutes from './routes/userRoutes.js';
 import installationProjectsRoutes from './routes/installationProjectsRoutes.js';
+import manpowerRoutes from './routes/manpowerRoutes.js';
+import dailyProgressRoutes from './routes/dailyProgressRoutes.js';
+import costProjectRoutes from './routes/costProjectRoutes.js';
+import reportRoutes from './routes/reportRoutes.js';
 
 // Load environment variables from .env
 dotenv.config();
@@ -474,6 +478,11 @@ app.post('/api/activities', async (req, res) => {
 });
 
 app.use('/api/install-projects', installationProjectsRoutes);
+app.use('/api/manpower', manpowerRoutes(pool));
+app.use('/api/install-projects/manpower', manpowerRoutes(pool));
+app.use('/api/daily-progress', dailyProgressRoutes(pool));
+app.use('/api/cost-project', costProjectRoutes(pool));
+app.use('/api/report', reportRoutes(pool));
 
 // Start Server
 app.listen(port, () => {
