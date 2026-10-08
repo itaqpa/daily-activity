@@ -1,4 +1,5 @@
 import express from 'express';
+import bcrypt from 'bcrypt';
 
 export default function userRoutes(pool) {
   const router = express.Router();
@@ -57,10 +58,11 @@ export default function userRoutes(pool) {
     const { name, username, email, password, is_active, divisi_id, jabatan_id, additional_roles, permissions } = req.body;
     const client = await pool.connect();
     try {
+      const hashedPassword = await bcrypt.hash(password, 10);
       await client.query('BEGIN');
       const result = await client.query(
         'INSERT INTO users (name, username, email, password, is_active, divisi_id, jabatan_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
-        [name, username, email, password, is_active !== undefined ? is_active : true, divisi_id || null, jabatan_id || null]
+        [name, username, email, hashedPassword, is_active !== undefined ? is_active : true, divisi_id || null, jabatan_id || null]
       );
       const newUser = result.rows[0];
 
@@ -96,8 +98,9 @@ export default function userRoutes(pool) {
       let values = [name, username, email, is_active, divisi_id || null, jabatan_id || null, id];
 
       if (password) {
+        const hashedPassword = await bcrypt.hash(password, 10);
         queryText = 'UPDATE users SET name=$1, username=$2, email=$3, password=$4, is_active=$5, divisi_id=$6, jabatan_id=$7 WHERE id=$8 RETURNING *';
-        values = [name, username, email, password, is_active, divisi_id || null, jabatan_id || null, id];
+        values = [name, username, email, hashedPassword, is_active, divisi_id || null, jabatan_id || null, id];
       }
       
       const result = await client.query(queryText, values);

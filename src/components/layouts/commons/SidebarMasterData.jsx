@@ -103,9 +103,9 @@ export default function SidebarMasterData({ isActive }) {
 
           {hasPermission('history_view') && (
             <Link
-              to="/marketing/master-data/history-log"
+              to="/master-admin/history-log"
               className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
-                isActive("/marketing/master-data/history-log")
+                isActive("/master-admin/history-log")
                   ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10 font-semibold"
                   : "text-blue-100/70 hover:bg-white/5 hover:text-white font-medium"
               }`}

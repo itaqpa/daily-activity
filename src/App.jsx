@@ -1,4 +1,34 @@
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { apiUrl } from './api';
+
+function PageTrackingListener() {
+  const location = useLocation();
+
+  useEffect(() => {
+    // Hindari log page view jika di halaman login atau root
+    if (location.pathname === '/' || location.pathname === '/login') return;
+    
+    // Tentukan judul halaman yang simpel berdasarkan pathname
+    const pathParts = location.pathname.split('/').filter(Boolean);
+    let title = pathParts.map(p => p.charAt(0).toUpperCase() + p.slice(1).replace(/-/g, ' ')).join(' > ');
+    if (!title) title = 'Beranda';
+
+    fetch(apiUrl('/global-logs/page-view'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        url: location.pathname,
+        title: title
+      })
+    }).catch(err => console.error('Failed to log page view:', err));
+  }, [location.pathname]);
+
+  return null;
+}
+
 import Login from './pages/Login';
 import Dashboard from './marketing/pages/Dashboard';
 import DataSales from './marketing/pages/master-data/DataSales';
@@ -18,6 +48,7 @@ import FormDailyInputPage from './install-project/components/DailyProgress/FormD
 import ListCostMPPage from './install-project/ListCostMPPage';
 import LaporanProjectPage from './install-project/LaporanProjectPage';
 import ManajemenAkses from './master-admin/ManajemenAkses';
+import HistorynLogPage from './master-admin/HistorynLogPage';
 import StandaloneAddActivity from './install-project/pages/StandaloneAddActivity';
 import StandaloneAddCost from './install-project/pages/StandaloneAddCost';
 
@@ -35,6 +66,7 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <PageTrackingListener />
         <Routes>
           <Route path="/" element={<Login />} />
           
@@ -75,6 +107,7 @@ function App() {
 
           <Route path="/master-admin" element={<ProtectedRoute />}>
             <Route path="manajemen-akses" element={<ManajemenAkses />} />
+            <Route path="history-log" element={<HistorynLogPage />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search,
@@ -50,6 +50,13 @@ export default function Portal() {
   ];
 
   const modules = allModules.filter(mod => hasPermission(mod.permission));
+
+  useEffect(() => {
+    // Jika user hanya punya akses ke 1 modul, langsung arahkan tanpa harus lewat portal
+    if (modules.length === 1) {
+      navigate(modules[0].path, { replace: true });
+    }
+  }, [modules.length, navigate]); // using length to prevent infinite re-renders since modules array is recreated every render
 
   const getFormattedDate = () => {
     const options = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };

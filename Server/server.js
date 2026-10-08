@@ -4,6 +4,7 @@ import pkg from 'pg';
 const { Pool } = pkg;
 import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcrypt';
 import userRoutes from './routes/userRoutes.js';
 import installationProjectsRoutes from './routes/installationProjectsRoutes.js';
 import manpowerRoutes from './routes/manpowerRoutes.js';
@@ -11,6 +12,7 @@ import dailyProgressRoutes from './routes/dailyProgressRoutes.js';
 import costProjectRoutes from './routes/costProjectRoutes.js';
 import reportRoutes from './routes/reportRoutes.js';
 import activityLogsRoutes from './routes/activityLogsRoutes.js';
+import { createAuthLogMiddleware } from './middleware/authLogMiddleware.js';
 
 // Load environment variables from .env
 dotenv.config();
@@ -44,9 +46,75 @@ pool.connect((err, client, release) => {
 // Secret for JWT
 const JWT_SECRET = process.env.JWT_SECRET || 'rahasia_negara_aqpa';
 
+// Gunakan Middleware Global untuk Auth dan Log Aktivitas
+app.use(createAuthLogMiddleware(pool, JWT_SECRET));
+
 // Routes
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
+});
+
+app.post('/api/global-logs/page-view', async (req, res) => {
+  try {
+    const { url, title } = req.body;
+    // req.user di set oleh authLogMiddleware jika menggunakan fungsi verify manual
+    // namun kita bisa bypass dan pakai middleware langsung atau ambil dari token
+    const authHeader = req.headers.authorization;
+    let username = 'Unauthenticated';
+    let userId = null;
+    let token = null;
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'rahasia');
+        userId = decoded.id;
+        username = decoded.name || decoded.email || 'User';
+      } catch (err) {}
+    }
+
+    if (username === 'Unauthenticated') {
+      return res.status(200).json({ success: true, message: 'Ignored unauthenticated' });
+    }
+
+    const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip;
+    let cleanIp = ip === '::1' ? '127.0.0.1' : ip;
+    if (cleanIp.includes('::ffff:')) cleanIp = cleanIp.split('::ffff:')[1];
+
+    const action = 'PAGE VIEW';
+    let module = 'SYSTEM';
+    if (url.includes('/marketing')) module = 'MARKETING';
+    else if (url.includes('/install-project')) module = 'INSTALLATION';
+    else if (url.includes('/master-admin')) module = 'MASTER DATA';
+    else if (url.includes('/portal')) module = 'PORTAL';
+
+    const description = `Membuka halaman: ${title} (${url})`;
+
+    await pool.query(
+      `INSERT INTO log_activity_all (user_id, username, action, module, description, ip_address, token_used) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [userId, username, action, module, description, cleanIp, token]
+    );
+
+    res.status(200).json({ success: true });
+  } catch (err) {
+    console.error('Failed to log page view:', err);
+    res.status(500).json({ error: 'Failed' });
+  }
+});
+
+app.get('/api/global-logs', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT * FROM log_activity_all 
+      ORDER BY created_at DESC, id DESC
+      LIMIT 1000
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch global logs' });
+  }
 });
 
 app.post('/api/login', async (req, res) => {
@@ -136,15 +204,23 @@ app.post('/api/login', async (req, res) => {
       return res.status(403).json({ message: 'Akun Anda telah dinonaktifkan. Silakan hubungi admin.' });
     }
 
-    // NOTE: Saat ini pengecekan password tanpa enkripsi (plain text) sesuai seeder.
-    // Jika nanti passwordnya di-hash menggunakan bcrypt, gunakan bcrypt.compare().
-    if (password !== user.password) {
+    // Verifikasi password (Mendukung hash bcrypt dan plaintext lama)
+    let isMatch = false;
+    if (user.password && user.password.startsWith('$2')) {
+      // Password sudah berupa bcrypt hash
+      isMatch = await bcrypt.compare(password, user.password);
+    } else {
+      // Password masih berupa plain text
+      isMatch = (password === user.password);
+    }
+
+    if (!isMatch) {
       return res.status(401).json({ message: 'Password salah!' });
     }
 
     // Generate JWT token
     const token = jwt.sign(
-      { id: user.id, email: user.email, jabatan_id: user.jabatan_id }, 
+      { id: user.id, name: user.name, email: user.email, jabatan_id: user.jabatan_id }, 
       JWT_SECRET, 
       { expiresIn: '8h' }
     );
