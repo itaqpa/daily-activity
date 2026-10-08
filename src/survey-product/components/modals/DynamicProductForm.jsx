@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, ChevronRight, CheckCircle2, AlertTriangle, AlertCircle, Save, ArrowLeft, Camera, FileText, Plus, Trash2 } from 'lucide-react';
+import { apiUrl } from '../../../api';
 
 // Template Engine akan diload dari API berdasarkan product.code
 // const MOCK_TEMPLATE = {...} dihapus
@@ -15,7 +16,7 @@ export default function DynamicProductForm({ product, onClose, onSave, existingD
     const fetchTemplate = async () => {
       try {
         setIsLoading(true);
-        const res = await fetch(`http://localhost:8400/api/survey-engine/template/${product.code}`);
+        const res = await fetch(apiUrl(`survey-engine/template/${product.code}`));
         if (!res.ok) {
           throw new Error('Template tidak ditemukan');
         }
@@ -30,6 +31,8 @@ export default function DynamicProductForm({ product, onClose, onSave, existingD
             id: q.question_key,
             label: q.label,
             type: q.type,
+            unit: q.unit,
+            checklist_items: q.checklist_items,
             required: q.required,
             options: q.options || [],
             visibility_rule: q.visibility_rule
@@ -76,25 +79,80 @@ export default function DynamicProductForm({ product, onClose, onSave, existingD
   };
 
   const evaluateVisibility = (q, currentAnswers) => {
-    if (!q.visibility_rule || !q.visibility_rule.source_expression || !q.visibility_rule.source_expression.field_js) {
+    if (!q.visibility_rule || !q.visibility_rule.source_expression) {
       return true;
     }
+    const { field_js, section_js } = q.visibility_rule.source_expression;
+    if (!field_js && !section_js) return true;
+
     try {
-      const jsStr = q.visibility_rule.source_expression.field_js;
-      // Convert answers keys to short keys (e.g. DFG.acuan.acuan -> acuan)
       const f = {};
       Object.keys(currentAnswers).forEach(k => {
          const shortKey = k.split('.').pop();
          f[shortKey] = currentAnswers[k];
       });
-      // Constants referenced in the rules
       const CUSTOM = 'Custom (spesifikasi / drawing client)';
-      // Execute
-      const evalFunc = new Function('f', 'CUSTOM', `return (${jsStr})(f, CUSTOM)`);
-      return evalFunc(f, CUSTOM);
+      const conditions = {
+        isKotak: (fObj) => /Kotak|Oval|Rectangular/.test(fObj.bentuk || ''),
+        isRed: (fObj) => /Reducer/.test(fObj.bentuk || ''),
+        isFl: (fObj) => fObj.koneksi === 'Flange',
+        isAsme: (fObj) => /^ASME/.test(fObj.fl_std || ''),
+        hasInner: (fObj) => /CGI|RIR/.test(fObj.g_type || ''),
+        hasOuter: (fObj) => /^CG/.test(fObj.g_type || ''),
+        isCustom: (fObj) => fObj.acuan === CUSTOM
+      };
+      conditions.isRound = (fObj) => !conditions.isKotak(fObj);
+
+      const evaluateExpr = (jsStr) => {
+        if (!jsStr) return true;
+        if (typeof jsStr !== 'string') return Boolean(jsStr);
+        let expr = jsStr.replace(/''/g, "'").replace(/^f\s*=>\s*/, '').trim();
+        const parts = expr.split('&&').map(p => p.trim());
+        
+        return parts.every(part => {
+          let isNot = false;
+          if (part.startsWith('!')) {
+             isNot = true;
+             part = part.substring(1).trim();
+          }
+          
+          const helperMatch = part.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\(f\)$/);
+          if (helperMatch && conditions[helperMatch[1]]) {
+            const res = conditions[helperMatch[1]](f);
+            return isNot ? !res : res;
+          }
+          
+          // Match regex test: /pattern/.test(f.field || '')
+          const regexMatch = part.match(/^\/((?:\\\/|[^/])+)\/([a-z]*)\.test\(f\.([a-zA-Z0-9_]+)/);
+          if (regexMatch) {
+            const regex = new RegExp(regexMatch[1], regexMatch[2]);
+            const fieldName = regexMatch[3];
+            const val = f[fieldName] || '';
+            const res = regex.test(val);
+            return isNot ? !res : res;
+          }
+          
+          // Match equality: f.field === 'value' or f.field === CUSTOM
+          const eqMatch = part.match(/^f\.([a-zA-Z0-9_]+)\s*===\s*(.+)$/);
+          if (eqMatch) {
+            const fieldName = eqMatch[1];
+            let val = eqMatch[2].replace(/['"]/g, '').trim();
+            if (val === 'CUSTOM') val = CUSTOM;
+            const res = (f[fieldName] === val);
+            return isNot ? !res : res;
+          }
+          
+          console.warn('Unsupported visibility expression:', jsStr, 'part:', part);
+          return false;
+        });
+      };
+
+      const sectionVisible = evaluateExpr(section_js);
+      const fieldVisible = evaluateExpr(field_js);
+      return sectionVisible && fieldVisible;
     } catch (e) {
       console.warn('Error evaluating visibility rule:', e);
-      return true;
+      return false;
     }
   };
 
@@ -145,14 +203,21 @@ export default function DynamicProductForm({ product, onClose, onSave, existingD
                   {q.label} {q.required && <span className="text-red-500">*</span>}
                 </label>
                 
-                {q.type === 'text' || q.type === 'number' ? (
-                  <input
-                    type={q.type}
-                    value={answers[q.id] || ''}
-                    onChange={(e) => handleInputChange(q.id, e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none text-gray-700"
-                    placeholder={`Masukkan ${q.label.toLowerCase()}`}
-                  />
+                {q.type === 'text' || q.type === 'number' || q.type === 'date' ? (
+                  <div className="relative">
+                    <input
+                      type={q.type}
+                      value={answers[q.id] || ''}
+                      onChange={(e) => handleInputChange(q.id, e.target.value)}
+                      className={`w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none text-gray-700 ${q.unit ? 'pr-16' : ''}`}
+                      placeholder={`Masukkan ${q.label.toLowerCase()}`}
+                    />
+                    {q.unit && (
+                      <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                        <span className="text-gray-500 sm:text-sm">{q.unit}</span>
+                      </div>
+                    )}
+                  </div>
                 ) : q.type === 'textarea' ? (
                   <textarea
                     value={answers[q.id] || ''}
@@ -168,9 +233,10 @@ export default function DynamicProductForm({ product, onClose, onSave, existingD
                       className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none text-gray-700 bg-white"
                     >
                       <option value="">-- Pilih --</option>
-                      {q.options.map(opt => (
-                        <option key={opt} value={opt}>{opt}</option>
-                      ))}
+                      {q.options.map(opt => {
+                        const val = typeof opt === 'string' ? opt : opt.label;
+                        return <option key={val} value={val}>{val}</option>;
+                      })}
                     </select>
                     {/* Render input tambahan jika memilih Lainnya / Custom */}
                     {answers[q.id] && (answers[q.id].toLowerCase().includes('lainnya') || answers[q.id].toLowerCase().includes('custom')) && (
@@ -183,33 +249,50 @@ export default function DynamicProductForm({ product, onClose, onSave, existingD
                       />
                     )}
                   </div>
-                ) : q.type === 'radio' ? (
+                ) : q.type === 'radio' || q.type === 'boolean' ? (
                   <div className="space-y-2">
                     <div className="flex gap-4 mt-2">
-                      {q.options.map(opt => (
-                        <label key={opt} className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="radio"
-                            name={q.id}
-                            value={opt}
-                            checked={answers[q.id] === opt}
-                            onChange={(e) => handleInputChange(q.id, e.target.value)}
-                            className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                          />
-                          <span className="text-sm text-gray-700">{opt}</span>
-                        </label>
-                      ))}
+                      {(q.type === 'boolean' ? ['Ya', 'Tidak'] : q.options).map(opt => {
+                        const val = typeof opt === 'string' ? opt : opt.label;
+                        return (
+                          <label key={val} className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name={q.id}
+                              value={val}
+                              checked={answers[q.id] === val}
+                              onChange={(e) => handleInputChange(q.id, e.target.value)}
+                              className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                            />
+                            <span className="text-sm text-gray-700">{val}</span>
+                          </label>
+                        );
+                      })}
                     </div>
-                    {/* Render input tambahan jika memilih Lainnya / Custom */}
-                    {answers[q.id] && (answers[q.id].toLowerCase().includes('lainnya') || answers[q.id].toLowerCase().includes('custom')) && (
-                      <input
-                        type="text"
-                        value={answers[`${q.id}_lainnya`] || ''}
-                        onChange={(e) => handleInputChange(`${q.id}_lainnya`, e.target.value)}
-                        className="w-full px-4 py-2.5 rounded-lg border border-dashed border-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none text-gray-700 mt-2 bg-gray-50"
-                        placeholder={`Sebutkan ${q.label.toLowerCase()} lainnya...`}
-                      />
-                    )}
+                  </div>
+                ) : q.type === 'checklist' ? (
+                  <div className="space-y-2 mt-2">
+                    {(q.checklist_items || q.options || []).map(opt => {
+                      const itemValue = typeof opt === 'string' ? opt : opt.label;
+                      const currentVals = Array.isArray(answers[q.id]) ? answers[q.id] : [];
+                      return (
+                        <label key={itemValue} className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={currentVals.includes(itemValue)}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              const newVals = checked 
+                                ? [...currentVals, itemValue]
+                                : currentVals.filter(v => v !== itemValue);
+                              handleInputChange(q.id, newVals);
+                            }}
+                            className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                          />
+                          <span className="text-sm text-gray-700">{itemValue}</span>
+                        </label>
+                      );
+                    })}
                   </div>
                 ) : null}
               </div>
@@ -238,13 +321,16 @@ export default function DynamicProductForm({ product, onClose, onSave, existingD
                         {(answers.custom_refs || []).map(ref => (
                           <tr key={ref.id} className="border-b border-gray-100 last:border-0 bg-white">
                             <td className="px-4 py-2">
-                              <input 
-                                type="text" 
+                              <select 
                                 value={ref.parameter} 
                                 onChange={(e) => handleUpdateCustomRef(ref.id, 'parameter', e.target.value)}
-                                className="w-full px-3 py-1.5 rounded-md border border-gray-200 focus:ring-1 focus:ring-blue-500 outline-none text-sm"
-                                placeholder="Contoh: OD, ID..."
-                              />
+                                className="w-full px-3 py-1.5 rounded-md border border-gray-200 focus:ring-1 focus:ring-blue-500 outline-none text-sm bg-white"
+                              >
+                                <option value="">Pilih...</option>
+                                {sections.flatMap(s => s.questions).filter(q => q.type === 'number').map(q => (
+                                  <option key={q.id} value={q.id}>{q.label}</option>
+                                ))}
+                              </select>
                             </td>
                             <td className="px-4 py-2">
                               <input 
@@ -348,26 +434,8 @@ export default function DynamicProductForm({ product, onClose, onSave, existingD
           {/* Footer Section */}
           <div className="p-5 border-t border-gray-100 bg-gray-50 flex justify-end">
             <button 
-              onClick={async () => {
+              onClick={() => {
                 setCurrentSectionId(null);
-                
-                // Simpan data section (dan semua answers sejauh ini) ke DB Relasional (bukan JSONB)
-                try {
-                  const itemNo = parseInt(product.displayId.split('-')[1]) || 1;
-                  await fetch('http://localhost:3000/api/survey-engine/submit-dynamic', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      survey_no: "SURVEY-001", // DUMMY SURVEY NO
-                      product_code: product.code,
-                      item_no: itemNo,
-                      answers: answers,
-                      custom_refs: answers.custom_refs || []
-                    })
-                  });
-                } catch (err) {
-                  console.error('Error saving section:', err);
-                }
               }}
               className="bg-blue-600 text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-sm"
             >
@@ -437,7 +505,7 @@ export default function DynamicProductForm({ product, onClose, onSave, existingD
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {sections.map((section) => {
+            {sections.filter(s => s.questions.some(q => evaluateVisibility(q, answers))).map((section) => {
               const progress = getSectionProgress(section);
               
               // Badge colors based on status

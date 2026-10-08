@@ -19,7 +19,17 @@ CREATE TABLE IF NOT EXISTS survey_product_progress (
   product_name VARCHAR(255),
   product_code VARCHAR(50),
   percent INT DEFAULT 0,
+  form_data JSONB DEFAULT '{}'::jsonb,
+  hari_ke INT DEFAULT 1,
+  display_id VARCHAR(100),
+  lokasi VARCHAR(255),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (survey_id) REFERENCES survey_product_data(id) ON DELETE CASCADE
 );
+
+ALTER TABLE survey_product_progress
+  ADD COLUMN IF NOT EXISTS form_data JSONB DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS hari_ke INT DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS display_id VARCHAR(100),
+  ADD COLUMN IF NOT EXISTS lokasi VARCHAR(255);

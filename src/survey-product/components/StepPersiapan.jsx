@@ -36,15 +36,31 @@ const INITIAL_MASTER_PERSIAPAN = [
   { id: 28, jenis: 'Dokumen & Izin', label: 'Datasheet pompa / valve', ket_tambahan: 'Dokumen produk', is_default: true }
 ];
 
-export default function StepPersiapan() {
-  const [masterData, setMasterData] = useState(INITIAL_MASTER_PERSIAPAN);
-  
-  const [state, setState] = useState(
-    INITIAL_MASTER_PERSIAPAN.reduce((acc, item) => {
-      acc[item.id] = { digunakan: false, qty: 1 };
-      return acc;
-    }, {})
-  );
+export const createEmptyPersiapanData = () => ({
+  masterData: INITIAL_MASTER_PERSIAPAN,
+  state: INITIAL_MASTER_PERSIAPAN.reduce((acc, item) => {
+    acc[item.id] = { digunakan: false, qty: 1 };
+    return acc;
+  }, {})
+});
+
+export default function StepPersiapan({ data = createEmptyPersiapanData(), onChange }) {
+  const masterData = data.masterData || INITIAL_MASTER_PERSIAPAN;
+  const state = data.state || createEmptyPersiapanData().state;
+
+  const updateData = (patch) => {
+    onChange?.({ ...data, ...patch });
+  };
+
+  const setMasterData = (updater) => {
+    const nextMasterData = typeof updater === 'function' ? updater(masterData) : updater;
+    updateData({ masterData: nextMasterData });
+  };
+
+  const setState = (updater) => {
+    const nextState = typeof updater === 'function' ? updater(state) : updater;
+    updateData({ state: nextState });
+  };
 
   const [addingNew, setAddingNew] = useState(null); // 'Checklist Persiapan' or 'Dokumen & Izin' or null
   const [newItem, setNewItem] = useState({ label: '', ket_tambahan: null });

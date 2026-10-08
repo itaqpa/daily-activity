@@ -1,43 +1,211 @@
-import React, { useState } from 'react';
-import { Building2, MapPin, Calendar, User, Phone, FileText, Target, Plus, Trash2, PackageOpen, CalendarDays } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import Select from 'react-select';
+import { Building2, MapPin, Calendar, User, Phone, FileText, Target, Plus, Trash2, PackageOpen, CalendarDays, Users } from 'lucide-react';
+import { apiUrl } from '../../api';
 
-export default function StepData() {
+export const PRODUCT_LIST = [
+  { code: 'EJR', name: 'Expansion Joint Rubber', category: 'Expansion joint' },
+  { code: 'EJM', name: 'Expansion Joint Metal', category: 'Expansion joint' },
+  { code: 'EJF', name: 'Expansion Joint Fabric', category: 'Expansion joint' },
+  { code: 'SWG', name: 'Spiral Wound Gasket', category: 'Gasket' },
+  { code: 'GMG', name: 'Grooved Metal Gasket', category: 'Gasket' },
+  { code: 'RTI', name: 'Removable Thermal Insulation', category: 'Insulasi' },
+  { code: 'GPP', name: 'Gland Packing', category: 'Packing' },
+  { code: 'DFG', name: 'Die Formed Graphite', category: 'Packing' }
+];
+
+export const createEmptyStepData = () => ({
+  nama_client: '',
+  plant_area: '',
+  alamat_lokasi: '',
+  tanggal_mulai: '',
+  nama_surveyor: '',
+  leader_surveyor_id: '',
+  leader_surveyor_name: '',
+  leader_surveyor: [],
+  anggota_surveyor: [],
+  nama_marketing: '',
+  no_inquiry: '',
+  pic_client: '',
+  kontak_pic: '',
+  tujuan_survey: '',
+  selectedProducts: [],
+  schedules: [
+    { id: 1, hari: '', tanggal: '', rencana_area: '', target_item: '' }
+  ]
+});
+
+export default function StepData({ data = createEmptyStepData(), onChange }) {
   // Constants
-  const PRODUCT_LIST = [
-    { code: 'EJR', name: 'Expansion Joint Rubber', category: 'Expansion joint' },
-    { code: 'EJM', name: 'Expansion Joint Metal', category: 'Expansion joint' },
-    { code: 'EJF', name: 'Expansion Joint Fabric', category: 'Expansion joint' },
-    { code: 'SWG', name: 'Spiral Wound Gasket', category: 'Gasket' },
-    { code: 'GMG', name: 'Grooved Metal Gasket', category: 'Gasket' },
-    { code: 'RTI', name: 'Removable Thermal Insulation', category: 'Insulasi' },
-    { code: 'GPP', name: 'Gland Packing', category: 'Packing' },
-    { code: 'DFG', name: 'Die Formed Graphite', category: 'Packing' }
-  ];
+  const selectedProducts = data.selectedProducts || [];
+  const schedules = data.schedules?.length ? data.schedules : createEmptyStepData().schedules;
+  const leaderSurveyor = data.leader_surveyor?.length
+    ? data.leader_surveyor
+    : (data.leader_surveyor_id || data.leader_surveyor_name
+      ? [{ id: data.leader_surveyor_id, name: data.leader_surveyor_name || data.nama_surveyor }]
+      : []);
+  const anggotaSurveyor = data.anggota_surveyor || [];
+  const [userOptions, setUserOptions] = useState([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
 
-  // State for dynamic lists and selections
-  const [selectedProducts, setSelectedProducts] = useState([]);
+  useEffect(() => {
+    let isMounted = true;
+    const fetchUsers = async () => {
+      setIsLoadingUsers(true);
+      try {
+        const response = await fetch(apiUrl('/users'));
+        const users = await response.json().catch(() => []);
+        if (!response.ok) throw new Error('Gagal memuat user');
+        if (!isMounted) return;
+        setUserOptions(
+          users
+            .filter(user => user.is_active !== false)
+            .map(user => ({
+              value: user.id,
+              label: user.name || user.username || user.email,
+              email: user.email || '',
+              username: user.username || '',
+              name: user.name || user.username || user.email
+            }))
+        );
+      } catch (error) {
+        if (isMounted) setUserOptions([]);
+      } finally {
+        if (isMounted) setIsLoadingUsers(false);
+      }
+    };
 
-  const toggleProduct = (code) => {
-    setSelectedProducts(prev => 
-      prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code]
-    );
+    fetchUsers();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const leaderOptions = useMemo(() => {
+    return leaderSurveyor.map(leader => (
+      userOptions.find(option => String(option.value) === String(leader.id)) || {
+        value: leader.id || leader.name,
+        label: leader.name || leader.email || 'Leader Surveyor',
+        email: leader.email || '',
+        name: leader.name || leader.email || 'Leader Surveyor'
+      }
+    ));
+  }, [leaderSurveyor, userOptions]);
+
+  const memberOptions = useMemo(() => {
+    return anggotaSurveyor.map(member => (
+      userOptions.find(option => String(option.value) === String(member.id)) || {
+        value: member.id || member.name,
+        label: member.name || member.email || 'Surveyor',
+        email: member.email || '',
+        name: member.name || member.email || 'Surveyor'
+      }
+    ));
+  }, [anggotaSurveyor, userOptions]);
+
+  const availableMemberOptions = useMemo(() => (
+    userOptions.filter(option => !leaderSurveyor.some(leader => String(leader.id) === String(option.value)))
+  ), [leaderSurveyor, userOptions]);
+
+  const buildSurveyorName = (leaders, members) => {
+    const names = [
+      ...leaders.map(leader => leader.name || leader.label).filter(Boolean),
+      ...members.map(member => member.name || member.label).filter(Boolean)
+    ].filter(Boolean);
+    return names.join(', ');
   };
 
-  const [schedules, setSchedules] = useState([
-    { id: 1, hari: '', tanggal: '', rencana_area: '', target_item: '' }
-  ]);
+  const updateData = (patch) => {
+    onChange?.({ ...data, ...patch });
+  };
 
+  const updateField = (field, value) => {
+    updateData({ [field]: value });
+  };
 
+  const toggleProduct = (code) => {
+    const nextProducts = selectedProducts.includes(code)
+      ? selectedProducts.filter(c => c !== code)
+      : [...selectedProducts, code];
+    updateData({ selectedProducts: nextProducts });
+  };
+
+  const updateSchedule = (id, field, value) => {
+    updateData({
+      schedules: schedules.map(schedule =>
+        schedule.id === id ? { ...schedule, [field]: value } : schedule
+      )
+    });
+  };
 
   const addSchedule = () => {
-    setSchedules([
-      ...schedules,
-      { id: Date.now(), hari: '', tanggal: '', rencana_area: '', target_item: '' }
-    ]);
+    updateData({
+      schedules: [
+        ...schedules,
+        { id: Date.now(), hari: '', tanggal: '', rencana_area: '', target_item: '' }
+      ]
+    });
   };
 
   const removeSchedule = (id) => {
-    setSchedules(schedules.filter(s => s.id !== id));
+    updateData({
+      schedules: schedules.length === 1
+        ? schedules
+        : schedules.filter(s => s.id !== id)
+    });
+  };
+
+  const handleLeadersChange = (selectedOptions = []) => {
+    const nextLeaders = selectedOptions.map(option => ({
+      id: option.value,
+      name: option.name || option.label,
+      email: option.email || ''
+    }));
+    const nextMembers = anggotaSurveyor.filter(member =>
+      !nextLeaders.some(leader => String(leader.id) === String(member.id))
+    );
+    const firstLeader = nextLeaders[0];
+    updateData({
+      leader_surveyor: nextLeaders,
+      leader_surveyor_id: firstLeader?.id || '',
+      leader_surveyor_name: firstLeader?.name || '',
+      anggota_surveyor: nextMembers,
+      nama_surveyor: buildSurveyorName(nextLeaders, nextMembers)
+    });
+  };
+
+  const handleMembersChange = (selectedOptions = []) => {
+    const nextMembers = selectedOptions.map(option => ({
+      id: option.value,
+      name: option.name || option.label,
+      email: option.email || ''
+    }));
+    updateData({
+      anggota_surveyor: nextMembers,
+      nama_surveyor: buildSurveyorName(leaderOptions, nextMembers)
+    });
+  };
+
+  const selectStyles = {
+    control: (base, state) => ({
+      ...base,
+      minHeight: '42px',
+      borderRadius: '0.75rem',
+      borderColor: state.isFocused ? '#3b82f6' : '#e5e7eb',
+      boxShadow: state.isFocused ? '0 0 0 2px rgba(59, 130, 246, 0.2)' : 'none',
+      '&:hover': { borderColor: '#3b82f6' },
+      fontSize: '0.875rem'
+    }),
+    placeholder: (base) => ({ ...base, color: '#9ca3af' }),
+    multiValue: (base) => ({
+      ...base,
+      borderRadius: '999px',
+      backgroundColor: '#eff6ff',
+      paddingLeft: '4px'
+    }),
+    multiValueLabel: (base) => ({ ...base, color: '#1d4ed8', fontWeight: 600 }),
+    multiValueRemove: (base) => ({ ...base, borderRadius: '999px' }),
+    menu: (base) => ({ ...base, zIndex: 30, borderRadius: '0.75rem', overflow: 'hidden' })
   };
 
   return (
@@ -60,7 +228,7 @@ export default function StepData() {
             <label className="block text-sm font-semibold text-gray-700 mb-1">Data Client / Perusahaan <span className="text-red-500">*</span></label>
             <div className="relative">
               <Building2 className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input type="text" className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm" placeholder="Nama Perusahaan Client" />
+              <input type="text" value={data.nama_client || ''} onChange={(e) => updateField('nama_client', e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm" placeholder="Nama Perusahaan Client" />
             </div>
           </div>
 
@@ -69,14 +237,14 @@ export default function StepData() {
             <label className="block text-sm font-semibold text-gray-700 mb-1">Plant / Area <span className="text-red-500">*</span></label>
             <div className="relative">
               <MapPin className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input type="text" className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm" placeholder="Area Plant" />
+              <input type="text" value={data.plant_area || ''} onChange={(e) => updateField('plant_area', e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm" placeholder="Area Plant" />
             </div>
           </div>
 
           {/* Alamat Lokasi */}
           <div className="md:col-span-2">
             <label className="block text-sm font-semibold text-gray-700 mb-1">Alamat Lokasi <span className="text-red-500">*</span></label>
-            <textarea rows="3" className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm" placeholder="Alamat lengkap lokasi survey..."></textarea>
+            <textarea rows="3" value={data.alamat_lokasi || ''} onChange={(e) => updateField('alamat_lokasi', e.target.value)} className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm" placeholder="Alamat lengkap lokasi survey..."></textarea>
           </div>
 
           {/* Tanggal Mulai */}
@@ -84,16 +252,53 @@ export default function StepData() {
             <label className="block text-sm font-semibold text-gray-700 mb-1">Tanggal Mulai <span className="text-red-500">*</span></label>
             <div className="relative">
               <Calendar className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input type="date" className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-700" />
+              <input type="date" value={data.tanggal_mulai || ''} onChange={(e) => updateField('tanggal_mulai', e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-700" />
             </div>
           </div>
 
-          {/* Nama Surveyor */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Nama Surveyor <span className="text-red-500">*</span></label>
-            <div className="relative">
-              <User className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input type="text" className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm" placeholder="Pilih / Ketik Surveyor" />
+          {/* Tim Surveyor */}
+          <div className="md:col-span-2">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                <Users className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-gray-800">Tim Surveyor</h3>
+                <p className="text-xs text-gray-500">Pilih leader yang bertanggung jawab dan anggota yang ikut survey.</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 rounded-2xl border border-gray-100 bg-gray-50/60 p-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Leader Surveyor <span className="text-red-500">*</span></label>
+                <Select
+                  options={userOptions}
+                  value={leaderOptions}
+                  onChange={handleLeadersChange}
+                  placeholder={isLoadingUsers ? 'Memuat user...' : 'Pilih leader surveyor'}
+                  isMulti
+                  isSearchable
+                  isLoading={isLoadingUsers}
+                  closeMenuOnSelect={false}
+                  styles={selectStyles}
+                  noOptionsMessage={() => 'User tidak ditemukan'}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Anggota Surveyor</label>
+                <Select
+                  options={availableMemberOptions}
+                  value={memberOptions}
+                  onChange={handleMembersChange}
+                  placeholder={isLoadingUsers ? 'Memuat user...' : 'Pilih anggota surveyor'}
+                  isMulti
+                  isSearchable
+                  isLoading={isLoadingUsers}
+                  closeMenuOnSelect={false}
+                  styles={selectStyles}
+                  noOptionsMessage={() => 'User tidak ditemukan'}
+                />
+              </div>
             </div>
           </div>
 
@@ -102,7 +307,7 @@ export default function StepData() {
             <label className="block text-sm font-semibold text-gray-700 mb-1">Marketing / Sales <span className="text-red-500">*</span></label>
             <div className="relative">
               <User className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input type="text" className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm" placeholder="Nama Marketing" />
+              <input type="text" value={data.nama_marketing || ''} onChange={(e) => updateField('nama_marketing', e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm" placeholder="Nama Marketing" />
             </div>
           </div>
 
@@ -111,7 +316,7 @@ export default function StepData() {
             <label className="block text-sm font-semibold text-gray-700 mb-1">No Inquiry / Referensi</label>
             <div className="relative">
               <FileText className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input type="text" className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm" placeholder="Nomor referensi (opsional)" />
+              <input type="text" value={data.no_inquiry || ''} onChange={(e) => updateField('no_inquiry', e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm" placeholder="Nomor referensi (opsional)" />
             </div>
           </div>
 
@@ -120,7 +325,7 @@ export default function StepData() {
             <label className="block text-sm font-semibold text-gray-700 mb-1">PIC Client <span className="text-red-500">*</span></label>
             <div className="relative">
               <User className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input type="text" className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm" placeholder="Nama PIC dari Client" />
+              <input type="text" value={data.pic_client || ''} onChange={(e) => updateField('pic_client', e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm" placeholder="Nama PIC dari Client" />
             </div>
           </div>
 
@@ -129,7 +334,7 @@ export default function StepData() {
             <label className="block text-sm font-semibold text-gray-700 mb-1">Kontak PIC <span className="text-red-500">*</span></label>
             <div className="relative">
               <Phone className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input type="text" className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm" placeholder="No HP / Email PIC" />
+              <input type="text" value={data.kontak_pic || ''} onChange={(e) => updateField('kontak_pic', e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm" placeholder="No HP / Email PIC" />
             </div>
           </div>
 
@@ -138,7 +343,7 @@ export default function StepData() {
             <label className="block text-sm font-semibold text-gray-700 mb-1">Tujuan Survey <span className="text-red-500">*</span></label>
             <div className="relative">
               <Target className="w-5 h-5 text-gray-400 absolute left-3 top-3" />
-              <textarea rows="3" className="w-full pl-10 p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm" placeholder="Sebutkan tujuan pelaksanaan survey..."></textarea>
+              <textarea rows="3" value={data.tujuan_survey || ''} onChange={(e) => updateField('tujuan_survey', e.target.value)} className="w-full pl-10 p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm" placeholder="Sebutkan tujuan pelaksanaan survey..."></textarea>
             </div>
           </div>
         </div>
@@ -218,19 +423,19 @@ export default function StepData() {
             <div key={schedule.id} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start bg-gray-50 p-4 rounded-xl border border-gray-100">
               <div className="md:col-span-2">
                 <label className="block text-xs font-semibold text-gray-500 mb-1">Hari ke:</label>
-                <input type="number" min="1" className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-sm bg-white" placeholder="Cth: 1" />
+                <input type="number" min="1" value={schedule.hari || ''} onChange={(e) => updateSchedule(schedule.id, 'hari', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-sm bg-white" placeholder="Cth: 1" />
               </div>
               <div className="md:col-span-3">
                 <label className="block text-xs font-semibold text-gray-500 mb-1">Tanggal</label>
-                <input type="date" className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-sm text-gray-700" />
+                <input type="date" value={schedule.tanggal || ''} onChange={(e) => updateSchedule(schedule.id, 'tanggal', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-sm text-gray-700" />
               </div>
               <div className="md:col-span-4">
                 <label className="block text-xs font-semibold text-gray-500 mb-1">Rencana / Area</label>
-                <input type="text" className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-sm" placeholder="Cth: Area Produksi 1" />
+                <input type="text" value={schedule.rencana_area || ''} onChange={(e) => updateSchedule(schedule.id, 'rencana_area', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-sm" placeholder="Cth: Area Produksi 1" />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-xs font-semibold text-gray-500 mb-1">Target Item</label>
-                <input type="number" className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-sm" placeholder="Jml Target" />
+                <input type="number" value={schedule.target_item || ''} onChange={(e) => updateSchedule(schedule.id, 'target_item', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-sm" placeholder="Jml Target" />
               </div>
               <div className="md:col-span-1 flex justify-end md:justify-center pt-5">
                 <button 

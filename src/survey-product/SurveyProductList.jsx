@@ -1,45 +1,41 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '../components/layouts/MainLayout';
-import { Eye, Edit, Trash2, Plus, FileSpreadsheet, MapPin, Calendar, Box, PackageOpen, Percent, Key, Search, MoreVertical, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Eye, Edit, Trash2, Plus, FileSpreadsheet, MapPin, Calendar, Box, PackageOpen, Key, Search, MoreVertical, ChevronLeft, ChevronRight } from 'lucide-react';
+import { apiUrl } from '../api';
 
 export default function SurveyProductList() {
   const navigate = useNavigate();
-  const [data] = useState([
-    {
-      id: 1,
-      no_survey: 'SRV-202610-001',
-      lokasi: 'Toko Bangunan Maju Jaya - Jakarta',
-      tanggal: '2026-10-01',
-      jumlah_item: 150,
-      jumlah_jenis_product: 12,
-      percent_kelengkapan: 85
-    },
-    {
-      id: 2,
-      no_survey: 'SRV-202610-002',
-      lokasi: 'Depo Pelita - Tangerang',
-      tanggal: '2026-10-05',
-      jumlah_item: 320,
-      jumlah_jenis_product: 25,
-      percent_kelengkapan: 100
-    },
-    {
-      id: 3,
-      no_survey: 'SRV-202610-003',
-      lokasi: 'Mitra10 - Depok',
-      tanggal: '2026-10-07',
-      jumlah_item: 45,
-      jumlah_jenis_product: 8,
-      percent_kelengkapan: 40
-    }
-  ]);
-
+  const [data, setData] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [limit, setLimit] = useState(15);
   const [page, setPage] = useState(1);
   const [openDropdownId, setOpenDropdownId] = useState(null);
   const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const fetchSurveyProducts = async () => {
+      setIsLoading(true);
+      setErrorMessage('');
+      try {
+        const response = await fetch(apiUrl('survey-engine/product-drafts'));
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(result.error || 'Gagal mengambil daftar survey product');
+        }
+        setData(Array.isArray(result.data) ? result.data : []);
+      } catch (error) {
+        setErrorMessage(error.message);
+        setData([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchSurveyProducts();
+  }, []);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -58,21 +54,51 @@ export default function SurveyProductList() {
     return 'text-red-600 bg-red-50 border-red-200';
   };
 
+  const getStatusColor = (status) => {
+    const normalized = (status || '').toLowerCase();
+    if (normalized === 'selesai') return 'text-green-700 bg-green-50 border-green-200';
+    if (normalized === 'lapangan') return 'text-blue-700 bg-blue-50 border-blue-200';
+    if (normalized === 'persiapan') return 'text-purple-700 bg-purple-50 border-purple-200';
+    if (normalized === 'batal') return 'text-red-700 bg-red-50 border-red-200';
+    return 'text-amber-700 bg-amber-50 border-amber-200';
+  };
+
+  const formatTanggal = (value) => {
+    if (!value) return '-';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return new Intl.DateTimeFormat('id-ID', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric'
+    }).format(date);
+  };
+
   const filteredData = data.filter(item => 
-    item.no_survey.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    item.lokasi.toLowerCase().includes(searchTerm.toLowerCase())
+    (item.no_survey || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+    (item.lokasi || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const paginatedData = limit === 'all' 
     ? filteredData 
     : filteredData.slice((page - 1) * limit, page * limit);
 
+  const handleEdit = (event, item) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setOpenDropdownId(null);
+    navigate(`/survey-product/create?id=${item.id}`);
+  };
+
   const ActionMenu = ({ item, isMobile }) => (
     <div className={`absolute ${isMobile ? 'bottom-full mb-2 right-0' : 'top-full mt-1 right-0'} w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50`} ref={dropdownRef}>
       <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
         <Eye className="w-4 h-4 text-blue-500" /> Detail
       </button>
-      <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+      <button
+        onMouseDown={(event) => handleEdit(event, item)}
+        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+      >
         <Edit className="w-4 h-4 text-yellow-500" /> Edit
       </button>
       <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
@@ -137,6 +163,7 @@ export default function SurveyProductList() {
                   <th className="py-4 px-6 font-semibold text-gray-600">No. Survey</th>
                   <th className="py-4 px-6 font-semibold text-gray-600">Lokasi</th>
                   <th className="py-4 px-6 font-semibold text-gray-600">Tanggal</th>
+                  <th className="py-4 px-6 font-semibold text-gray-600">Status</th>
                   <th className="py-4 px-6 font-semibold text-gray-600">Jumlah Item</th>
                   <th className="py-4 px-6 font-semibold text-gray-600">Jenis Product</th>
                   <th className="py-4 px-6 font-semibold text-gray-600 text-center">Kelengkapan</th>
@@ -144,7 +171,21 @@ export default function SurveyProductList() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {paginatedData.map((item) => (
+                {isLoading && (
+                  <tr>
+                    <td colSpan="8" className="py-10 text-center text-gray-500">
+                      Memuat data survey product...
+                    </td>
+                  </tr>
+                )}
+                {!isLoading && errorMessage && (
+                  <tr>
+                    <td colSpan="8" className="py-10 text-center text-red-500">
+                      {errorMessage}
+                    </td>
+                  </tr>
+                )}
+                {!isLoading && !errorMessage && paginatedData.map((item) => (
                   <tr key={item.id} className="hover:bg-blue-50/30 transition-colors">
                     <td className="py-4 px-6">
                       <span className="font-bold text-gray-800">{item.no_survey}</span>
@@ -158,8 +199,13 @@ export default function SurveyProductList() {
                     <td className="py-4 px-6 text-gray-600">
                       <div className="flex items-center gap-2">
                         <Calendar className="w-4 h-4 text-gray-400" />
-                        {item.tanggal}
+                        {formatTanggal(item.tanggal)}
                       </div>
+                    </td>
+                    <td className="py-4 px-6">
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border ${getStatusColor(item.status)}`}>
+                        {item.status || 'Draft'}
+                      </span>
                     </td>
                     <td className="py-4 px-6">
                       <div className="flex items-center gap-2">
@@ -186,10 +232,10 @@ export default function SurveyProductList() {
                     </td>
                   </tr>
                 ))}
-                {paginatedData.length === 0 && (
+                {!isLoading && !errorMessage && paginatedData.length === 0 && (
                   <tr>
-                    <td colSpan="7" className="py-10 text-center text-gray-500">
-                      Data tidak ditemukan
+                    <td colSpan="8" className="py-10 text-center text-gray-500">
+                      Belum ada survey product tersimpan
                     </td>
                   </tr>
                 )}
@@ -243,15 +289,28 @@ export default function SurveyProductList() {
 
         {/* Mobile Card View */}
         <div className="md:hidden space-y-4">
-          {paginatedData.map((item) => (
+          {isLoading && (
+            <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 text-center text-gray-500">
+              Memuat data survey product...
+            </div>
+          )}
+          {!isLoading && errorMessage && (
+            <div className="bg-white rounded-2xl p-5 shadow-sm border border-red-100 text-center text-red-500">
+              {errorMessage}
+            </div>
+          )}
+          {!isLoading && !errorMessage && paginatedData.map((item) => (
             <div key={item.id} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 relative overflow-visible">
               <div className="flex justify-between items-start mb-3">
                 <div>
                   <h3 className="font-bold text-gray-800 text-lg">{item.no_survey}</h3>
                   <div className="flex items-center gap-1.5 text-gray-500 text-xs mt-1">
                     <Calendar className="w-3 h-3" />
-                    {item.tanggal}
+                    {formatTanggal(item.tanggal)}
                   </div>
+                  <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold border mt-2 ${getStatusColor(item.status)}`}>
+                    {item.status || 'Draft'}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2 relative">
                   <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold border ${getPercentColor(item.percent_kelengkapan)}`}>
@@ -290,6 +349,11 @@ export default function SurveyProductList() {
               </div>
             </div>
           ))}
+          {!isLoading && !errorMessage && paginatedData.length === 0 && (
+            <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 text-center text-gray-500">
+              Belum ada survey product tersimpan
+            </div>
+          )}
 
           {/* Mobile Pagination */}
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mt-4 flex flex-col gap-3">
