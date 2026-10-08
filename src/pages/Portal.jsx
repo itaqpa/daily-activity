@@ -98,14 +98,14 @@ export default function Portal() {
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-400/10 rounded-full blur-3xl pointer-events-none"></div>
 
       {/* Top Navigation - Glassmorphism */}
-      <nav className="sticky top-0 z-50 bg-white/70 backdrop-blur-md border-b border-white/20 shadow-sm px-6 py-4 flex items-center justify-between transition-all">
+      <nav className="sticky top-0 z-50 bg-white/70 backdrop-blur-md border-b border-white/20 shadow-sm px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between transition-all">
         {/* Left: Logo */}
-        <div className="flex items-center gap-3">
-          <div className="p-1 rounded-xl bg-white/50 shadow-sm border border-white/50">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="p-1 sm:p-1.5 rounded-xl bg-white/50 shadow-sm border border-white/50">
             <img
               src="/logo/aqpa-indonesia-logo.png"
               alt="AQPA Logo"
-              className="h-8 object-contain"
+              className="h-6 sm:h-8 object-contain"
             />
           </div>
         </div>
@@ -125,14 +125,14 @@ export default function Portal() {
         </div>
 
         {/* Right: Profile & Actions */}
-        <div className="flex items-center gap-6 relative">
+        <div className="flex items-center gap-3 sm:gap-6 relative">
           <button className="relative p-2 rounded-full text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-all">
             <Bell className="w-5 h-5" />
             <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 border-2 border-white rounded-full animate-pulse"></span>
           </button>
 
           <div
-            className="flex items-center gap-3 cursor-pointer group p-1.5 rounded-full hover:bg-white/50 transition-all"
+            className="flex items-center gap-2 sm:gap-3 cursor-pointer group p-1 sm:p-1.5 rounded-full hover:bg-white/50 transition-all"
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
           >
             <div className="text-right hidden sm:block">
@@ -143,7 +143,7 @@ export default function Portal() {
                 {user?.jabatan || 'Staff'}
               </p>
             </div>
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 border-2 border-white shadow-md overflow-hidden flex items-center justify-center text-blue-700 font-extrabold text-lg">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 border-2 border-white shadow-md overflow-hidden flex items-center justify-center text-blue-700 font-extrabold text-sm sm:text-lg">
               {user?.name ? user.name.charAt(0).toUpperCase() : 'B'}
             </div>
             <ChevronDown className={`w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
@@ -151,19 +151,22 @@ export default function Portal() {
 
           {/* Profile Dropdown */}
           {isDropdownOpen && (
-            <div className="absolute right-0 top-16 w-64 bg-white/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/50 py-2 z-50 overflow-hidden ring-1 ring-black/5 animate-in slide-in-from-top-2">
-              <div className="px-5 py-4 border-b border-slate-100/80 bg-slate-50/50">
-                <p className="text-sm font-bold text-slate-900">{user?.name || 'User'}</p>
-                <p className="text-xs text-slate-500 truncate mt-1">{user?.email || '-'}</p>
+            <div className="absolute right-0 top-[110%] w-60 sm:w-64 bg-white/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/50 py-2 z-50 overflow-hidden ring-1 ring-black/5 animate-in slide-in-from-top-2">
+              <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-slate-100/80 bg-slate-50/50">
+                <p className="text-sm font-bold text-slate-900 truncate">{user?.name || 'User'}</p>
+                <p className="text-xs text-slate-500 truncate mt-0.5">{user?.email || '-'}</p>
+                <p className="text-[10px] sm:hidden text-slate-500 font-medium mt-1 bg-slate-200/50 inline-block px-2 py-0.5 rounded-md">
+                  {user?.jabatan || 'Staff'}
+                </p>
               </div>
 
-              <div className="py-3">
-                <div className="px-5">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Role Akses Tambahan</p>
+              <div className="py-2 sm:py-3">
+                <div className="px-4 sm:px-5">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 sm:mb-3">Role Akses Tambahan</p>
                   {user?.additional_roles_data && user.additional_roles_data.length > 0 ? (
                     <div className="flex flex-col gap-2">
                       {user.additional_roles_data.map((role) => (
-                        <div key={role.id} className="flex items-center gap-2.5 text-sm text-slate-700 bg-white p-2.5 rounded-xl border border-slate-100 shadow-sm">
+                        <div key={role.id} className="flex items-center gap-2 text-sm text-slate-700 bg-white p-2 rounded-xl border border-slate-100 shadow-sm">
                           <div className="p-1.5 bg-blue-50 text-blue-600 rounded-lg shrink-0">
                             <Shield className="w-3.5 h-3.5" />
                           </div>
@@ -172,7 +175,7 @@ export default function Portal() {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-xs text-slate-400 italic bg-slate-50 p-2.5 rounded-xl text-center">Tidak ada role tambahan</p>
+                    <p className="text-xs text-slate-400 italic bg-slate-50 p-2 sm:p-2.5 rounded-xl text-center">Tidak ada role tambahan</p>
                   )}
                 </div>
               </div>
@@ -180,14 +183,14 @@ export default function Portal() {
               <div className="border-t border-slate-100/80 py-1.5">
                 <button
                   onClick={() => setIsDropdownOpen(false)}
-                  className="w-full text-left px-5 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 flex items-center gap-3 transition-colors"
+                  className="w-full text-left px-4 sm:px-5 py-2 sm:py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 flex items-center gap-3 transition-colors"
                 >
                   <Settings className="w-4 h-4 text-slate-400" />
                   Pengaturan
                 </button>
                 <button
                   onClick={handleLogout}
-                  className="w-full text-left px-5 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 flex items-center gap-3 transition-colors"
+                  className="w-full text-left px-4 sm:px-5 py-2 sm:py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 flex items-center gap-3 transition-colors"
                 >
                   <LogOut className="w-4 h-4 text-red-500" />
                   Keluar (Logout)
@@ -202,25 +205,17 @@ export default function Portal() {
       <main className="max-w-7xl mx-auto px-6 py-12 relative z-10">
 
         {/* Welcome Section - Enhanced */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-8">
-          <div className="space-y-4">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-slate-200/60 shadow-sm text-xs font-bold text-slate-500">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              Sistem Aktif & Terhubung
-            </div>
+        <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 sm:mb-16 gap-6 sm:gap-8">
+          <div className="space-y-2 sm:space-y-3">
+            <h2 className="text-lg sm:text-xl font-bold text-slate-500">
+              Welcome Back, <span className="text-blue-600">{user?.name ? user.name.split(' ')[0] : 'User'}</span> 👋
+            </h2>
             <h1 className="text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tight">
-              Halo, <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{user?.name ? user.name.split(' ')[0] : 'User'}</span> 👋
+              Pilih Modul Kerja
             </h1>
-            <p className="text-slate-500 text-lg font-medium max-w-xl">
-              Selamat datang di portal utama AQPA. Pilih modul kerja Anda untuk memulai produktivitas hari ini.
+            <p className="text-slate-500 text-base sm:text-lg font-medium max-w-xl">
+              Akses seluruh sistem perusahaan melalui satu akun (SSO)
             </p>
-          </div>
-          <div className="flex flex-col items-start md:items-end gap-3">
-            <p className="text-sm font-bold text-slate-400">{getFormattedDate()}</p>
-            <div className="bg-gradient-to-r from-amber-50 to-orange-50 text-amber-700 px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2.5 border border-amber-100 shadow-sm">
-              <Star className="w-4 h-4 fill-amber-500 text-amber-500" />
-              Waktunya berkarya!
-            </div>
           </div>
         </div>
 
