@@ -75,9 +75,9 @@ export default function SidebarMasterData({ isActive }) {
 
           {hasPermission('user_view') && (
             <Link
-              to="/marketing/users"
+              to="/master-admin/users"
               className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
-                isActive("/marketing/users")
+                isActive("/master-admin/users")
                   ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10 font-semibold"
                   : "text-blue-100/70 hover:bg-white/5 hover:text-white font-medium"
               }`}

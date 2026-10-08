@@ -153,7 +153,14 @@ app.post('/api/login', async (req, res) => {
                   ) all_perms
                   JOIN permissions p ON p.id = all_perms.permission_id
                  ), '[]'::json
-               ) as permissions
+               ) as permissions,
+               COALESCE(
+                 (SELECT json_agg(DISTINCT p.nama_permission)
+                  FROM user_permissions up
+                  JOIN permissions p ON p.id = up.permission_id
+                  WHERE up.user_id = u.id
+                 ), '[]'::json
+               ) as explicit_bypass_permissions
         FROM users u
         LEFT JOIN divisis d ON u.divisi_id = d.id
         LEFT JOIN jabatans j ON u.jabatan_id = j.id
@@ -183,7 +190,14 @@ app.post('/api/login', async (req, res) => {
                   ) all_perms
                   JOIN permissions p ON p.id = all_perms.permission_id
                  ), '[]'::json
-               ) as permissions
+               ) as permissions,
+               COALESCE(
+                 (SELECT json_agg(DISTINCT p.nama_permission)
+                  FROM user_permissions up
+                  JOIN permissions p ON p.id = up.permission_id
+                  WHERE up.user_id = u.id
+                 ), '[]'::json
+               ) as explicit_bypass_permissions
         FROM users u
         LEFT JOIN divisis d ON u.divisi_id = d.id
         LEFT JOIN jabatans j ON u.jabatan_id = j.id

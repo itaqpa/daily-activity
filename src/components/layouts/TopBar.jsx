@@ -14,12 +14,28 @@ export default function Topbar({ currentModule }) {
     navigate('/');
   };
 
+  const userDivisiLower = (user?.divisi || user?.nama_divisi || '').toLowerCase();
+  const isMarketingDivision = userDivisiLower.includes('sales') || userDivisiLower.includes('marketing');
+  
+  const marketingPerms = ['dashboard_view', 'aktivitas_view', 'aktivitas_create', 'laporan_marketing_view', 'laporan_marketing_view_all', 'laporan_marketing_view_team', 'riwayat_aktivitas_view'];
+  
+  // Jika dia divisi marketing/sales, cek permissions biasa.
+  // Jika dari divisi lain, WAJIB punya bypass eksplisit (dari user_permissions) untuk melihat modul ini.
+  const hasMarketingAccess = isMarketingDivision 
+    ? marketingPerms.some(p => hasPermission(p))
+    : marketingPerms.some(p => user?.explicit_bypass_permissions?.includes(p));
+  const checkPerm = (p) => isMarketingDivision ? hasPermission(p) : user?.explicit_bypass_permissions?.includes(p);
+  const marketingPath = checkPerm('dashboard_view') ? '/marketing/dashboard' : 
+                        (checkPerm('aktivitas_view') || checkPerm('riwayat_aktivitas_view')) ? '/marketing/activities' : 
+                        checkPerm('aktivitas_create') ? '/marketing/activities/new' : 
+                        checkPerm('laporan_marketing_view') ? '/marketing/reports' : '/marketing/activities';
+
   const allModules = [
-    { name: 'Daily Activity Sales', icon: <LayoutDashboard className="w-4 h-4 text-blue-600" />, path: '/marketing/dashboard', permission: 'dashboard_view' },
-    { name: 'Installation Project', icon: <Wrench className="w-4 h-4 text-orange-600" />, path: '/installation-project', permission: 'install_project_view' }
+    { name: 'Daily Activity Sales', icon: <LayoutDashboard className="w-4 h-4 text-blue-600" />, path: marketingPath, hasAccess: hasMarketingAccess },
+    { name: 'Installation Project', icon: <Wrench className="w-4 h-4 text-orange-600" />, path: '/installation-project', hasAccess: hasPermission('install_project_view') }
   ];
 
-  const modules = allModules.filter(mod => hasPermission(mod.permission));
+  const modules = allModules.filter(mod => mod.hasAccess);
   const currentMod = modules.find(m => m.name === currentModule) || modules[0] || allModules[0];
 
   return (

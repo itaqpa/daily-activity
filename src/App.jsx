@@ -34,8 +34,8 @@ import Dashboard from './marketing/pages/Dashboard';
 import DataSales from './marketing/pages/master-data/DataSales';
 import DataCustomer from './marketing/pages/master-data/DataCustomer';
 import DataManpower from './master-admin/DataManpower';
-import UserManagement from './marketing/pages/user-management/UserManagement';
-import HistoryLogPage from './marketing/pages/master-data/HistoryLogPage';
+import UserManagement from './master-admin/user-management/UserManagement';
+
 
 import CatatAktivitas from './marketing/pages/activities/CatatAktivitas';
 import RiwayatAktivitas from './marketing/pages/activities/RiwayatAktivitas';
@@ -82,8 +82,7 @@ function App() {
             <Route path="master-data/sales" element={<DataSales />} />
             <Route path="master-data/customer" element={<DataCustomer />} />
             <Route path="master-data/manpower" element={<DataManpower />} />
-            <Route path="master-data/history-log" element={<HistoryLogPage />} />
-            <Route path="users" element={<UserManagement />} />
+
             
             {/* Activities & Reports */}
             <Route path="activities/new" element={<CatatAktivitas />} />
@@ -108,6 +107,7 @@ function App() {
           <Route path="/master-admin" element={<ProtectedRoute />}>
             <Route path="manajemen-akses" element={<ManajemenAkses />} />
             <Route path="history-log" element={<HistorynLogPage />} />
+            <Route path="users" element={<UserManagement />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

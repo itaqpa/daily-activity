@@ -26,6 +26,20 @@ export default function Portal() {
     navigate('/');
   };
 
+  const userDivisiLower = (user?.divisi || user?.nama_divisi || '').toLowerCase();
+  const isMarketingDivision = userDivisiLower.includes('sales') || userDivisiLower.includes('marketing');
+  
+  const marketingPerms = ['dashboard_view', 'aktivitas_view', 'aktivitas_create', 'laporan_marketing_view', 'laporan_marketing_view_all', 'laporan_marketing_view_team', 'riwayat_aktivitas_view'];
+  
+  const hasMarketingAccess = isMarketingDivision 
+    ? marketingPerms.some(p => hasPermission(p))
+    : marketingPerms.some(p => user?.explicit_bypass_permissions?.includes(p));
+  const checkPerm = (p) => isMarketingDivision ? hasPermission(p) : user?.explicit_bypass_permissions?.includes(p);
+  const marketingPath = checkPerm('dashboard_view') ? '/marketing/dashboard' : 
+                        (checkPerm('aktivitas_view') || checkPerm('riwayat_aktivitas_view')) ? '/marketing/activities' : 
+                        checkPerm('aktivitas_create') ? '/marketing/activities/new' : 
+                        checkPerm('laporan_marketing_view') ? '/marketing/reports' : '/marketing/activities';
+
   const allModules = [
     {
       title: 'Daily Activity Sales',
@@ -34,8 +48,8 @@ export default function Portal() {
       bgClass: 'bg-blue-50/80',
       borderClass: 'border-blue-100',
       shadowClass: 'shadow-blue-500/20',
-      path: '/marketing/dashboard',
-      permission: 'dashboard_view'
+      path: marketingPath,
+      hasAccess: hasMarketingAccess
     },
     {
       title: 'Dinas Luar (Installation)',
@@ -45,11 +59,11 @@ export default function Portal() {
       borderClass: 'border-orange-100',
       shadowClass: 'shadow-orange-500/20',
       path: '/installation-project',
-      permission: 'install_project_view'
+      hasAccess: hasPermission('install_project_view')
     }
   ];
 
-  const modules = allModules.filter(mod => hasPermission(mod.permission));
+  const modules = allModules.filter(mod => mod.hasAccess);
 
   useEffect(() => {
     // Jika user hanya punya akses ke 1 modul, langsung arahkan tanpa harus lewat portal

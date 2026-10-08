@@ -40,7 +40,10 @@ export default function Laporan() {
 
   const canSeeAll = hasPermission('laporan_marketing_view_all');
   const canSeeTeam = hasPermission('laporan_marketing_view_team');
-  const showDropdown = canSeeAll || canSeeTeam;
+  // User bypass lintas modul: punya dashboard_view tapi bukan divisi sales/marketing
+  const userDivisiLower = (user.divisi || user.nama_divisi || '').toLowerCase();
+  const isCrossModuleViewer = (user.explicit_bypass_permissions?.includes('dashboard_view') || user.explicit_bypass_permissions?.includes('laporan_marketing_view') || user.explicit_bypass_permissions?.includes('laporan_marketing_view_all') || user.explicit_bypass_permissions?.includes('laporan_marketing_view_team')) && !userDivisiLower.includes('sales') && !userDivisiLower.includes('marketing');
+  const showDropdown = canSeeAll || canSeeTeam || isCrossModuleViewer;
   const [activities, setActivities] = useState([]);
   const [salesList, setSalesList] = useState([]);
   const [customersData, setCustomersData] = useState([]);
@@ -104,8 +107,10 @@ export default function Laporan() {
             const actRole = act.user_jabatan.toLowerCase();
             const userDiv = (user.divisi || user.nama_divisi || '').toLowerCase();
             const actDiv = (act.user_divisi || '').toLowerCase();
-            const isSameDivisi = !userDiv || !actDiv || userDiv === actDiv;
+            // Jika user lintas modul (bypass), tampilkan semua tanpa filter divisi
+            if (isCrossModuleViewer) return true;
 
+            const isSameDivisi = !userDiv || !actDiv || userDiv === actDiv;
             if (isSameDivisi && visibleRoles.some(vr => actRole.includes(vr))) return true;
           }
           return false;

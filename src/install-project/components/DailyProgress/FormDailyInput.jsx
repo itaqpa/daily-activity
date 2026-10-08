@@ -250,7 +250,8 @@ export default function FormDailyInput({ onBack, project }) {
       {/* Tabel Capaian Progres */}
       <div className="mb-8">
         <h3 className="font-semibold text-gray-800 mb-4">Persentase Progres</h3>
-        <div className="overflow-x-auto rounded-xl border border-gray-200">
+        {/* Desktop View */}
+        <div className="hidden md:block overflow-x-auto rounded-xl border border-gray-200">
           <table className="w-full text-left border-collapse whitespace-nowrap min-w-[900px]">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200 text-sm">
@@ -265,7 +266,7 @@ export default function FormDailyInput({ onBack, project }) {
             <tbody className="text-sm">
               {scopes.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="p-10 text-center text-gray-500 bg-gray-50/30">
+                  <td colSpan="6" className="p-10 text-center text-gray-500 bg-gray-50/30">
                     <div className="flex flex-col items-center justify-center">
                       <p className="font-medium text-gray-600 mb-1">Belum ada Scope of Work</p>
                       <p className="text-xs">Pilih Daerah & Unit terlebih dahulu atau tambah scope secara manual.</p>
@@ -280,7 +281,7 @@ export default function FormDailyInput({ onBack, project }) {
                     <tr key={s.id} className="border-b border-gray-100 hover:bg-gray-50/50 transition-colors">
                       <td className="p-4">
                         <div className="flex flex-col items-start gap-1.5">
-                          <span className="font-medium text-gray-800">{s.nama}</span>
+                          <span className="font-medium text-gray-800 break-words whitespace-normal">{s.nama}</span>
                           {s.jenis !== 'Utama' && (
                             <span className={`px-2 py-0.5 rounded text-[10px] font-medium tracking-wide uppercase ${
                               s.jenis === 'Additional Job' 
@@ -330,6 +331,82 @@ export default function FormDailyInput({ onBack, project }) {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile View */}
+        <div className="md:hidden space-y-4">
+          {scopes.length === 0 ? (
+            <div className="p-6 text-center text-gray-500 bg-gray-50 rounded-xl border border-gray-200 border-dashed">
+              <p className="font-medium text-gray-600 mb-1">Belum ada Scope of Work</p>
+              <p className="text-xs">Pilih Daerah & Unit terlebih dahulu atau tambah scope secara manual.</p>
+            </div>
+          ) : (
+            scopes.map(s => {
+              const kumulatif = s.capaianKemarin + (s.capaianHariIni || 0);
+              return (
+                <div key={s.id} className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden p-4">
+                  <div className="flex flex-col gap-2 mb-3">
+                    <div className="flex justify-between items-start">
+                      <span className="font-semibold text-gray-800 text-sm pr-2">{s.nama}</span>
+                      {s.jenis !== 'Utama' && (
+                        <span className={`shrink-0 px-2 py-0.5 rounded text-[10px] font-medium tracking-wide uppercase ${
+                          s.jenis === 'Additional Job' 
+                            ? 'bg-orange-100 text-orange-700' 
+                            : 'bg-purple-100 text-purple-700'
+                        }`}>
+                          {s.jenis}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3 text-xs mb-4 p-3 bg-gray-50 rounded-lg">
+                    <div>
+                      <span className="text-gray-500 block mb-1">Bobot dlm Unit</span>
+                      <span className="font-medium text-gray-700">{s.jenis === 'Additional Job' ? '-' : `${s.bobot}%`}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500 block mb-1">Capaian Kemarin</span>
+                      <span className="font-medium text-gray-700">{s.capaianKemarin}%</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500 block mb-1">Capaian Kumulatif</span>
+                      <span className={`font-semibold ${kumulatif > 100 ? 'text-red-600' : 'text-blue-600'}`}>{kumulatif}%</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">% Capaian Hari Ini</label>
+                      <div className="flex items-center gap-2">
+                        <input 
+                          type="number" 
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-shadow bg-white" 
+                          value={s.capaianHariIni === 0 ? '' : s.capaianHariIni} 
+                          onChange={(e) => updateCapaianHariIni(s.id, e.target.value)}
+                          placeholder="0"
+                          min="0"
+                          max="100"
+                        />
+                        <span className="text-gray-500 font-medium text-sm">%</span>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Catatan</label>
+                      <input 
+                        type="text" 
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-shadow bg-white" 
+                        placeholder="Tambahkan catatan (opsional)" 
+                        value={s.catatan || ''} 
+                        onChange={(e) => updateCatatan(s.id, e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
 

@@ -4,10 +4,10 @@ import { Activity, List, Edit3, FileText, ChevronDown, ChevronRight, TrendingUp 
 import { useAuth } from "../../../context/AuthContext";
 
 export default function SidebarMarketing({ isActive }) {
-  const { hasPermission } = useAuth();
+  const { hasMarketingPerm } = useAuth();
   const [isOpen, setIsOpen] = useState(true);
 
-  if (!hasPermission('dashboard_view') && !hasPermission('aktivitas_view') && !hasPermission('aktivitas_create') && !hasPermission('laporan_marketing_view')) {
+  if (!hasMarketingPerm('dashboard_view') && !hasMarketingPerm('aktivitas_view') && !hasMarketingPerm('aktivitas_create') && !hasMarketingPerm('laporan_marketing_view')) {
     return null;
   }
 
@@ -31,7 +31,7 @@ export default function SidebarMarketing({ isActive }) {
 
       {isOpen && (
         <div className="space-y-1 pl-1">
-          {hasPermission('dashboard_view') && (
+          {hasMarketingPerm('dashboard_view') && (
             <Link
               to="/marketing/dashboard"
               className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
@@ -45,7 +45,7 @@ export default function SidebarMarketing({ isActive }) {
             </Link>
           )}
 
-          {hasPermission('aktivitas_view') && (
+          {hasMarketingPerm('aktivitas_view') && (
             <Link
               to="/marketing/activities"
               className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
@@ -59,7 +59,7 @@ export default function SidebarMarketing({ isActive }) {
             </Link>
           )}
 
-          {hasPermission('aktivitas_create') && (
+          {hasMarketingPerm('aktivitas_create') && (
             <Link
               to="/marketing/activities/new"
               className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
@@ -73,7 +73,7 @@ export default function SidebarMarketing({ isActive }) {
             </Link>
           )}
 
-          {hasPermission('laporan_marketing_view') && (
+          {hasMarketingPerm('laporan_marketing_view') && (
             <Link
               to="/marketing/reports"
               className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${

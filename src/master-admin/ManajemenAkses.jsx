@@ -182,6 +182,16 @@ export default function ManajemenAkses() {
           </button>
         </div>
 
+        {activeTab === 'user' && (
+          <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-xl px-4 py-3 text-sm flex gap-2 items-start">
+            <span className="text-blue-500 font-bold mt-0.5">ℹ</span>
+            <div>
+              <strong>Cara Bypass Lintas Modul:</strong> Untuk mengizinkan 1 user dari divisi lain agar bisa mengakses fitur di modul <em>Daily Activity Sales</em>, cukup centang permission yang diperlukan (misal: <strong>riwayat_aktivitas_view</strong> atau <strong>laporan_marketing_view</strong>). Portal akan otomatis menyesuaikan menu yang tampil untuk user tersebut.
+            </div>
+          </div>
+        )}
+
+
         {activeTab === 'matrix' ? (
           <>
             {/* Top Panel: Selectors */}

@@ -4,6 +4,7 @@ import { Search, Plus, Edit, Trash2, Eye, MoreVertical, ChevronLeft, ChevronRigh
 import { apiUrl } from '../api';
 import MainLayout from '../components/layouts/MainLayout';
 import WizardModal from './components/WizardModal';
+import { useAuth } from '../context/AuthContext';
 
 export default function ListInstallPage() {
   const navigate = useNavigate();
@@ -15,6 +16,7 @@ export default function ListInstallPage() {
   const [itemsPerPage, setItemsPerPage] = useState(15);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [editId, setEditId] = useState(null);
+  const { hasPermission } = useAuth();
   
   // Handle clicking outside dropdown
   useEffect(() => {
@@ -171,13 +173,15 @@ export default function ListInstallPage() {
             </div>
           </div>
 
-          <button 
-            onClick={() => setIsWizardOpen(true)}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition-all shadow-sm hover:shadow-md active:scale-95"
-          >
-            <Plus className="w-5 h-5" strokeWidth={2.5} />
-            Add Installation
-          </button>
+          {hasPermission('install_project_create') && (
+            <button 
+              onClick={() => setIsWizardOpen(true)}
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition-all shadow-sm hover:shadow-md active:scale-95"
+            >
+              <Plus className="w-5 h-5" strokeWidth={2.5} />
+              Add Installation
+            </button>
+          )}
           
         </div>
 
@@ -258,25 +262,33 @@ export default function ListInstallPage() {
                             <div 
                               className="absolute right-12 top-10 w-40 bg-white rounded-xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.15)] border border-gray-200 py-2 z-[9999]"
                             >
-                              <button 
-                                onClick={() => { setActiveDropdown(null); handleView(row.id); }}
-                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors text-left font-medium"
-                              >
-                                <Eye className="w-[18px] h-[18px]" /> Lihat Detail
-                              </button>
-                              <button 
-                                onClick={() => { setActiveDropdown(null); handleEdit(row.id); }}
-                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-amber-50 hover:text-amber-600 transition-colors text-left font-medium"
-                              >
-                                <Edit className="w-[18px] h-[18px]" /> Edit
-                              </button>
-                              <div className="h-px bg-gray-100 my-1"></div>
-                              <button 
-                                onClick={() => { setActiveDropdown(null); handleDelete(row.id); }}
-                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors text-left font-medium"
-                              >
-                                <Trash2 className="w-[18px] h-[18px]" /> Hapus
-                              </button>
+                              {hasPermission('install_project_view') && (
+                                <button 
+                                  onClick={() => { setActiveDropdown(null); handleView(row.id); }}
+                                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors text-left font-medium"
+                                >
+                                  <Eye className="w-[18px] h-[18px]" /> Lihat Detail
+                                </button>
+                              )}
+                              {hasPermission('install_project_edit') && (
+                                <button 
+                                  onClick={() => { setActiveDropdown(null); handleEdit(row.id); }}
+                                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-amber-50 hover:text-amber-600 transition-colors text-left font-medium"
+                                >
+                                  <Edit className="w-[18px] h-[18px]" /> Edit
+                                </button>
+                              )}
+                              {hasPermission('install_project_delete') && (
+                                <>
+                                  <div className="h-px bg-gray-100 my-1"></div>
+                                  <button 
+                                    onClick={() => { setActiveDropdown(null); handleDelete(row.id); }}
+                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors text-left font-medium"
+                                  >
+                                    <Trash2 className="w-[18px] h-[18px]" /> Hapus
+                                  </button>
+                                </>
+                              )}
                             </div>
                           )}
                         </td>
@@ -340,25 +352,33 @@ export default function ListInstallPage() {
                           <div 
                             className="absolute right-4 top-12 w-40 bg-white rounded-xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.15)] border border-gray-200 py-2 z-[9999]"
                           >
-                            <button 
-                              onClick={() => { setActiveDropdown(null); handleView(row.id); }}
-                              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors text-left font-medium"
-                            >
-                              <Eye className="w-[18px] h-[18px]" /> Lihat Detail
-                            </button>
-                            <button 
-                              onClick={() => { setActiveDropdown(null); handleEdit(row.id); }}
-                              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-amber-50 hover:text-amber-600 transition-colors text-left font-medium"
-                            >
-                              <Edit className="w-[18px] h-[18px]" /> Edit
-                            </button>
-                            <div className="h-px bg-gray-100 my-1"></div>
-                            <button 
-                              onClick={() => { setActiveDropdown(null); handleDelete(row.id); }}
-                              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors text-left font-medium"
-                            >
-                              <Trash2 className="w-[18px] h-[18px]" /> Hapus
-                            </button>
+                            {hasPermission('install_project_view') && (
+                              <button 
+                                onClick={() => { setActiveDropdown(null); handleView(row.id); }}
+                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors text-left font-medium"
+                              >
+                                <Eye className="w-[18px] h-[18px]" /> Lihat Detail
+                              </button>
+                            )}
+                            {hasPermission('install_project_edit') && (
+                              <button 
+                                onClick={() => { setActiveDropdown(null); handleEdit(row.id); }}
+                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-amber-50 hover:text-amber-600 transition-colors text-left font-medium"
+                              >
+                                <Edit className="w-[18px] h-[18px]" /> Edit
+                              </button>
+                            )}
+                            {hasPermission('install_project_delete') && (
+                              <>
+                                <div className="h-px bg-gray-100 my-1"></div>
+                                <button 
+                                  onClick={() => { setActiveDropdown(null); handleDelete(row.id); }}
+                                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors text-left font-medium"
+                                >
+                                  <Trash2 className="w-[18px] h-[18px]" /> Hapus
+                                </button>
+                              </>
+                            )}
                           </div>
                         )}
                       </div>

@@ -24,7 +24,10 @@ export default function RiwayatAktivitas() {
     return ['staff', 'sales'];
   };
 
-  const canSeeAll = roleName !== 'staff';
+  const userDivisiLower = (user.divisi || user.nama_divisi || '').toLowerCase();
+  const isSalesDivision = userDivisiLower.includes('sales') || userDivisiLower.includes('marketing');
+  const isCrossModuleViewer = (user.explicit_bypass_permissions?.includes('dashboard_view') || user.explicit_bypass_permissions?.includes('aktivitas_view') || user.explicit_bypass_permissions?.includes('riwayat_aktivitas_view')) && !isSalesDivision;
+  const canSeeAll = roleName !== 'staff' || isCrossModuleViewer;
   const canAction = hasPermission('aktivitas_delete');
 
   const [activities, setActivities] = useState([]);
@@ -58,8 +61,10 @@ export default function RiwayatAktivitas() {
             // Cek divisi (lapisan ke-2)
             const userDiv = (user.divisi || user.nama_divisi || '').toLowerCase();
             const actDiv = (act.user_divisi || '').toLowerCase();
-            const isSameDivisi = !userDiv || !actDiv || userDiv === actDiv;
+            // Jika user lintas modul (bypass), tampilkan semua tanpa filter divisi
+            if (isCrossModuleViewer) return true;
 
+            const isSameDivisi = !userDiv || !actDiv || userDiv === actDiv;
             if (isSameDivisi && visibleRoles.some(vr => actRole.includes(vr))) return true;
           }
           

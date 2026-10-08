@@ -7,40 +7,41 @@ const MobileCardRekap = ({ row, units }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const totalBiaya = Number(row.rate || 0) * Number(row.jam || 0);
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden mb-3">
-      <div className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50" onClick={() => setIsExpanded(!isExpanded)}>
+    <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden mb-4">
+      <div className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors" onClick={() => setIsExpanded(!isExpanded)}>
         <div>
-          <div className="font-semibold text-gray-800 text-sm">{row.nama}</div>
-          <div className="text-xs text-gray-500 mt-1">{row.posisi}</div>
+          <div className="font-semibold text-gray-800 text-base">{row.nama}</div>
+          <div className="text-xs text-gray-500 mt-1 font-medium">{row.posisi}</div>
         </div>
-        <div className="flex items-center gap-3">
-          <span className={`px-2 py-1 rounded-full text-xs font-medium ${row.status === 'Aktif' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
+        <div className="flex flex-col items-end gap-2 shrink-0 ml-3">
+          <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide ${row.status === 'Aktif' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
             {row.status}
           </span>
-          {isExpanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+          {isExpanded ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
         </div>
       </div>
+      
       {isExpanded && (
-        <div className="p-4 border-t border-gray-100 bg-gray-50/50 flex flex-col gap-3 text-sm">
-          <div className="grid grid-cols-2 gap-2">
-            <div><span className="text-xs text-gray-500 block">Mulai</span><span className="text-gray-800">{row.mulai}</span></div>
-            <div><span className="text-xs text-gray-500 block">Selesai</span><span className="text-gray-800">{row.selesai}</span></div>
+        <div className="p-4 border-t border-gray-100 bg-slate-50 flex flex-col gap-4 text-sm">
+          <div className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm grid grid-cols-2 gap-3 text-xs">
+            <div><span className="text-gray-500 block mb-1">Mulai</span><span className="font-medium text-gray-800">{row.mulai}</span></div>
+            <div><span className="text-gray-500 block mb-1">Selesai</span><span className="font-medium text-gray-800">{row.selesai}</span></div>
+            <div><span className="text-gray-500 block mb-1">Hari Kerja</span><span className="font-medium text-gray-800">{row.hari} hari</span></div>
+            <div><span className="text-gray-500 block mb-1">Total Jam</span><span className="font-medium text-gray-800">{row.jam} jam</span></div>
+            <div><span className="text-gray-500 block mb-1">Rate/Jam</span><span className="font-medium text-gray-800">{formatRp(row.rate)}</span></div>
+            <div><span className="text-gray-500 block mb-1">Total Biaya</span><span className="font-bold text-blue-700 px-2 py-0.5 bg-blue-50 rounded inline-block">{formatRp(totalBiaya)}</span></div>
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div><span className="text-xs text-gray-500 block">Hari Kerja</span><span className="text-gray-800">{row.hari} hari</span></div>
-            <div><span className="text-xs text-gray-500 block">Total Jam</span><span className="text-gray-800">{row.jam} jam</span></div>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div><span className="text-xs text-gray-500 block">Rate Manpower</span><span className="text-gray-800">{formatRp(row.rate)}/jam</span></div>
-            <div><span className="text-xs text-gray-500 block">Total Biaya</span><span className="text-gray-800 font-semibold text-blue-600">{formatRp(totalBiaya)}</span></div>
-          </div>
-          <div className="border-t border-gray-200 pt-3 mt-1">
-            <span className="text-xs font-semibold text-gray-700 block mb-2">Rincian Jam per Unit:</span>
-            <div className="grid grid-cols-2 gap-2">
+          
+          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm mt-1">
+            <span className="text-xs font-semibold text-gray-700 block mb-3 flex items-center gap-2">
+               <span className="w-1.5 h-4 bg-blue-500 rounded-full"></span>
+               Rincian Jam per Unit:
+            </span>
+            <div className="flex flex-col gap-2">
               {units.map(u => (
-                <div key={u.id}>
-                  <span className="text-xs text-gray-500 block">{u.area} - {u.nama}</span>
-                  <span className="text-gray-800">{row[`u_${u.id}`] || 0} jam</span>
+                <div key={u.id} className="flex justify-between items-center p-2 rounded-lg bg-gray-50 border border-gray-100">
+                  <span className="text-xs text-gray-600 font-medium">{u.area} - {u.nama}</span>
+                  <span className="text-sm font-semibold text-gray-800">{row[`u_${u.id}`] || 0} <span className="text-xs font-normal text-gray-500">jam</span></span>
                 </div>
               ))}
             </div>

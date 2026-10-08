@@ -175,14 +175,14 @@ export default function FormCostProject({ project, onClose, onSuccess, isMobile 
 
   if (isMobile) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col absolute inset-0 z-50">
-        <div className="bg-white px-4 py-4 flex items-center gap-3 border-b sticky top-0 z-10 shadow-sm">
+      <div className="fixed inset-0 z-[100] bg-gray-50 flex flex-col w-full h-full">
+        <div className="bg-white px-4 py-4 flex items-center gap-3 border-b sticky top-0 z-10 shadow-sm shrink-0">
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
             <ArrowLeft className="w-5 h-5 text-gray-700" />
           </button>
           <h2 className="font-semibold text-gray-800 text-lg">Input Pengeluaran</h2>
         </div>
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-y-auto w-full">
           {formContent}
         </div>
       </div>

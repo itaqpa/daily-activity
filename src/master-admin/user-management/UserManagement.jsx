@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import MainLayout from '../../../components/layouts/MainLayout';
+import MainLayout from '../../components/layouts/MainLayout';
 import { Edit2, Trash2, UserPlus, CheckCircle, XCircle, Download, UploadCloud, X, FileText } from 'lucide-react';
-import { apiUrl } from '../../../api';
+import { apiUrl } from '../../api';
 import FormUserManagement from './components/FormUserManagement';
 import Papa from 'papaparse';
 

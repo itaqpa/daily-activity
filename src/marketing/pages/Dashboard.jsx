@@ -53,7 +53,13 @@ export default function Dashboard() {
   };
 
   const roleName = (user.jabatan || '').toLowerCase();
-  const canSeeAll = roleName !== 'staff';
+  // User bypass: jika user punya permission dashboard_view secara eksplisit (user-level bypass)
+  // dan divisinya bukan Sales/Marketing, berarti dia user lintas modul
+  const userDivisiLower = (user.divisi || user.nama_divisi || '').toLowerCase();
+  const isSalesDivision = userDivisiLower.includes('sales') || userDivisiLower.includes('marketing');
+  const hasExplicitDashboardAccess = user.explicit_bypass_permissions?.includes('dashboard_view');
+  const isCrossModuleViewer = hasExplicitDashboardAccess && !isSalesDivision;
+  const canSeeAll = roleName !== 'staff' || isCrossModuleViewer;
 
   const [activities, setActivities] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -113,8 +119,10 @@ export default function Dashboard() {
             const actRole = act.user_jabatan.toLowerCase();
             const userDiv = (user.divisi || user.nama_divisi || '').toLowerCase();
             const actDiv = (act.user_divisi || '').toLowerCase();
-            const isSameDivisi = !userDiv || !actDiv || userDiv === actDiv;
+            // Jika user lintas modul (bypass), tampilkan semua tanpa filter divisi
+            if (isCrossModuleViewer) return true;
 
+            const isSameDivisi = !userDiv || !actDiv || userDiv === actDiv;
             if (isSameDivisi && visibleRoles.some(vr => actRole.includes(vr))) return true;
           }
           return false;

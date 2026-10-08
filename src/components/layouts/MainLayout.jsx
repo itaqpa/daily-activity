@@ -6,10 +6,12 @@ import TopBar from './TopBar';
 import MobileHeader from './commons/MobileHeader';
 import MobileBottomNav from './commons/MobileBottomNav';
 import { apiUrl } from '../../api';
+import { useAuth } from '../../context/AuthContext';
 
 export default function MainLayout({ children }) {
   const navigate = useNavigate();
-  const location = useLocation();
+  const { user: contextUser, hasMarketingPerm } = useAuth();
+  const user = contextUser || {};
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isMobileProfileOpen, setIsMobileProfileOpen] = useState(false);
@@ -38,25 +40,16 @@ export default function MainLayout({ children }) {
     }
   }, [location.pathname]);
 
-  // Role checking for Add Activity button
-  const userString = localStorage.getItem('user');
-  const user = userString ? JSON.parse(userString) : {};
-  // Ambil active jabatan, jika belum pilih, gunakan jabatan utama
-  const activeJabatan = user.active_jabatan || user.jabatan;
-  const activeJabatanId = user.active_jabatan_id || user.jabatan_id;
+  const activeJabatan = user?.active_jabatan || user?.jabatan;
+  const activeJabatanId = user?.active_jabatan_id || user?.jabatan_id;
 
-  const isSales = user.divisi?.toLowerCase() === 'sales' || user.kode_divisi === 'SLS' || user.divisi_id === 1;
-  const isStaffSales = isSales && (activeJabatan?.toLowerCase() === 'staff' || activeJabatanId === 5);
-  const isSPV = activeJabatan?.toLowerCase().includes('spv') || activeJabatan?.toLowerCase().includes('supervisor');
-  const isManager = activeJabatan?.toLowerCase().includes('manager');
-  const isLeader = activeJabatan?.toLowerCase().includes('leader');
-  const canAddActivity = isStaffSales || isSPV || isManager || isLeader;
+  const canAddActivity = hasMarketingPerm('aktivitas_create');
 
   const availableRoles = [];
-  if (user.jabatan) {
+  if (user?.jabatan) {
     availableRoles.push({ id: user.jabatan_id, nama_jabatan: user.jabatan });
   }
-  if (user.additional_roles_data && Array.isArray(user.additional_roles_data)) {
+  if (user?.additional_roles_data && Array.isArray(user.additional_roles_data)) {
     user.additional_roles_data.forEach(role => {
        if (!availableRoles.some(r => r.id === role.id)) {
           availableRoles.push(role);

@@ -95,92 +95,100 @@ const UnitRow = ({ unitRow, proj, manpowerData, isMobile }) => {
 
     if (isMobile) {
         return (
-            <div className="flex flex-col border-b border-gray-100 last:border-0">
+            <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden mb-4">
                 <div 
-                    className="p-3 hover:bg-blue-50/30 transition-colors cursor-pointer"
+                    className="p-4 hover:bg-gray-50 transition-colors cursor-pointer"
                     onClick={() => setOpen(!open)}
                 >
-                    <div className="flex justify-between items-center mb-2">
-                        <div className="font-semibold text-gray-800 text-sm flex items-center gap-2">
-                            {open ? <ChevronUp className="w-4 h-4 text-blue-500" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                    <div className="flex justify-between items-start mb-3">
+                        <div className="font-semibold text-gray-800 text-base">
                             {unitRow.scope || '-'}
                         </div>
-                        <div className="text-right">
-                            <span className="text-xs text-gray-500 block">Grand Total</span>
-                            <span className="font-bold text-blue-700 text-sm">{fmtRp(unitRow.total)}</span>
+                        <div className="text-right shrink-0 ml-4">
+                            <span className="text-xs text-gray-500 block mb-0.5">Grand Total</span>
+                            <span className="font-bold text-blue-700 text-sm px-2 py-1 bg-blue-50 rounded-lg">{fmtRp(unitRow.total)}</span>
                         </div>
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-2 text-xs mt-2 pl-6">
-                        <div><span className="text-gray-500 block">Total Manpower:</span> <span className="font-medium text-gray-700">{fmtNum(unitRow.uniqueManpower)}</span></div>
-                        <div><span className="text-gray-500 block">Man-Hours:</span> <span className="font-medium text-gray-700">{fmtNum(unitRow.manHours, 1)}</span></div>
-                        <div><span className="text-gray-500 block">Biaya Manpower:</span> <span className="font-medium text-blue-600">{fmtRp(unitRow.manpower)}</span></div>
-                        <div><span className="text-gray-500 block">Akomodasi:</span> <span className="font-medium text-gray-700">{fmtRp(unitRow.Akomodasi)}</span></div>
-                        <div><span className="text-gray-500 block">Hotel:</span> <span className="font-medium text-gray-700">{fmtRp(unitRow.Hotel)}</span></div>
-                        <div><span className="text-gray-500 block">Transportasi:</span> <span className="font-medium text-gray-700">{fmtRp(unitRow.Transportasi)}</span></div>
-                        <div><span className="text-gray-500 block">Consumable:</span> <span className="font-medium text-gray-700">{fmtRp(unitRow.Consumable)}</span></div>
+                    <div className="grid grid-cols-2 gap-3 text-xs p-3 bg-gray-50 rounded-lg">
+                        <div><span className="text-gray-500 block mb-1">Total Manpower</span> <span className="font-medium text-gray-800">{fmtNum(unitRow.uniqueManpower)} Org</span></div>
+                        <div><span className="text-gray-500 block mb-1">Man-Hours</span> <span className="font-medium text-gray-800">{fmtNum(unitRow.manHours, 1)} Jam</span></div>
+                        <div><span className="text-gray-500 block mb-1">Biaya Manpower</span> <span className="font-medium text-blue-700">{fmtRp(unitRow.manpower)}</span></div>
+                        <div><span className="text-gray-500 block mb-1">Akomodasi</span> <span className="font-medium text-gray-800">{fmtRp(unitRow.Akomodasi)}</span></div>
+                        <div><span className="text-gray-500 block mb-1">Hotel</span> <span className="font-medium text-gray-800">{fmtRp(unitRow.Hotel)}</span></div>
+                        <div><span className="text-gray-500 block mb-1">Transportasi</span> <span className="font-medium text-gray-800">{fmtRp(unitRow.Transportasi)}</span></div>
+                        <div className="col-span-2"><span className="text-gray-500 block mb-1">Consumable</span> <span className="font-medium text-gray-800">{fmtRp(unitRow.Consumable)}</span></div>
+                    </div>
+
+                    <div className="flex justify-center mt-3 pt-2 border-t border-gray-100">
+                        {open ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
                     </div>
                 </div>
+
                 {open && (
-                    <div className="p-3 bg-gray-50/50 space-y-4">
+                    <div className="p-4 bg-slate-50 border-t border-gray-100 space-y-5">
                         {/* Manpower Section */}
-                        <div>
+                        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
                             <h5 
-                                className="font-semibold text-gray-700 text-xs mb-2 flex items-center gap-2 cursor-pointer hover:text-blue-600 transition-colors"
+                                className="font-semibold text-gray-700 text-sm mb-3 flex items-center justify-between cursor-pointer"
                                 onClick={() => setShowManpower(!showManpower)}
                             >
-                                <span className="w-1.5 h-3 bg-blue-500 rounded-full"></span>
-                                Section Manpower
-                                {showManpower ? <ChevronUp className="w-3 h-3 text-gray-400 ml-1" /> : <ChevronDown className="w-3 h-3 text-gray-400 ml-1" />}
+                                <div className="flex items-center gap-2">
+                                    <span className="w-1.5 h-4 bg-blue-500 rounded-full"></span>
+                                    Data Manpower
+                                </div>
+                                {showManpower ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
                             </h5>
                             {showManpower && (
                                 unitManpower.length > 0 ? (
-                                    <div className="flex flex-col gap-2">
+                                    <div className="flex flex-col gap-3">
                                         {unitManpower.map(mp => (
-                                            <div key={mp.rowId} className="bg-white p-2.5 rounded-lg border border-gray-200 text-xs shadow-sm">
-                                                <div className="font-semibold text-gray-800">{mp.nama} <span className="text-gray-500 font-normal">({mp.posisi})</span></div>
-                                                <div className="flex justify-between items-end mt-1.5">
+                                            <div key={mp.rowId} className="bg-gray-50 p-3 rounded-lg border border-gray-100 text-sm">
+                                                <div className="font-semibold text-gray-800 mb-1">{mp.nama} <span className="text-gray-500 font-normal text-xs ml-1">({mp.posisi})</span></div>
+                                                <div className="flex justify-between items-end mt-2">
                                                     <div>
-                                                        <span className="text-gray-500 block">Tgl: {mp.tanggal}</span>
-                                                        <span className="text-gray-500 block">Jam: {mp.jamUnit} &times; {fmtRp(mp.rate)}</span>
+                                                        <span className="text-gray-500 block text-xs">Tanggal: {mp.tanggal}</span>
+                                                        <span className="text-gray-600 block text-xs font-medium mt-0.5">{mp.jamUnit} Jam &times; {fmtRp(mp.rate)}/jam</span>
                                                     </div>
-                                                    <div className="font-medium text-blue-600 text-sm">{fmtRp(mp.biayaUnit)}</div>
+                                                    <div className="font-semibold text-blue-700 bg-blue-50 px-2 py-1 rounded">{fmtRp(mp.biayaUnit)}</div>
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
-                                ) : <div className="text-xs text-gray-500 italic">Tidak ada manpower.</div>
+                                ) : <div className="text-sm text-gray-500 text-center py-4 bg-gray-50 rounded-lg border border-dashed border-gray-200">Tidak ada data manpower.</div>
                             )}
                         </div>
 
                         {/* Ledger Section */}
-                        <div>
+                        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
                             <h5 
-                                className="font-semibold text-gray-700 text-xs mb-2 flex items-center gap-2 cursor-pointer hover:text-green-600 transition-colors"
+                                className="font-semibold text-gray-700 text-sm mb-3 flex items-center justify-between cursor-pointer"
                                 onClick={() => setShowLedger(!showLedger)}
                             >
-                                <span className="w-1.5 h-3 bg-green-500 rounded-full"></span>
-                                Section Bukti Pengeluaran
-                                {showLedger ? <ChevronUp className="w-3 h-3 text-gray-400 ml-1" /> : <ChevronDown className="w-3 h-3 text-gray-400 ml-1" />}
+                                <div className="flex items-center gap-2">
+                                    <span className="w-1.5 h-4 bg-green-500 rounded-full"></span>
+                                    Bukti Pengeluaran
+                                </div>
+                                {showLedger ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
                             </h5>
                             {showLedger && (
                                 unitLedger.length > 0 ? (
-                                    <div className="flex flex-col gap-2">
+                                    <div className="flex flex-col gap-3">
                                         {unitLedger.map(l => (
-                                            <div key={l.id} className="bg-white p-2.5 rounded-lg border border-gray-200 text-xs shadow-sm">
-                                                <div className="flex justify-between items-start mb-1">
-                                                    <span className="px-1.5 py-0.5 bg-gray-200 rounded text-[10px] text-gray-700">{l.kategori}</span>
-                                                    <span className="text-gray-500">{l.tanggal || '-'}</span>
+                                            <div key={l.id} className="bg-gray-50 p-3 rounded-lg border border-gray-100 text-sm">
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <span className="px-2 py-1 bg-white border border-gray-200 rounded text-xs font-medium text-gray-700 shadow-sm">{l.kategori}</span>
+                                                    <span className="text-gray-500 text-xs">{l.tanggal || '-'}</span>
                                                 </div>
-                                                <div className="text-gray-700 mb-1.5">{l.keterangan || '-'}</div>
-                                                <div className="flex justify-between items-center">
-                                                    <span className="text-gray-500">Pembebanan: {l.pembebanan}</span>
-                                                    <span className="font-medium text-gray-800 text-sm">{fmtRp(l.jumlah)}</span>
+                                                <div className="text-gray-800 font-medium mb-2">{l.keterangan || '-'}</div>
+                                                <div className="flex justify-between items-center border-t border-gray-200 pt-2 mt-2">
+                                                    <span className="text-gray-500 text-xs">Pembebanan: {l.pembebanan}</span>
+                                                    <span className="font-bold text-red-600 bg-red-50 px-2 py-1 rounded">{fmtRp(l.jumlah)}</span>
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
-                                ) : <div className="text-xs text-gray-500 italic">Tidak ada bukti pengeluaran.</div>
+                                ) : <div className="text-sm text-gray-500 text-center py-4 bg-gray-50 rounded-lg border border-dashed border-gray-200">Tidak ada bukti pengeluaran.</div>
                             )}
                         </div>
                     </div>

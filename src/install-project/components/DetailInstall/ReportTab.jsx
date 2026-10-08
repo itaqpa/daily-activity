@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Loader2, Calendar } from 'lucide-react';
 import RekapManpowerBiaya from '../CostProject/RekapManpowerBiaya';
 
 export default function ReportTab({ project }) {
@@ -34,6 +34,47 @@ export default function ReportTab({ project }) {
   const formatRp = (num) => 'Rp ' + Number(num || 0).toLocaleString('id-ID');
 
 
+
+  const MobileCardManHour = ({ row }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+    return (
+      <div className="mb-4 bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+        <div 
+          className="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50"
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
+          <div>
+            <div className="font-semibold text-gray-800 flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-blue-500" />
+              {row.tanggal}
+            </div>
+            <div className="text-sm text-gray-500 mt-1 flex items-center gap-4">
+              <span>Total: <span className="font-semibold text-gray-700">{row.total}</span> Jam</span>
+              <span>Hadir: <span className="font-semibold text-gray-700">{row.hadir}</span> Org</span>
+            </div>
+          </div>
+          {isExpanded ? <ChevronUp className="w-5 h-5 text-blue-500" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+        </div>
+        {isExpanded && (
+          <div className="p-4 bg-gray-50/80 border-t border-gray-100">
+            <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+              <span className="w-1.5 h-4 bg-blue-500 rounded-full"></span>
+              Rincian Jam per Unit
+            </h4>
+            <div className="grid grid-cols-2 gap-3">
+              {units.map(u => (
+                <div key={u.id} className="bg-white p-2.5 rounded-lg border border-gray-200 shadow-sm flex flex-col">
+                  <span className="text-[10px] text-gray-500">{u.area}</span>
+                  <span className="text-xs font-medium text-gray-800 line-clamp-1" title={u.nama}>{u.nama}</span>
+                  <span className="text-sm font-bold text-blue-600 mt-1.5">{row[`u_${u.id}`] || 0} Jam</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const DesktopRowManHour = ({ row }) => {
     const [isExpanded, setIsExpanded] = useState(false);

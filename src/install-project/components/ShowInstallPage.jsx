@@ -16,6 +16,7 @@ import { apiUrl } from '../../api';
 import MainLayout from '../../components/layouts/MainLayout';
 import DetailInstall from './DetailInstall';
 import WizardModal from './WizardModal';
+import { useAuth } from '../../context/AuthContext';
 
 export default function ShowInstallPage({ id: propId, onBack, embedded = false }) {
   const params = useParams();
@@ -26,6 +27,7 @@ export default function ShowInstallPage({ id: propId, onBack, embedded = false }
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const { hasPermission } = useAuth();
 
   // Fetch single project data
   const fetchProjectData = async () => {
@@ -111,32 +113,38 @@ export default function ShowInstallPage({ id: propId, onBack, embedded = false }
 
         {/* Right: Actions */}
         <div className="flex items-center gap-2 self-end sm:self-auto">
-          <button
-            onClick={fetchProjectData}
-            disabled={isLoading}
-            className="p-2 sm:px-3 sm:py-2 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-50 border border-gray-200 rounded-xl transition-colors flex items-center gap-1.5 shadow-2xs disabled:opacity-50"
-            title="Muat Ulang Data"
-          >
-            <RotateCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-            <span className="hidden md:inline">Refresh</span>
-          </button>
+          {hasPermission('install_project_view') && (
+            <button
+              onClick={fetchProjectData}
+              disabled={isLoading}
+              className="p-2 sm:px-3 sm:py-2 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-50 border border-gray-200 rounded-xl transition-colors flex items-center gap-1.5 shadow-2xs disabled:opacity-50"
+              title="Muat Ulang Data"
+            >
+              <RotateCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+              <span className="hidden md:inline">Refresh</span>
+            </button>
+          )}
 
-          <button
-            onClick={handlePrint}
-            className="p-2 sm:px-3 sm:py-2 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-50 border border-gray-200 rounded-xl transition-colors flex items-center gap-1.5 shadow-2xs"
-            title="Cetak Halaman"
-          >
-            <Printer className="w-3.5 h-3.5" />
-            <span className="hidden md:inline">Cetak</span>
-          </button>
+          {hasPermission('install_project_export') && (
+            <button
+              onClick={handlePrint}
+              className="p-2 sm:px-3 sm:py-2 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-50 border border-gray-200 rounded-xl transition-colors flex items-center gap-1.5 shadow-2xs"
+              title="Cetak Halaman"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">Cetak</span>
+            </button>
+          )}
 
-          <button
-            onClick={() => setIsWizardOpen(true)}
-            className="px-3.5 py-2 text-xs sm:text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors flex items-center gap-1.5 shadow-xs shadow-blue-500/20"
-          >
-            <Edit3 className="w-4 h-4" />
-            <span>Edit Project</span>
-          </button>
+          {hasPermission('install_project_edit') && (
+            <button
+              onClick={() => setIsWizardOpen(true)}
+              className="px-3.5 py-2 text-xs sm:text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors flex items-center gap-1.5 shadow-xs shadow-blue-500/20"
+            >
+              <Edit3 className="w-4 h-4" />
+              <span>Edit Project</span>
+            </button>
+          )}
         </div>
       </div>
 

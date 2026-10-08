@@ -31,8 +31,19 @@ export function AuthProvider({ children }) {
     return user.permissions.includes(permissionName);
   };
 
+  const hasMarketingPerm = (permissionName) => {
+    if (!user) return false;
+    const userDivisiLower = (user.divisi || user.nama_divisi || '').toLowerCase();
+    const isMarketingDivision = userDivisiLower.includes('sales') || userDivisiLower.includes('marketing');
+    if (isMarketingDivision) {
+      return user.permissions?.includes(permissionName);
+    } else {
+      return user.explicit_bypass_permissions?.includes(permissionName);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, updateUser, logout, hasPermission }}>
+    <AuthContext.Provider value={{ user, updateUser, logout, hasPermission, hasMarketingPerm }}>
       {children}
     </AuthContext.Provider>
   );
