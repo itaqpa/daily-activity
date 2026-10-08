@@ -28,31 +28,31 @@ export default function Portal() {
 
   // --- HAK AKSES UNTUK DAILY ACTIVITY SALES ---
   // Memeriksa apakah user memiliki minimal satu akses "View" ke fitur-fitur di modul Daily Activity Sales
-  const hasDailyActivitySalesAccess = 
-    hasPermission('dashboard_view') || 
-    hasPermission('aktivitas_view') || 
-    hasPermission('riwayat_aktivitas_view') || 
-    hasPermission('laporan_marketing_view') || 
-    hasPermission('customer_view') || 
+  const hasDailyActivitySalesAccess =
+    hasPermission('dashboard_view') ||
+    hasPermission('aktivitas_view') ||
+    hasPermission('riwayat_aktivitas_view') ||
+    hasPermission('laporan_marketing_view') ||
+    hasPermission('customer_view') ||
     hasPermission('sales_view');
-  
-  const dailyActivityPath = hasPermission('dashboard_view') ? '/marketing/dashboard' : 
-                            (hasPermission('aktivitas_view') || hasPermission('riwayat_aktivitas_view')) ? '/marketing/activities' : 
-                            hasPermission('laporan_marketing_view') ? '/marketing/reports' : '/marketing/activities';
+
+  const dailyActivityPath = hasPermission('dashboard_view') ? '/marketing/dashboard' :
+    (hasPermission('aktivitas_view') || hasPermission('riwayat_aktivitas_view')) ? '/marketing/activities' :
+      hasPermission('laporan_marketing_view') ? '/marketing/reports' : '/marketing/activities';
 
   // --- HAK AKSES UNTUK DINAS LUAR (INSTALLATION) ---
   // Memeriksa apakah user memiliki minimal satu akses "View" ke fitur-fitur di modul Dinas Luar
-  const hasDinasLuarAccess = 
-    hasPermission('install_project_view') || 
-    hasPermission('daily_progress_view') || 
-    hasPermission('laporan_project_view') || 
-    hasPermission('pengeluaran_view') || 
+  const hasDinasLuarAccess =
+    hasPermission('install_project_view') ||
+    hasPermission('daily_progress_view') ||
+    hasPermission('laporan_project_view') ||
+    hasPermission('pengeluaran_view') ||
     hasPermission('manpower_view');
 
-  const dinasLuarPath = hasPermission('install_project_view') ? '/installation-project' : 
-                        hasPermission('daily_progress_view') ? '/installation-project/progress' : 
-                        hasPermission('laporan_project_view') ? '/installation-project/reports' : 
-                        hasPermission('pengeluaran_view') ? '/installation-project/expenses' : '/installation-project';
+  const dinasLuarPath = hasPermission('install_project_view') ? '/installation-project' :
+    hasPermission('daily_progress_view') ? '/installation-project/progress' :
+      hasPermission('laporan_project_view') ? '/installation-project/reports' :
+        hasPermission('pengeluaran_view') ? '/installation-project/expenses' : '/installation-project';
 
   const allModules = [
     {
@@ -271,7 +271,7 @@ export default function Portal() {
               <Clock className="w-5 h-5 text-slate-400" />
               <h2 className="text-lg font-bold text-slate-700">Aktivitas Terakhir</h2>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div
                 onClick={() => navigate(modules[0].path)}
