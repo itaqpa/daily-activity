@@ -222,6 +222,21 @@ export default function DataCustomer() {
         sales_ids: canApprove ? formData.sales_ids : [user.id]
       };
 
+      if (!navigator.onLine) {
+        if (isEditing) {
+          alert('Anda sedang offline. Edit data belum didukung dalam mode offline.');
+          return;
+        }
+        
+        const offlineQueue = JSON.parse(localStorage.getItem('offlineCustomers') || '[]');
+        offlineQueue.push({ ...payload, _offline_id: Date.now() });
+        localStorage.setItem('offlineCustomers', JSON.stringify(offlineQueue));
+        
+        alert('Anda sedang offline. Data Customer berhasil disimpan secara lokal dan akan disinkronisasi saat online!');
+        setIsModalOpen(false);
+        return;
+      }
+
       const response = await fetch(url, {
         method: isEditing ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -235,7 +250,22 @@ export default function DataCustomer() {
         alert('Gagal menyimpan data customer.');
       }
     } catch (error) {
-      console.error(error);
+      if (error.message === 'Failed to fetch' && !isEditing) {
+        const payload = {
+          ...formData,
+          site_kota: formData.site_kota.filter(site => site.trim() !== ''),
+          status: canApprove ? 'approved' : 'pending',
+          sales_ids: canApprove ? formData.sales_ids : [user.id]
+        };
+        const offlineQueue = JSON.parse(localStorage.getItem('offlineCustomers') || '[]');
+        offlineQueue.push({ ...payload, _offline_id: Date.now() });
+        localStorage.setItem('offlineCustomers', JSON.stringify(offlineQueue));
+        
+        alert('Server tidak dapat dijangkau. Data Customer disimpan lokal dan akan disinkronisasi nanti!');
+        setIsModalOpen(false);
+      } else {
+        console.error(error);
+      }
     }
   };
 
@@ -470,7 +500,8 @@ export default function DataCustomer() {
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto min-h-[400px]">
+        {/* Table Desktop */}
+        <div className="hidden md:block overflow-x-auto min-h-[400px]">
           <table className="w-full text-left">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200 text-gray-600">
@@ -595,6 +626,92 @@ export default function DataCustomer() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Card Mobile */}
+        <div className="md:hidden flex flex-col gap-4 p-4">
+          {filteredAndSortedCustomers.length > 0 ? filteredAndSortedCustomers.map((c) => (
+            <div key={c.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm flex flex-col gap-3 relative">
+              <div className="flex justify-between items-start gap-2">
+                <div className="pr-16">
+                  <h3 className="font-bold text-gray-800 text-sm leading-tight">{c.nama_customer}</h3>
+                  <p className="text-[11px] text-gray-500 font-medium mt-0.5">No Akun: <span className="text-gray-700">{c.no_akun || '-'}</span></p>
+                </div>
+                <div className="absolute top-4 right-4">
+                  {c.status === 'pending' ? (
+                    <span className="px-2 py-1 bg-yellow-50 text-yellow-700 text-[10px] rounded-md font-medium border border-yellow-100">Pending</span>
+                  ) : (
+                    <span className="px-2 py-1 bg-green-50 text-green-700 text-[10px] rounded-md font-medium border border-green-100">Approved</span>
+                  )}
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3 text-xs mt-1">
+                <div>
+                  <span className="text-gray-400 block mb-1 text-[10px] uppercase tracking-wider font-semibold">Note</span>
+                  {c.note ? (
+                    <span className={`px-2 py-1 rounded text-[10px] font-medium border ${
+                      c.note === 'Register' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                      c.note === 'Not Register' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                      'bg-gray-100 text-gray-700 border-gray-200'
+                    }`}>{c.note}</span>
+                  ) : <span className="text-gray-400 italic">-</span>}
+                </div>
+                <div>
+                  <span className="text-gray-400 block mb-1 text-[10px] uppercase tracking-wider font-semibold">Aktivitas</span>
+                  <span className="font-medium text-gray-700">0 Aktivitas</span>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-gray-400 block mb-1 text-[10px] uppercase tracking-wider font-semibold">Site / Kota</span>
+                  <div className="flex flex-wrap gap-1">
+                    {c.site_kota && c.site_kota.length > 0 ? c.site_kota.map((site, idx) => (
+                      <span key={idx} className="px-2 py-1 bg-green-50 text-green-700 text-[10px] rounded border border-green-100">{site}</span>
+                    )) : <span className="text-gray-400 italic">-</span>}
+                  </div>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-gray-400 block mb-1 text-[10px] uppercase tracking-wider font-semibold">Sales</span>
+                  {c.assigned_sales && c.assigned_sales.length > 0 ? (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button onClick={() => setViewSalesModal(c)} className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 text-[10px] rounded font-medium border border-blue-200 transition-colors">
+                        <Users size={12} />
+                        <span>{c.assigned_sales.length} Sales</span>
+                      </button>
+                      {c.assigned_sales.length > 1 ? (
+                        <span className="px-2 py-1 bg-purple-50 text-purple-700 text-[10px] rounded font-medium border border-purple-100">Tandem</span>
+                      ) : (
+                        <span className="px-2 py-1 bg-blue-50 text-blue-700 text-[10px] rounded font-medium border border-blue-100">Individu</span>
+                      )}
+                    </div>
+                  ) : <span className="text-gray-400 italic">-</span>}
+                </div>
+              </div>
+              
+              {(canEdit || canDelete || canApprove) && (
+                <div className="pt-3 mt-2 border-t border-gray-100 flex items-center justify-end gap-2">
+                  {c.status === 'pending' && canApprove && (
+                    <button onClick={() => handleApprove(c.id)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors" title="Approve">
+                      <CheckCircle size={14} /> Approve
+                    </button>
+                  )}
+                  {canEdit && (
+                    <button onClick={() => openEditModal(c)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors" title="Edit">
+                      <Edit2 size={14} /> Edit
+                    </button>
+                  )}
+                  {canDelete && (
+                    <button onClick={() => handleDelete(c.id)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors" title="Hapus">
+                      <Trash2 size={14} /> Hapus
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )) : (
+            <div className="text-center p-8 text-gray-500 text-sm bg-gray-50 rounded-xl border border-gray-100">
+              Belum ada data customer
+            </div>
+          )}
         </div>
       </div>
 

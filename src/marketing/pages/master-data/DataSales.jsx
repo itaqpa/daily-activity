@@ -258,7 +258,8 @@ export default function DataSales() {
           </div>
         )}
 
-        <div className="overflow-x-auto min-h-[400px]">
+        {/* Table Desktop */}
+        <div className="hidden md:block overflow-x-auto min-h-[400px]">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
@@ -310,6 +311,39 @@ export default function DataSales() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Card Mobile */}
+        <div className="md:hidden flex flex-col gap-3 p-4">
+          {loading ? (
+            <div className="text-center p-8 text-gray-500 text-sm bg-gray-50 rounded-xl border border-gray-100">Memuat data...</div>
+          ) : filteredAndSortedSales.length === 0 ? (
+            <div className="text-center p-8 text-gray-500 text-sm bg-gray-50 rounded-xl border border-gray-100">Tidak ada data sales yang cocok.</div>
+          ) : (
+            filteredAndSortedSales.map((sales, index) => (
+              <div key={sales.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm flex flex-col gap-3">
+                <div className="flex justify-between items-start gap-2">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-medium text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">#{index + 1}</span>
+                      <h3 className="font-bold text-gray-800 text-sm">{sales.name}</h3>
+                    </div>
+                    <p className="text-[11px] text-gray-500">{sales.email}</p>
+                  </div>
+                  <span className={`px-2 py-1 rounded-md text-[10px] font-medium border whitespace-nowrap ${sales.nama_jabatan === 'Spv' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-gray-50 text-gray-700 border-gray-200'}`}>
+                    {sales.nama_jabatan}
+                  </span>
+                </div>
+                <div className="pt-3 border-t border-gray-100 flex justify-between items-center">
+                  <span className="text-xs font-medium text-gray-500">Total Customer</span>
+                  <button onClick={() => openCustomerModal(sales)} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs rounded-lg font-medium border border-blue-200 transition-colors shadow-sm">
+                    <Users size={14} />
+                    <span>{sales.assigned_customers ? sales.assigned_customers.length : 0} Customer</span>
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 

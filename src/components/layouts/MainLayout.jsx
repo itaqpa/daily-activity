@@ -103,10 +103,42 @@ export default function MainLayout({ children }) {
     }
   };
 
+  const syncOfflineCustomers = async () => {
+    const offlineQueue = JSON.parse(localStorage.getItem('offlineCustomers') || '[]');
+    if (offlineQueue.length === 0) return;
+
+    let successCount = 0;
+    const remainingQueue = [];
+
+    for (const customer of offlineQueue) {
+      try {
+        const response = await fetch(apiUrl('/customers'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(customer)
+        });
+        
+        if (response.ok) {
+          successCount++;
+        } else {
+          remainingQueue.push(customer);
+        }
+      } catch (err) {
+        remainingQueue.push(customer);
+      }
+    }
+
+    localStorage.setItem('offlineCustomers', JSON.stringify(remainingQueue));
+    if (successCount > 0) {
+      alert(`${successCount} data customer offline berhasil disinkronkan ke server!`);
+    }
+  };
+
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
       syncOfflineActivities();
+      syncOfflineCustomers();
     };
     const handleOffline = () => setIsOnline(false);
 
@@ -116,6 +148,7 @@ export default function MainLayout({ children }) {
     // Initial check on load
     if (navigator.onLine) {
       syncOfflineActivities();
+      syncOfflineCustomers();
     }
 
     return () => {

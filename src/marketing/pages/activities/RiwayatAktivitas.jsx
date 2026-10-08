@@ -295,7 +295,8 @@ export default function RiwayatAktivitas() {
            </div>
         </div>
 
-        <div className="overflow-x-auto min-h-[400px]">
+        {/* Table Desktop */}
+        <div className="hidden md:block overflow-x-auto min-h-[400px]">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100 text-sm">
@@ -353,6 +354,63 @@ export default function RiwayatAktivitas() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Card Mobile */}
+        <div className="md:hidden flex flex-col gap-3 p-4">
+          {loading ? (
+             <div className="py-8 text-center text-gray-500 bg-gray-50 rounded-xl border border-gray-100 text-sm">Memuat data...</div>
+          ) : filteredAndSortedActivities.length > 0 ? (
+            filteredAndSortedActivities.map(act => (
+              <div key={act.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm flex flex-col gap-2 relative">
+                <div className="flex justify-between items-start gap-2 pr-24">
+                  <div>
+                    <h3 className="font-bold text-gray-900 text-sm leading-tight mb-0.5">{act.nama_customer || '-'}</h3>
+                    {canSeeAll && <p className="text-xs text-blue-600 font-medium mb-1">{act.user_name || '-'}</p>}
+                    <p className="text-[11px] text-gray-500 flex items-center gap-1.5">
+                      <Clock size={12} /> {formatDate(act.tanggal)}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="absolute top-4 right-4">
+                  <span className={`px-2.5 py-1 rounded-md text-[10px] font-medium border ${typeColor(act.jenis_aktivitas)}`}>
+                    {act.jenis_aktivitas}
+                  </span>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3 mt-2 text-xs">
+                  <div>
+                    <span className="text-gray-400 block text-[10px] uppercase font-semibold mb-0.5">Site/Kota</span>
+                    <span className="font-medium text-gray-700">{act.site_kota || '-'}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 block text-[10px] uppercase font-semibold mb-0.5">Ditemui</span>
+                    <span className="font-medium text-gray-700">{getDitemuiText(act) || '-'}</span>
+                  </div>
+                  <div className="col-span-2 bg-gray-50 p-2.5 rounded-lg border border-gray-100">
+                    <span className="text-gray-400 block text-[10px] uppercase font-semibold mb-1">Catatan</span>
+                    <p className="text-gray-700 text-xs italic leading-relaxed">{act.catatan || '-'}</p>
+                  </div>
+                </div>
+                
+                {canAction && (
+                  <div className="pt-3 mt-1 border-t border-gray-100 flex justify-end">
+                     <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-200" title="Hapus">
+                       <Trash2 size={14} /> Hapus
+                     </button>
+                  </div>
+                )}
+              </div>
+            ))
+          ) : (
+            <div className="py-10 text-center text-gray-500 bg-gray-50 rounded-xl border border-gray-100">
+              <div className="flex flex-col items-center justify-center">
+                <Clock className="w-10 h-10 mb-3 opacity-20" />
+                <p className="text-sm font-medium">Belum ada aktivitas yang dicatat.</p>
+              </div>
+            </div>
+          )}
         </div>
         {!loading && activities.length > 0 && (
            <div className="p-4 border-t border-gray-100 text-xs text-gray-500">
