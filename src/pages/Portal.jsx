@@ -26,19 +26,33 @@ export default function Portal() {
     navigate('/');
   };
 
-  const userDivisiLower = (user?.divisi || user?.nama_divisi || '').toLowerCase();
-  const isMarketingDivision = userDivisiLower.includes('sales') || userDivisiLower.includes('marketing');
+  // --- HAK AKSES UNTUK DAILY ACTIVITY SALES ---
+  // Memeriksa apakah user memiliki minimal satu akses "View" ke fitur-fitur di modul Daily Activity Sales
+  const hasDailyActivitySalesAccess = 
+    hasPermission('dashboard_view') || 
+    hasPermission('aktivitas_view') || 
+    hasPermission('riwayat_aktivitas_view') || 
+    hasPermission('laporan_marketing_view') || 
+    hasPermission('customer_view') || 
+    hasPermission('sales_view');
   
-  const marketingPerms = ['dashboard_view', 'aktivitas_view', 'aktivitas_create', 'laporan_marketing_view', 'laporan_marketing_view_all', 'laporan_marketing_view_team', 'riwayat_aktivitas_view'];
-  
-  const hasMarketingAccess = isMarketingDivision 
-    ? marketingPerms.some(p => hasPermission(p))
-    : marketingPerms.some(p => user?.explicit_bypass_permissions?.includes(p));
-  const checkPerm = (p) => isMarketingDivision ? hasPermission(p) : user?.explicit_bypass_permissions?.includes(p);
-  const marketingPath = checkPerm('dashboard_view') ? '/marketing/dashboard' : 
-                        (checkPerm('aktivitas_view') || checkPerm('riwayat_aktivitas_view')) ? '/marketing/activities' : 
-                        checkPerm('aktivitas_create') ? '/marketing/activities/new' : 
-                        checkPerm('laporan_marketing_view') ? '/marketing/reports' : '/marketing/activities';
+  const dailyActivityPath = hasPermission('dashboard_view') ? '/marketing/dashboard' : 
+                            (hasPermission('aktivitas_view') || hasPermission('riwayat_aktivitas_view')) ? '/marketing/activities' : 
+                            hasPermission('laporan_marketing_view') ? '/marketing/reports' : '/marketing/activities';
+
+  // --- HAK AKSES UNTUK DINAS LUAR (INSTALLATION) ---
+  // Memeriksa apakah user memiliki minimal satu akses "View" ke fitur-fitur di modul Dinas Luar
+  const hasDinasLuarAccess = 
+    hasPermission('install_project_view') || 
+    hasPermission('daily_progress_view') || 
+    hasPermission('laporan_project_view') || 
+    hasPermission('pengeluaran_view') || 
+    hasPermission('manpower_view');
+
+  const dinasLuarPath = hasPermission('install_project_view') ? '/installation-project' : 
+                        hasPermission('daily_progress_view') ? '/installation-project/progress' : 
+                        hasPermission('laporan_project_view') ? '/installation-project/reports' : 
+                        hasPermission('pengeluaran_view') ? '/installation-project/expenses' : '/installation-project';
 
   const allModules = [
     {
@@ -48,8 +62,8 @@ export default function Portal() {
       bgClass: 'bg-blue-50/80',
       borderClass: 'border-blue-100',
       shadowClass: 'shadow-blue-500/20',
-      path: marketingPath,
-      hasAccess: hasMarketingAccess
+      path: dailyActivityPath,
+      hasAccess: hasDailyActivitySalesAccess
     },
     {
       title: 'Dinas Luar (Installation)',
@@ -58,8 +72,8 @@ export default function Portal() {
       bgClass: 'bg-orange-50/80',
       borderClass: 'border-orange-100',
       shadowClass: 'shadow-orange-500/20',
-      path: '/installation-project',
-      hasAccess: hasPermission('install_project_view')
+      path: dinasLuarPath,
+      hasAccess: hasDinasLuarAccess
     }
   ];
 

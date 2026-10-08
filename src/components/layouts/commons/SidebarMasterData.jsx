@@ -3,11 +3,16 @@ import { Link } from "react-router-dom";
 import { Database, ChevronDown, ChevronRight, Briefcase, UserCircle, HardHat, Users, Shield, History } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
 
-export default function SidebarMasterData({ isActive }) {
+export default function SidebarMasterData({ isActive, isMarketing, isInstallation }) {
   const { hasPermission } = useAuth();
   const [isOpen, setIsOpen] = useState(true);
 
-  if (!hasPermission('sales_view') && !hasPermission('customer_view') && !hasPermission('manpower_view') && !hasPermission('user_view') && !hasPermission('akses_view') && !hasPermission('history_view')) {
+  // Group permissions by their respective modules
+  const showMarketingMaster = isMarketing && (hasPermission('sales_view') || hasPermission('customer_view'));
+  const showInstallationMaster = isInstallation && hasPermission('manpower_view');
+  const showGlobalMaster = hasPermission('user_view') || hasPermission('akses_view') || hasPermission('history_view');
+
+  if (!showMarketingMaster && !showInstallationMaster && !showGlobalMaster) {
     return null;
   }
 
@@ -31,7 +36,8 @@ export default function SidebarMasterData({ isActive }) {
 
       {isOpen && (
         <div className="space-y-1 pl-1">
-          {hasPermission('sales_view') && (
+          {/* MARKETING MASTER DATA */}
+          {isMarketing && hasPermission('sales_view') && (
             <Link
               to="/marketing/master-data/sales"
               className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
@@ -45,7 +51,7 @@ export default function SidebarMasterData({ isActive }) {
             </Link>
           )}
 
-          {hasPermission('customer_view') && (
+          {isMarketing && hasPermission('customer_view') && (
             <Link
               to="/marketing/master-data/customer"
               className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
@@ -59,7 +65,8 @@ export default function SidebarMasterData({ isActive }) {
             </Link>
           )}
 
-          {hasPermission('manpower_view') && (
+          {/* INSTALLATION MASTER DATA */}
+          {isInstallation && hasPermission('manpower_view') && (
             <Link
               to="/marketing/master-data/manpower"
               className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
@@ -73,6 +80,7 @@ export default function SidebarMasterData({ isActive }) {
             </Link>
           )}
 
+          {/* GLOBAL MASTER DATA */}
           {hasPermission('user_view') && (
             <Link
               to="/master-admin/users"

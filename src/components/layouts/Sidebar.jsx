@@ -64,7 +64,7 @@ export default function Sidebar({ isOpen, setIsOpen, currentModule }) {
                 they are heavily tied to /marketing, so let's show it always when in Marketing or Installation. */}
             {(isMarketing || isInstallation) && (
               <div className="pt-1 border-t border-white/5">
-                <SidebarMasterData isActive={isActive} />
+                <SidebarMasterData isActive={isActive} isMarketing={isMarketing} isInstallation={isInstallation} />
               </div>
             )}
 

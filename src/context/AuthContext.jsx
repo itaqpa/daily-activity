@@ -25,21 +25,17 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('user');
   };
 
-  // Helper function to check permission
+  // Helper function to check permission based purely on database setup
   const hasPermission = (permissionName) => {
-    if (!user || !user.permissions) return false;
-    return user.permissions.includes(permissionName);
+    if (!user) return false;
+    const inRole = user.permissions?.includes(permissionName);
+    const inBypass = user.explicit_bypass_permissions?.includes(permissionName);
+    return !!(inRole || inBypass);
   };
 
+  // Alias hasMarketingPerm to hasPermission to support existing components without division hardcoding
   const hasMarketingPerm = (permissionName) => {
-    if (!user) return false;
-    const userDivisiLower = (user.divisi || user.nama_divisi || '').toLowerCase();
-    const isMarketingDivision = userDivisiLower.includes('sales') || userDivisiLower.includes('marketing');
-    if (isMarketingDivision) {
-      return user.permissions?.includes(permissionName);
-    } else {
-      return user.explicit_bypass_permissions?.includes(permissionName);
-    }
+    return hasPermission(permissionName);
   };
 
   return (
