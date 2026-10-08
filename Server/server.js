@@ -12,6 +12,7 @@ import dailyProgressRoutes from './routes/dailyProgressRoutes.js';
 import costProjectRoutes from './routes/costProjectRoutes.js';
 import reportRoutes from './routes/reportRoutes.js';
 import activityLogsRoutes from './routes/activityLogsRoutes.js';
+import surveyEngineRoutes from './routes/surveyEngineRoutes.js';
 import { createAuthLogMiddleware } from './middleware/authLogMiddleware.js';
 
 // Load environment variables from .env
@@ -692,6 +693,7 @@ app.use('/api/daily-progress', dailyProgressRoutes(pool));
 app.use('/api/cost-project', costProjectRoutes(pool));
 app.use('/api/report', reportRoutes(pool));
 app.use('/api/activity-logs', activityLogsRoutes);
+app.use('/api/survey-engine', surveyEngineRoutes(pool));
 
 // Start Server
 app.listen(port, () => {

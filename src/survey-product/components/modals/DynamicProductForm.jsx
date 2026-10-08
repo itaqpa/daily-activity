@@ -1,0 +1,503 @@
+import React, { useState, useEffect } from 'react';
+import { X, ChevronRight, CheckCircle2, AlertTriangle, AlertCircle, Save, ArrowLeft, Camera, FileText, Plus, Trash2 } from 'lucide-react';
+
+// Template Engine akan diload dari API berdasarkan product.code
+// const MOCK_TEMPLATE = {...} dihapus
+
+
+export default function DynamicProductForm({ product, onClose, onSave, existingData = {} }) {
+  const [sections, setSections] = useState([]);
+  const [currentSectionId, setCurrentSectionId] = useState(null);
+  const [answers, setAnswers] = useState(existingData);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchTemplate = async () => {
+      try {
+        setIsLoading(true);
+        const res = await fetch(`http://localhost:8400/api/survey-engine/template/${product.code}`);
+        if (!res.ok) {
+          throw new Error('Template tidak ditemukan');
+        }
+        const data = await res.json();
+        
+        // Sesuaikan mapping data dari API ke format UI
+        const mappedSections = data.sections.map(sec => ({
+          id: sec.id,
+          title: sec.name,
+          description: '', 
+          questions: sec.questions.map(q => ({
+            id: q.question_key,
+            label: q.label,
+            type: q.type,
+            required: q.required,
+            options: q.options || [],
+            visibility_rule: q.visibility_rule
+          }))
+        }));
+
+        setSections(mappedSections);
+      } catch (err) {
+        console.error('Gagal memuat template:', err);
+        // Fallback or show error state if needed
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (product?.code) {
+      fetchTemplate();
+    }
+  }, [product.code]);
+
+  const handleInputChange = (questionId, value) => {
+    setAnswers(prev => ({ ...prev, [questionId]: value }));
+  };
+
+  const handleAddCustomRef = () => {
+    setAnswers(prev => ({
+      ...prev,
+      custom_refs: [...(prev.custom_refs || []), { id: Date.now().toString(), parameter: '', value: '', tolerance: '' }]
+    }));
+  };
+
+  const handleUpdateCustomRef = (id, field, value) => {
+    setAnswers(prev => ({
+      ...prev,
+      custom_refs: (prev.custom_refs || []).map(ref => ref.id === id ? { ...ref, [field]: value } : ref)
+    }));
+  };
+
+  const handleRemoveCustomRef = (id) => {
+    setAnswers(prev => ({
+      ...prev,
+      custom_refs: (prev.custom_refs || []).filter(ref => ref.id !== id)
+    }));
+  };
+
+  const evaluateVisibility = (q, currentAnswers) => {
+    if (!q.visibility_rule || !q.visibility_rule.source_expression || !q.visibility_rule.source_expression.field_js) {
+      return true;
+    }
+    try {
+      const jsStr = q.visibility_rule.source_expression.field_js;
+      // Convert answers keys to short keys (e.g. DFG.acuan.acuan -> acuan)
+      const f = {};
+      Object.keys(currentAnswers).forEach(k => {
+         const shortKey = k.split('.').pop();
+         f[shortKey] = currentAnswers[k];
+      });
+      // Constants referenced in the rules
+      const CUSTOM = 'Custom (spesifikasi / drawing client)';
+      // Execute
+      const evalFunc = new Function('f', 'CUSTOM', `return (${jsStr})(f, CUSTOM)`);
+      return evalFunc(f, CUSTOM);
+    } catch (e) {
+      console.warn('Error evaluating visibility rule:', e);
+      return true;
+    }
+  };
+
+  const getSectionProgress = (section) => {
+    const visibleQuestions = section.questions.filter(q => evaluateVisibility(q, answers));
+    const requiredQuestions = visibleQuestions.filter(q => q.required);
+    const totalRequired = requiredQuestions.length;
+    
+    if (totalRequired === 0) return { filled: 0, total: 0, status: 'green' };
+
+    let filled = 0;
+    requiredQuestions.forEach(q => {
+      if (answers[q.id] !== undefined && answers[q.id] !== '') filled++;
+    });
+
+    let status = 'red'; // Kosong
+    if (filled === totalRequired) status = 'green'; // Lengkap
+    else if (filled > 0) status = 'yellow'; // Sebagian
+
+    return { filled, total: totalRequired, status };
+  };
+
+  // Tampilan Form Input per Section
+  if (currentSectionId) {
+    const section = sections.find(s => s.id === currentSectionId);
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 md:p-6">
+        <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl flex flex-col max-h-[90vh] overflow-hidden">
+          {/* Header Section */}
+          <div className="p-5 border-b border-gray-100 flex items-center gap-3 bg-slate-50">
+            <button 
+              onClick={() => setCurrentSectionId(null)}
+              className="p-2 hover:bg-slate-200 rounded-lg transition-colors text-slate-600"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div className="flex-1">
+              <h2 className="text-lg font-bold text-gray-800">{section.title}</h2>
+              <p className="text-sm text-gray-500">{product.displayId} - {product.name}</p>
+            </div>
+          </div>
+
+          {/* Body Section (Form Renderer) */}
+          <div className="flex-1 overflow-y-auto p-5 md:p-8 space-y-6 bg-white">
+            {section.questions.filter(q => evaluateVisibility(q, answers)).map((q) => (
+              <div key={q.id} className="space-y-1.5">
+                <label className="block text-sm font-semibold text-gray-700">
+                  {q.label} {q.required && <span className="text-red-500">*</span>}
+                </label>
+                
+                {q.type === 'text' || q.type === 'number' ? (
+                  <input
+                    type={q.type}
+                    value={answers[q.id] || ''}
+                    onChange={(e) => handleInputChange(q.id, e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none text-gray-700"
+                    placeholder={`Masukkan ${q.label.toLowerCase()}`}
+                  />
+                ) : q.type === 'textarea' ? (
+                  <textarea
+                    value={answers[q.id] || ''}
+                    onChange={(e) => handleInputChange(q.id, e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none text-gray-700 min-h-[100px]"
+                    placeholder="Ketik catatan di sini..."
+                  />
+                ) : q.type === 'select' ? (
+                  <div className="space-y-2">
+                    <select
+                      value={answers[q.id] || ''}
+                      onChange={(e) => handleInputChange(q.id, e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none text-gray-700 bg-white"
+                    >
+                      <option value="">-- Pilih --</option>
+                      {q.options.map(opt => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                    {/* Render input tambahan jika memilih Lainnya / Custom */}
+                    {answers[q.id] && (answers[q.id].toLowerCase().includes('lainnya') || answers[q.id].toLowerCase().includes('custom')) && (
+                      <input
+                        type="text"
+                        value={answers[`${q.id}_lainnya`] || ''}
+                        onChange={(e) => handleInputChange(`${q.id}_lainnya`, e.target.value)}
+                        className="w-full px-4 py-2.5 rounded-lg border border-dashed border-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none text-gray-700 mt-2 bg-gray-50"
+                        placeholder={`Sebutkan ${q.label.toLowerCase()} lainnya...`}
+                      />
+                    )}
+                  </div>
+                ) : q.type === 'radio' ? (
+                  <div className="space-y-2">
+                    <div className="flex gap-4 mt-2">
+                      {q.options.map(opt => (
+                        <label key={opt} className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name={q.id}
+                            value={opt}
+                            checked={answers[q.id] === opt}
+                            onChange={(e) => handleInputChange(q.id, e.target.value)}
+                            className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                          />
+                          <span className="text-sm text-gray-700">{opt}</span>
+                        </label>
+                      ))}
+                    </div>
+                    {/* Render input tambahan jika memilih Lainnya / Custom */}
+                    {answers[q.id] && (answers[q.id].toLowerCase().includes('lainnya') || answers[q.id].toLowerCase().includes('custom')) && (
+                      <input
+                        type="text"
+                        value={answers[`${q.id}_lainnya`] || ''}
+                        onChange={(e) => handleInputChange(`${q.id}_lainnya`, e.target.value)}
+                        className="w-full px-4 py-2.5 rounded-lg border border-dashed border-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none text-gray-700 mt-2 bg-gray-50"
+                        placeholder={`Sebutkan ${q.label.toLowerCase()} lainnya...`}
+                      />
+                    )}
+                  </div>
+                ) : null}
+              </div>
+            ))}
+            
+            {/* Acuan Custom Table Helper (Only in Acuan & Validasi section) */}
+            {section.title.toLowerCase().includes('acuan') && (
+              <div className="mt-8 pt-6 border-t border-gray-200">
+                <div className="mb-4">
+                  <h4 className="font-bold text-gray-800">Acuan custom (drawing / spesifikasi client)</h4>
+                  <p className="text-sm text-gray-500">Tambahkan nilai acuan untuk dibandingkan dengan hasil ukur. Berguna untuk ukuran non-standar atau spesifikasi khusus client.</p>
+                </div>
+
+                {(answers.custom_refs || []).length > 0 && (
+                  <div className="overflow-x-auto mb-4 border border-gray-200 rounded-xl">
+                    <table className="w-full text-sm text-left">
+                      <thead className="bg-slate-50 text-gray-600 border-b border-gray-200">
+                        <tr>
+                          <th className="px-4 py-3 font-semibold">Parameter</th>
+                          <th className="px-4 py-3 font-semibold">Nilai Acuan</th>
+                          <th className="px-4 py-3 font-semibold">Toleransi (±)</th>
+                          <th className="px-4 py-3 w-16"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(answers.custom_refs || []).map(ref => (
+                          <tr key={ref.id} className="border-b border-gray-100 last:border-0 bg-white">
+                            <td className="px-4 py-2">
+                              <input 
+                                type="text" 
+                                value={ref.parameter} 
+                                onChange={(e) => handleUpdateCustomRef(ref.id, 'parameter', e.target.value)}
+                                className="w-full px-3 py-1.5 rounded-md border border-gray-200 focus:ring-1 focus:ring-blue-500 outline-none text-sm"
+                                placeholder="Contoh: OD, ID..."
+                              />
+                            </td>
+                            <td className="px-4 py-2">
+                              <input 
+                                type="number" 
+                                value={ref.value} 
+                                onChange={(e) => handleUpdateCustomRef(ref.id, 'value', e.target.value)}
+                                className="w-full px-3 py-1.5 rounded-md border border-gray-200 focus:ring-1 focus:ring-blue-500 outline-none text-sm"
+                                placeholder="Nilai"
+                              />
+                            </td>
+                            <td className="px-4 py-2">
+                              <input 
+                                type="number" 
+                                value={ref.tolerance} 
+                                onChange={(e) => handleUpdateCustomRef(ref.id, 'tolerance', e.target.value)}
+                                className="w-full px-3 py-1.5 rounded-md border border-gray-200 focus:ring-1 focus:ring-blue-500 outline-none text-sm"
+                                placeholder="Toleransi"
+                              />
+                            </td>
+                            <td className="px-4 py-2 text-center">
+                              <button 
+                                onClick={() => handleRemoveCustomRef(ref.id)}
+                                className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                <button 
+                  onClick={handleAddCustomRef}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-100"
+                >
+                  <Plus className="w-4 h-4" />
+                  Tambah acuan custom
+                </button>
+              </div>
+            )}
+
+            {/* Helper: Flange / Standar */}
+            {section.title.toLowerCase().includes('flange') && (
+              <div className="mt-8 pt-6 border-t border-gray-200 space-y-6">
+                <div className="bg-blue-50/50 p-5 rounded-xl border border-blue-100">
+                  <h4 className="font-bold text-gray-800 mb-1">Cocokkan standar dari hasil ukur</h4>
+                  <p className="text-sm text-gray-500 mb-4">Isi OD, PCD, dan jumlah lubang di form utama, lalu cari standar yang mendekati.</p>
+                  <button className="px-4 py-2 bg-white border border-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
+                    Cari standar yang cocok
+                  </button>
+                </div>
+
+                <div className="bg-blue-50/50 p-5 rounded-xl border border-blue-100">
+                  <h4 className="font-bold text-gray-800 mb-3">Hitung PCD dari jarak lubang bersebelahan</h4>
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">Jumlah lubang</label>
+                      <input type="number" className="w-full px-3 py-2 rounded-md border border-gray-200 outline-none text-sm focus:ring-1 focus:ring-blue-500" placeholder="0" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">Jarak antar pusat (mm)</label>
+                      <input type="number" className="w-full px-3 py-2 rounded-md border border-gray-200 outline-none text-sm focus:ring-1 focus:ring-blue-500" placeholder="0" />
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-bold text-blue-600">PCD: -</span>
+                    <button className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
+                      Pakai sebagai PCD
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Helper: Gap / Celah / Instalasi */}
+            {(section.title.toLowerCase().includes('instalasi') || section.title.toLowerCase().includes('gap') || section.title.toLowerCase().includes('celah')) && (
+              <div className="mt-8 pt-6 border-t border-gray-200">
+                <div className="bg-blue-50/50 p-5 rounded-xl border border-blue-100">
+                  <h4 className="font-bold text-gray-800 mb-1">Ukur celah flange di 4 titik</h4>
+                  <p className="text-sm text-gray-500 mb-4">Posisi jam 12, 3, 6, dan 9.</p>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+                    {['Jam 12', 'Jam 3', 'Jam 6', 'Jam 9', 'OD Flange'].map(label => (
+                      <div key={label}>
+                        <label className="block text-xs font-semibold text-gray-600 mb-1">{label} (mm)</label>
+                        <input type="number" className="w-full px-3 py-2 rounded-md border border-gray-200 outline-none text-sm focus:ring-1 focus:ring-blue-500" placeholder="0" />
+                      </div>
+                    ))}
+                  </div>
+                  <button className="px-4 py-2 bg-white border border-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
+                    Hitung & Isi panjang terpasang / misalignment
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Footer Section */}
+          <div className="p-5 border-t border-gray-100 bg-gray-50 flex justify-end">
+            <button 
+              onClick={async () => {
+                setCurrentSectionId(null);
+                
+                // Simpan data section (dan semua answers sejauh ini) ke DB Relasional (bukan JSONB)
+                try {
+                  const itemNo = parseInt(product.displayId.split('-')[1]) || 1;
+                  await fetch('http://localhost:3000/api/survey-engine/submit-dynamic', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      survey_no: "SURVEY-001", // DUMMY SURVEY NO
+                      product_code: product.code,
+                      item_no: itemNo,
+                      answers: answers,
+                      custom_refs: answers.custom_refs || []
+                    })
+                  });
+                } catch (err) {
+                  console.error('Error saving section:', err);
+                }
+              }}
+              className="bg-blue-600 text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-sm"
+            >
+              Simpan & Kembali
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Tampilan Menu Cards (Section List)
+  const isAllComplete = sections.every(s => getSectionProgress(s).status === 'green');
+
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Memuat template pertanyaan...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Jika tidak ada section setelah loading
+  if (!sections || sections.length === 0) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 text-center">
+          <AlertTriangle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-gray-800 mb-2">Template Tidak Tersedia</h2>
+          <p className="text-gray-600 mb-6">Belum ada template pertanyaan untuk produk {product.code}.</p>
+          <button onClick={onClose} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 font-medium">Tutup</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 md:p-6">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl flex flex-col max-h-[90vh] overflow-hidden">
+        
+        {/* Header Master */}
+        <div className="p-5 md:p-6 border-b border-gray-100 flex justify-between items-start bg-blue-50/50">
+          <div>
+            <div className="flex items-center gap-3 mb-1">
+              <div className="w-10 h-10 rounded-full border border-blue-200 bg-white flex items-center justify-center text-xs font-bold text-blue-700">
+                {product.code}
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">{product.displayId}</h2>
+                <p className="text-sm text-gray-500 font-medium">{product.name}</p>
+              </div>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 bg-white text-gray-400 hover:text-gray-600 rounded-full border border-gray-200 shadow-sm transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Body Cards List */}
+        <div className="flex-1 overflow-y-auto p-5 md:p-6 bg-slate-50">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="font-bold text-gray-700">Form Inspeksi Lapangan</h3>
+            <span className="text-xs font-medium text-gray-500">Pilih modul untuk mengisi data</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {sections.map((section) => {
+              const progress = getSectionProgress(section);
+              
+              // Badge colors based on status
+              const statusConfig = {
+                green: { bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-200', icon: <CheckCircle2 className="w-4 h-4" /> },
+                yellow: { bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-200', icon: <AlertTriangle className="w-4 h-4" /> },
+                red: { bg: 'bg-rose-100', text: 'text-rose-700', border: 'border-rose-200', icon: <AlertCircle className="w-4 h-4" /> }
+              };
+              const config = statusConfig[progress.status];
+
+              return (
+                <button
+                  key={section.id}
+                  onClick={() => setCurrentSectionId(section.id)}
+                  className="flex flex-col text-left bg-white p-4 rounded-xl border border-gray-200 hover:border-blue-400 hover:shadow-md transition-all group relative overflow-hidden"
+                >
+                  <div className="flex justify-between items-start mb-3 w-full">
+                    <div className="bg-blue-50 p-2 rounded-lg text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                      <FileText className="w-5 h-5" />
+                    </div>
+                    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold border ${config.bg} ${config.text} ${config.border}`}>
+                      {config.icon}
+                      <span>{progress.filled} / {progress.total} Diisi</span>
+                    </div>
+                  </div>
+                  
+                  <h4 className="font-bold text-gray-800 text-lg mb-1">{section.title}</h4>
+                  <p className="text-sm text-gray-500 line-clamp-2">{section.description}</p>
+                  
+                  <div className="absolute right-4 bottom-4 text-gray-300 group-hover:text-blue-500 transition-colors">
+                    <ChevronRight className="w-5 h-5" />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Footer Master */}
+        <div className="p-5 border-t border-gray-100 bg-white flex justify-between items-center">
+          <div className="text-sm text-gray-500">
+            {isAllComplete ? (
+              <span className="text-emerald-600 font-bold flex items-center gap-1">
+                <CheckCircle2 className="w-4 h-4" /> Seluruh section lengkap
+              </span>
+            ) : (
+              <span className="text-rose-500 font-bold flex items-center gap-1">
+                <AlertCircle className="w-4 h-4" /> Masih ada section yang belum lengkap
+              </span>
+            )}
+          </div>
+          <button 
+            onClick={() => onSave(answers)}
+            className="flex items-center gap-2 bg-blue-600 text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Save className="w-5 h-5" />
+            Simpan Data Produk
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

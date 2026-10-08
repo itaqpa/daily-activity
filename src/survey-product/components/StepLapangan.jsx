@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { MapPin, Box, Plus, Trash2, CheckCircle2, ChevronRight, X } from 'lucide-react';
+import DynamicProductForm from './modals/DynamicProductForm';
 
 const PRODUCT_LIST = [
   { code: 'EJR', name: 'Expansion Joint Rubber', category: 'Expansion joint' },
@@ -19,6 +20,8 @@ export default function StepLapangan() {
 
   const [productProgress, setProductProgress] = useState([]);
   const [isAddingProduct, setIsAddingProduct] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null); // Menampung produk yg sedang diedit
+
 
   const addSchedule = () => {
     setActualSchedules([
@@ -45,10 +48,67 @@ export default function StepLapangan() {
         displayId: formattedId,
         lokasi: '', 
         hari_ke: 1, 
-        percent: 0 
+        percent: 0,
+        formData: {} // Menyimpan data dinamisnya
       }
     ]);
     setIsAddingProduct(false);
+  };
+
+  const handleSaveProductForm = async (answers) => {
+    // Di sini kita bisa mengkalkulasi percentase berdasarkan total jawaban yang terisi
+    // Tapi untuk simulasi, kita hitung 100% jika semua terisi, atau misal kita biarkan saja.
+    // Misal: hitung jumlah keys yang ada valuenya:
+    const filledKeys = Object.values(answers).filter(v => v !== undefined && v !== '').length;
+    // Anggap ada 11 pertanyaan di mock EJR, maka percent = filledKeys/11 * 100
+    const mockTotal = 11; 
+    let calcPercent = Math.round((filledKeys / mockTotal) * 100);
+    if (calcPercent > 100) calcPercent = 100;
+
+    const newProgress = productProgress.map(p => 
+      p.id === selectedProduct.id 
+        ? { ...p, formData: answers, percent: calcPercent } 
+        : p
+    );
+
+    setProductProgress(newProgress);
+    setSelectedProduct(null);
+
+    // Otomatis simpan ke database saat form produk selesai diisi
+    try {
+      // 1. Simpan schedules ke progress
+      await fetch('http://localhost:3000/api/survey-engine/submit-lapangan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          survey_id: 1, // DUMMY ID
+          schedules: actualSchedules,
+          products: newProgress // This still keeps the JSONB backup if needed
+        })
+      });
+
+      // 2. Simpan jawaban dinamis ke tabel relasional survey_engine
+      const itemNo = parseInt(selectedProduct.displayId.split('-')[1]) || 1;
+      const resDynamic = await fetch('http://localhost:3000/api/survey-engine/submit-dynamic', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          survey_no: "SURVEY-001", // DUMMY SURVEY NO
+          product_code: selectedProduct.code,
+          item_no: itemNo,
+          answers: answers,
+          custom_refs: answers.custom_refs || []
+        })
+      });
+
+      if (resDynamic.ok) {
+        console.log('Progress berhasil disimpan ke DB Relasional (bukan JSONB)');
+      } else {
+        console.error('Gagal menyimpan progress ke DB Relasional');
+      }
+    } catch (error) {
+      console.error('Network error:', error);
+    }
   };
 
   const removeProductProgress = (id) => {
@@ -164,7 +224,11 @@ export default function StepLapangan() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {productProgress.map((product) => (
-              <div key={product.id} className="relative group bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col gap-3 hover:border-blue-300 transition-colors cursor-pointer shadow-sm">
+              <div 
+                key={product.id} 
+                onClick={() => setSelectedProduct(product)}
+                className="relative group bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col gap-3 hover:border-blue-300 transition-colors cursor-pointer shadow-sm"
+              >
                 
                 {/* Delete button (shows on hover) */}
                 <button 
@@ -213,6 +277,16 @@ export default function StepLapangan() {
           </div>
         )}
       </div>
+
+      {/* Render the modal when a product is clicked */}
+      {selectedProduct && (
+        <DynamicProductForm 
+          product={selectedProduct}
+          existingData={selectedProduct.formData || {}}
+          onClose={() => setSelectedProduct(null)}
+          onSave={handleSaveProductForm}
+        />
+      )}
     </div>
   );
 }
