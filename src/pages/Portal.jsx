@@ -11,7 +11,8 @@ import {
   Settings,
   Shield,
   LogOut,
-  ArrowRight
+  ArrowRight,
+  ClipboardList
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
@@ -74,6 +75,16 @@ export default function Portal() {
       shadowClass: 'shadow-orange-500/20',
       path: dinasLuarPath,
       hasAccess: hasDinasLuarAccess
+    },
+    {
+      title: 'Survey Product',
+      description: 'Manajemen survey product dan pendataan',
+      icon: <ClipboardList className="w-7 h-7 text-green-600" />,
+      bgClass: 'bg-green-50/80',
+      borderClass: 'border-green-100',
+      shadowClass: 'shadow-green-500/20',
+      path: '/survey-product',
+      hasAccess: hasPermission('survey_product_view')
     }
   ];
 

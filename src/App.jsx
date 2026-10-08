@@ -52,6 +52,10 @@ import HistorynLogPage from './master-admin/HistorynLogPage';
 import StandaloneAddActivity from './install-project/pages/StandaloneAddActivity';
 import StandaloneAddCost from './install-project/pages/StandaloneAddCost';
 
+import SurveyProductList from './survey-product/SurveyProductList';
+import DataSurveyor from './survey-product/master-data/DataSurveyor';
+import FormSurveyProductPage from './survey-product/formsurveyproduct/FormSurveyProductPage';
+
 function ProtectedRoute() {
   const token = localStorage.getItem('token');
   if (!token) {
@@ -108,6 +112,13 @@ function App() {
             <Route path="manajemen-akses" element={<ManajemenAkses />} />
             <Route path="history-log" element={<HistorynLogPage />} />
             <Route path="users" element={<UserManagement />} />
+          </Route>
+
+          <Route path="/survey-product" element={<ProtectedRoute />}>
+            <Route index element={<SurveyProductList />} />
+            <Route path="create" element={<FormSurveyProductPage />} />
+            <Route path="reports" element={<div>Laporan Coming Soon...</div>} />
+            <Route path="master-data/surveyor" element={<DataSurveyor />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -3,16 +3,17 @@ import { Link } from "react-router-dom";
 import { Database, ChevronDown, ChevronRight, Briefcase, UserCircle, HardHat, Users, Shield, History } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
 
-export default function SidebarMasterData({ isActive, isMarketing, isInstallation }) {
+export default function SidebarMasterData({ isActive, isMarketing, isInstallation, isSurveyProduct }) {
   const { hasPermission } = useAuth();
   const [isOpen, setIsOpen] = useState(true);
 
   // Group permissions by their respective modules
   const showMarketingMaster = isMarketing && (hasPermission('sales_view') || hasPermission('customer_view'));
   const showInstallationMaster = isInstallation && hasPermission('manpower_view');
+  const showSurveyProductMaster = isSurveyProduct && hasPermission('surveyor_view');
   const showGlobalMaster = hasPermission('user_view') || hasPermission('akses_view') || hasPermission('history_view');
 
-  if (!showMarketingMaster && !showInstallationMaster && !showGlobalMaster) {
+  if (!showMarketingMaster && !showInstallationMaster && !showSurveyProductMaster && !showGlobalMaster) {
     return null;
   }
 
@@ -77,6 +78,21 @@ export default function SidebarMasterData({ isActive, isMarketing, isInstallatio
             >
               <HardHat className="w-4 h-4" />
               <span>Data Manpower</span>
+            </Link>
+          )}
+
+          {/* SURVEY PRODUCT MASTER DATA */}
+          {isSurveyProduct && (
+            <Link
+              to="/survey-product/master-data/surveyor"
+              className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${
+                isActive("/survey-product/master-data/surveyor")
+                  ? "bg-[#1c3350] shadow-sm text-white ring-1 ring-white/10 font-semibold"
+                  : "text-blue-100/70 hover:bg-white/5 hover:text-white font-medium"
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              <span>Data Surveyor</span>
             </Link>
           )}
 

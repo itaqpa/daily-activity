@@ -135,6 +135,8 @@ export default function ManajemenAkses() {
       else if (p.nama_permission.startsWith("daily_progress")) key = "Daily Progress";
       else if (p.nama_permission.startsWith("laporan_project")) key = "Laporan Project";
       else if (p.nama_permission.startsWith("pengeluaran")) key = "Data Pengeluaran MP";
+      else if (p.nama_permission.startsWith("survey_product")) key = "Survey Product";
+      else if (p.nama_permission.startsWith("surveyor")) key = "Data Surveyor";
       
       if (!groups[key]) groups[key] = [];
       groups[key].push(p);

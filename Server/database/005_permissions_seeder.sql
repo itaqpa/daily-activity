@@ -83,6 +83,21 @@ INSERT INTO permissions (nama_permission, deskripsi) VALUES
 ('pengeluaran_create', 'Menambah Data Pengeluaran MP'),
 ('pengeluaran_edit', 'Mengubah Data Pengeluaran MP'),
 ('pengeluaran_delete', 'Menghapus Data Pengeluaran MP'),
-('pengeluaran_export', 'Export Data Pengeluaran MP')
+('pengeluaran_export', 'Export Data Pengeluaran MP'),
+
+-- 15. Modul Survey Product
+('survey_product_view', 'Melihat Survey Product'),
+('survey_product_create', 'Menambah Survey Product'),
+('survey_product_edit', 'Mengubah Survey Product'),
+('survey_product_delete', 'Menghapus Survey Product'),
+('survey_product_export', 'Export Survey Product'),
+('survey_product_token', 'Buat/Lihat Token Survey Product'),
+
+-- 16. Modul Data Surveyor (Master Data)
+('surveyor_view', 'Melihat Data Surveyor'),
+('surveyor_create', 'Menambah Data Surveyor'),
+('surveyor_edit', 'Mengubah Data Surveyor'),
+('surveyor_delete', 'Menghapus Data Surveyor'),
+('surveyor_export', 'Export Data Surveyor')
 
 ON CONFLICT (nama_permission) DO NOTHING;

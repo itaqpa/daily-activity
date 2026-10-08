@@ -8,6 +8,7 @@ export default function Topbar({ currentModule }) {
   const { user, logout, hasPermission } = useAuth();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isModuleOpen, setIsModuleOpen] = useState(false);
+  const [isRoleOpen, setIsRoleOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -118,20 +119,31 @@ export default function Topbar({ currentModule }) {
                   <p className="text-sm font-bold text-gray-900">{user?.name || 'User'}</p>
                   <p className="text-xs text-gray-500 truncate">{user?.email || '-'}</p>
                 </div>
-                <div className="py-2">
-                  <div className="px-4 py-2">
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Role Akses Tambahan</p>
-                    {user?.additional_roles_data && user.additional_roles_data.length > 0 ? (
-                      <div className="flex flex-col gap-2">
-                        {user.additional_roles_data.map((role) => (
-                          <div key={role.id} className="flex items-center gap-2 text-sm text-gray-700 bg-gray-50 p-2 rounded-lg border border-gray-100">
-                            <Shield className="w-4 h-4 text-blue-500 shrink-0" />
-                            <span className="font-medium truncate">{role.nama_jabatan}</span>
+                <div className="py-1">
+                  <div className="px-4 py-1">
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); setIsRoleOpen(!isRoleOpen); }}
+                      className="w-full flex items-center justify-between text-xs font-bold text-gray-400 uppercase tracking-wider py-1.5 hover:text-gray-600 transition-colors"
+                    >
+                      <span>Role Akses Tambahan</span>
+                      <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isRoleOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    
+                    {isRoleOpen && (
+                      <div className="mt-2 mb-1">
+                        {user?.additional_roles_data && user.additional_roles_data.length > 0 ? (
+                          <div className="flex flex-col gap-2 max-h-32 overflow-y-auto pr-1 custom-scrollbar">
+                            {user.additional_roles_data.map((role) => (
+                              <div key={role.id} className="flex items-center gap-2 text-sm text-gray-700 bg-gray-50 p-2 rounded-lg border border-gray-100">
+                                <Shield className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                                <span className="font-medium truncate text-xs">{role.nama_jabatan}</span>
+                              </div>
+                            ))}
                           </div>
-                        ))}
+                        ) : (
+                          <p className="text-xs text-gray-500 italic px-1">Tidak ada role tambahan</p>
+                        )}
                       </div>
-                    ) : (
-                      <p className="text-sm text-gray-500 italic">Tidak ada role tambahan</p>
                     )}
                   </div>
                 </div>

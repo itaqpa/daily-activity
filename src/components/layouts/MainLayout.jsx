@@ -30,7 +30,10 @@ export default function MainLayout({ children }) {
                           path.startsWith('/master-admin/manajemen-akses');
                           
     if (!isSharedRoute) {
-      if (path.startsWith('/installation-project') || path.startsWith('/data-pengeluaran')) {
+      if (path.startsWith('/survey-product')) {
+        localStorage.setItem('activeAppModule', 'Survey Product');
+        setCurrentModule('Survey Product');
+      } else if (path.startsWith('/installation-project') || path.startsWith('/data-pengeluaran')) {
         localStorage.setItem('activeAppModule', 'Installation Project');
         setCurrentModule('Installation Project');
       } else if (path.startsWith('/marketing')) {

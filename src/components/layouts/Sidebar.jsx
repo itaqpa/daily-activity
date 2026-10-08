@@ -4,6 +4,7 @@ import { Settings, X, Download } from "lucide-react";
 import SidebarMarketing from "./commons/SidebarMarketing";
 import SidebarInstallation from "./commons/SidebarInstallation";
 import SidebarMasterData from "./commons/SidebarMasterData";
+import SidebarSurveyProduct from "./commons/SidebarSurveyProduct";
 
 export default function Sidebar({ isOpen, setIsOpen, currentModule }) {
   const location = useLocation();
@@ -23,6 +24,7 @@ export default function Sidebar({ isOpen, setIsOpen, currentModule }) {
 
   const isMarketing = currentModule === 'Daily Activity Sales';
   const isInstallation = currentModule === 'Installation Project';
+  const isSurveyProduct = currentModule === 'Survey Product';
 
   return (
     <>
@@ -58,13 +60,19 @@ export default function Sidebar({ isOpen, setIsOpen, currentModule }) {
             {/* Conditional Rendering of Sections */}
             {isMarketing && <SidebarMarketing isActive={isActive} />}
             {isInstallation && <SidebarInstallation isActive={isActive} />}
+            {isSurveyProduct && <SidebarSurveyProduct isActive={isActive} />}
             
             {/* Master Data is shown if it's Marketing (since the routes are under /marketing), 
                 but we could also show it everywhere if needed. Based on current paths, 
                 they are heavily tied to /marketing, so let's show it always when in Marketing or Installation. */}
-            {(isMarketing || isInstallation) && (
+            {(isMarketing || isInstallation || isSurveyProduct) && (
               <div className="pt-1 border-t border-white/5">
-                <SidebarMasterData isActive={isActive} isMarketing={isMarketing} isInstallation={isInstallation} />
+                <SidebarMasterData 
+                  isActive={isActive} 
+                  isMarketing={isMarketing} 
+                  isInstallation={isInstallation} 
+                  isSurveyProduct={isSurveyProduct}
+                />
               </div>
             )}
 
