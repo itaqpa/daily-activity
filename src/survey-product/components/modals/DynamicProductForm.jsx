@@ -6,11 +6,13 @@ import { apiUrl } from '../../../api';
 // const MOCK_TEMPLATE = {...} dihapus
 
 
-export default function DynamicProductForm({ product, onClose, onSave, existingData = {} }) {
+export default function DynamicProductForm({ product, onClose, onSave, existingData = {}, schedules = [] }) {
   const [sections, setSections] = useState([]);
   const [currentSectionId, setCurrentSectionId] = useState(null);
   const [answers, setAnswers] = useState(existingData);
   const [isLoading, setIsLoading] = useState(true);
+  const [isEditingNotes, setIsEditingNotes] = useState(false);
+  const [isEditingOutstanding, setIsEditingOutstanding] = useState(false);
 
   useEffect(() => {
     const fetchTemplate = async () => {
@@ -56,6 +58,29 @@ export default function DynamicProductForm({ product, onClose, onSave, existingD
   const handleInputChange = (questionId, value) => {
     setAnswers(prev => ({ ...prev, [questionId]: value }));
   };
+
+  useEffect(() => {
+    // Cari pertanyaan Hari Survey
+    let hariSurveyQId = null;
+    sections.forEach(sec => {
+      sec.questions.forEach(q => {
+        const labelL = (q.label || '').toLowerCase();
+        const idL = (q.id || '').toLowerCase();
+        if (labelL.includes('hari survey') || labelL.includes('hari pelaksanaan') || idL === 'hari_ke' || idL.includes('hari_survey') || idL.includes('hari')) {
+          hariSurveyQId = q.id;
+        }
+      });
+    });
+
+    if (hariSurveyQId) {
+      const todayDate = new Date().toISOString().split('T')[0];
+      const matchedSch = schedules.find(s => s.tanggal === todayDate) || schedules[0] || { hari_ke: 1 };
+      const val = `Hari ke ${matchedSch.hari_ke} - ${todayDate} - ${product?.code || ''}`;
+      if (answers[hariSurveyQId] !== val) {
+        setAnswers(prev => ({ ...prev, [hariSurveyQId]: val }));
+      }
+    }
+  }, [sections, schedules, product?.code]);
 
   const handleAddCustomRef = () => {
     setAnswers(prev => ({
@@ -197,7 +222,28 @@ export default function DynamicProductForm({ product, onClose, onSave, existingD
 
           {/* Body Section (Form Renderer) */}
           <div className="flex-1 overflow-y-auto p-5 md:p-8 space-y-6 bg-white">
-            {section.questions.filter(q => evaluateVisibility(q, answers)).map((q) => (
+            {section.questions.filter(q => evaluateVisibility(q, answers)).map((q) => {
+              const labelL = (q.label || '').toLowerCase();
+              const idL = (q.id || '').toLowerCase();
+              const isHariSurvey = labelL.includes('hari survey') || labelL.includes('hari pelaksanaan') || idL === 'hari_ke' || idL.includes('hari_survey') || idL.includes('hari');
+
+              if (isHariSurvey) {
+                return (
+                  <div key={q.id} className="space-y-1.5">
+                    <label className="block text-sm font-semibold text-gray-700">
+                      {q.label} {q.required && <span className="text-red-500">*</span>}
+                    </label>
+                    <input
+                      type="text"
+                      disabled
+                      value={answers[q.id] || ''}
+                      className="w-full px-4 py-2.5 rounded-lg border border-gray-300 bg-gray-100 text-gray-700 font-medium cursor-not-allowed outline-none text-sm"
+                    />
+                  </div>
+                );
+              }
+
+              return (
               <div key={q.id} className="space-y-1.5">
                 <label className="block text-sm font-semibold text-gray-700">
                   {q.label} {q.required && <span className="text-red-500">*</span>}
@@ -296,7 +342,8 @@ export default function DynamicProductForm({ product, onClose, onSave, existingD
                   </div>
                 ) : null}
               </div>
-            ))}
+            );
+          })}
             
             {/* Acuan Custom Table Helper (Only in Acuan & Validasi section) */}
             {section.title.toLowerCase().includes('acuan') && (
@@ -450,6 +497,19 @@ export default function DynamicProductForm({ product, onClose, onSave, existingD
   // Tampilan Menu Cards (Section List)
   const isAllComplete = sections.every(s => getSectionProgress(s).status === 'green');
 
+  const getMissingCriticalFields = () => {
+    let missing = [];
+    sections.forEach(sec => {
+      sec.questions.forEach(q => {
+        if (q.required && evaluateVisibility(q, answers) && (!answers[q.id] || String(answers[q.id]).trim() === '')) {
+          missing.push(q.label);
+        }
+      });
+    });
+    return missing;
+  };
+  const missingFields = getMissingCriticalFields();
+
   if (isLoading) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -541,6 +601,71 @@ export default function DynamicProductForm({ product, onClose, onSave, existingD
                 </button>
               );
             })}
+          </div>
+
+          {/* Tambahan Catatan & Outstanding */}
+          <div className="mt-8 space-y-4">
+            {/* Catatan Item */}
+            <div className="bg-white border border-gray-200 rounded-xl p-4">
+              <div className="flex justify-between items-center mb-2">
+                <h4 className="font-bold text-gray-800">Catatan Item</h4>
+                <button 
+                  onClick={() => setIsEditingNotes(!isEditingNotes)}
+                  className="text-sm font-bold text-slate-800 hover:text-blue-600 transition-colors"
+                >
+                  {isEditingNotes || answers.catatan ? 'Edit Catatan' : '+ Catatan'}
+                </button>
+              </div>
+              {isEditingNotes ? (
+                <textarea
+                  autoFocus
+                  value={answers.catatan || ''}
+                  onChange={(e) => setAnswers(prev => ({ ...prev, catatan: e.target.value }))}
+                  onBlur={() => setIsEditingNotes(false)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-700 min-h-[80px]"
+                  placeholder="Masukkan catatan item..."
+                />
+              ) : (
+                <p className="text-gray-500 text-sm">
+                  {answers.catatan || 'Belum ada catatan.'}
+                </p>
+              )}
+            </div>
+
+            {/* Perlu Konfirmasi / Outstanding */}
+            <div className="bg-white border border-gray-200 rounded-xl p-4">
+              <div className="flex justify-between items-center mb-2">
+                <h4 className="font-bold text-gray-800">Perlu Konfirmasi / Outstanding</h4>
+                <button 
+                  onClick={() => setIsEditingOutstanding(!isEditingOutstanding)}
+                  className="text-sm font-bold text-slate-800 hover:text-blue-600 transition-colors"
+                >
+                  {isEditingOutstanding || answers.outstanding ? 'Edit Outstanding' : '+ Outstanding'}
+                </button>
+              </div>
+              {isEditingOutstanding ? (
+                <textarea
+                  autoFocus
+                  value={answers.outstanding || ''}
+                  onChange={(e) => setAnswers(prev => ({ ...prev, outstanding: e.target.value }))}
+                  onBlur={() => setIsEditingOutstanding(false)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-700 min-h-[80px]"
+                  placeholder="Masukkan outstanding item..."
+                />
+              ) : (
+                <p className="text-gray-500 text-sm">
+                  {answers.outstanding || 'Tidak ada outstanding.'}
+                </p>
+              )}
+            </div>
+
+            {/* Field kritis belum lengkap */}
+            {missingFields.length > 0 && (
+              <div className="bg-white border border-orange-400 rounded-xl p-4">
+                <h4 className="font-bold text-slate-800 mb-1">Field kritis belum lengkap</h4>
+                <p className="text-gray-500 text-sm">{missingFields.join(' • ')}</p>
+              </div>
+            )}
           </div>
         </div>
 

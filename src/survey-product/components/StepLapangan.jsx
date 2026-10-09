@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { MapPin, Box, Plus, Trash2, ChevronRight, X } from 'lucide-react';
 import DynamicProductForm from './modals/DynamicProductForm';
+import { exportToPDF } from '../utils/pdfExport';
 
 export const PRODUCT_LIST = [
   { code: 'EJR', name: 'Expansion Joint Rubber', category: 'Expansion joint' },
@@ -13,12 +14,15 @@ export const PRODUCT_LIST = [
   { code: 'DFG', name: 'Die Formed Graphite', category: 'Packing' }
 ];
 
-export const createEmptyLapanganData = () => ({
-  actualSchedules: [{ id: 1, hari_ke: '', tanggal: '', kegiatan: '' }],
-  productProgress: []
-});
+export const createEmptyLapanganData = () => {
+  const today = new Date().toISOString().split('T')[0];
+  return {
+    actualSchedules: [{ id: 1, hari_ke: 1, tanggal: today, kegiatan: '' }],
+    productProgress: []
+  };
+};
 
-export default function StepLapangan({ data = createEmptyLapanganData(), onChange }) {
+export default function StepLapangan({ data = createEmptyLapanganData(), stepData = {}, onChange }) {
   const actualSchedules = data.actualSchedules?.length ? data.actualSchedules : createEmptyLapanganData().actualSchedules;
   const productProgress = data.productProgress || [];
   const [isAddingProduct, setIsAddingProduct] = useState(false);
@@ -27,10 +31,11 @@ export default function StepLapangan({ data = createEmptyLapanganData(), onChang
   const updateData = (patch) => onChange?.({ ...data, ...patch });
 
   const addSchedule = () => {
+    const today = new Date().toISOString().split('T')[0];
     updateData({
       actualSchedules: [
         ...actualSchedules,
-        { id: Date.now(), hari_ke: '', tanggal: '', kegiatan: '' }
+        { id: Date.now(), hari_ke: actualSchedules.length + 1, tanggal: today, kegiatan: '' }
       ]
     });
   };
@@ -44,10 +49,14 @@ export default function StepLapangan({ data = createEmptyLapanganData(), onChang
   };
 
   const removeSchedule = (id) => {
+    if (actualSchedules.length === 1) return;
+    
+    const newSchedules = actualSchedules
+      .filter(schedule => schedule.id !== id)
+      .map((sch, index) => ({ ...sch, hari_ke: index + 1 }));
+      
     updateData({
-      actualSchedules: actualSchedules.length === 1
-        ? actualSchedules
-        : actualSchedules.filter(schedule => schedule.id !== id)
+      actualSchedules: newSchedules
     });
   };
 
@@ -115,24 +124,26 @@ export default function StepLapangan({ data = createEmptyLapanganData(), onChang
         </div>
 
         <div className="space-y-4">
-          {actualSchedules.map((schedule) => (
+          {actualSchedules.map((schedule, index) => {
+            const hariKe = schedule.hari_ke || (index + 1);
+            const tanggal = schedule.tanggal || new Date().toISOString().split('T')[0];
+
+            return (
             <div key={schedule.id} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start bg-gray-50 p-4 rounded-xl border border-gray-100">
               <div className="md:col-span-2">
                 <label className="block text-xs font-semibold text-gray-500 mb-1">Hari ke:</label>
                 <input
                   type="number"
-                  min="1"
-                  value={schedule.hari_ke || ''}
-                  onChange={(e) => updateSchedule(schedule.id, 'hari_ke', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
-                  placeholder="Cth: 1"
+                  value={hariKe}
+                  disabled
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed outline-none text-sm"
                 />
               </div>
               <div className="md:col-span-3">
                 <label className="block text-xs font-semibold text-gray-500 mb-1">Tanggal Aktual</label>
                 <input
                   type="date"
-                  value={schedule.tanggal || ''}
+                  value={tanggal}
                   onChange={(e) => updateSchedule(schedule.id, 'tanggal', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-700 bg-white"
                 />
@@ -157,7 +168,8 @@ export default function StepLapangan({ data = createEmptyLapanganData(), onChang
                 </button>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -241,7 +253,10 @@ export default function StepLapangan({ data = createEmptyLapanganData(), onChang
                       {product.percent}% <ChevronRight className="w-4 h-4 text-slate-400 ml-0.5" />
                     </div>
                     <button
-                      onClick={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        exportToPDF(stepData, data, product.code);
+                      }}
                       className="bg-orange-50 text-orange-600 border border-orange-200 px-3 py-1 rounded-md text-xs font-bold hover:bg-orange-100 transition-colors"
                     >
                       Preview Laporan
@@ -267,6 +282,7 @@ export default function StepLapangan({ data = createEmptyLapanganData(), onChang
           existingData={selectedProduct.formData || {}}
           onClose={() => setSelectedProduct(null)}
           onSave={handleSaveProductForm}
+          schedules={actualSchedules}
         />
       )}
     </div>

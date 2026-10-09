@@ -102,22 +102,25 @@ export default function StepPersiapan({ data = createEmptyPersiapanData(), onCha
       is_default: false
     };
 
-    setMasterData(prev => [...prev, addedItem]);
-    setState(prev => ({
-      ...prev,
-      [newId]: { digunakan: true, qty: 1 } 
-    }));
+    updateData({
+      masterData: [...masterData, addedItem],
+      state: {
+        ...state,
+        [newId]: { digunakan: true, qty: 1 }
+      }
+    });
 
     setAddingNew(null);
     setNewItem({ label: '', ket_tambahan: null });
   };
 
   const removeItem = (id) => {
-    setMasterData(prev => prev.filter(item => item.id !== id));
-    setState(prev => {
-      const newState = { ...prev };
-      delete newState[id];
-      return newState;
+    const nextState = { ...state };
+    delete nextState[id];
+
+    updateData({
+      masterData: masterData.filter(item => item.id !== id),
+      state: nextState
     });
   };
 

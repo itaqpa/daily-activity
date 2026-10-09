@@ -47,13 +47,20 @@ export default function FormSurveyProductPage() {
           ...createEmptyStepData(),
           ...(result.data || {})
         });
-        setPersiapanData(prev => ({
-          ...prev,
-          state: {
-            ...prev.state,
-            ...(result.persiapan?.state || {})
-          }
-        }));
+        setPersiapanData(prev => {
+          // Merge fetched items with INITIAL_MASTER_PERSIAPAN
+          const existingIds = new Set(prev.masterData.map(i => i.id));
+          const newItems = (result.persiapan?.items || []).filter(item => !existingIds.has(item.id));
+          
+          return {
+            ...prev,
+            masterData: [...prev.masterData, ...newItems],
+            state: {
+              ...prev.state,
+              ...(result.persiapan?.state || {})
+            }
+          };
+        });
         setLapanganData({
           ...createEmptyLapanganData(),
           ...(result.lapangan || {})
@@ -121,6 +128,10 @@ export default function FormSurveyProductPage() {
     try {
       const items = (persiapanData.masterData || []).map(item => ({
         master_persiapan_id: item.id,
+        label: item.label,
+        jenis: item.jenis,
+        ket_tambahan: item.ket_tambahan,
+        is_custom: item.id > 100000,
         digunakan: Boolean(persiapanData.state?.[item.id]?.digunakan),
         qty: Number(persiapanData.state?.[item.id]?.qty || 0)
       }));
@@ -201,8 +212,20 @@ export default function FormSurveyProductPage() {
     }
   };
 
-  const handlePrev = () => {
+  const handlePrev = async () => {
     if (currentStep > 1) {
+      if (currentStep === 1) {
+        const savedId = await saveStepDataDraft();
+        if (!savedId) return;
+      }
+      if (currentStep === 2) {
+        const saved = await savePersiapanDraft();
+        if (!saved) return;
+      }
+      if (currentStep === 3) {
+        const saved = await saveLapanganDraft();
+        if (!saved) return;
+      }
       setCurrentStep((prev) => prev - 1);
     }
   };
@@ -214,7 +237,7 @@ export default function FormSurveyProductPage() {
       case 2:
         return <StepPersiapan data={persiapanData} onChange={setPersiapanData} />;
       case 3:
-        return <StepLapangan data={lapanganData} onChange={setLapanganData} />;
+        return <StepLapangan data={lapanganData} onChange={setLapanganData} stepData={stepData} />;
       case 4:
         return <StepSummary stepData={stepData} persiapanData={persiapanData} lapanganData={lapanganData} />;
       default:
@@ -236,8 +259,7 @@ export default function FormSurveyProductPage() {
                 <ArrowLeft className="w-6 h-6" />
               </button>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">{editId ? 'Edit Survey Product' : 'Buat Survey Product'}</h1>
-                <p className="text-sm text-gray-500">Lengkapi data survey langkah demi langkah</p>
+                <h1 className="text-xl font-bold text-gray-900">Survey Product</h1>
               </div>
             </div>
             <div className="flex space-x-3">
@@ -245,7 +267,7 @@ export default function FormSurveyProductPage() {
                 onClick={() => navigate('/survey-product')}
                 className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
               >
-                Batal
+                Profil
               </button>
             </div>
           </div>
@@ -254,57 +276,61 @@ export default function FormSurveyProductPage() {
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
         {/* Progress Bar / Steps */}
-        <div className="mb-8 rounded-2xl border border-gray-100 bg-white px-4 py-5 shadow-sm sm:px-8">
-          <div className="relative grid grid-cols-4">
-            <div className="absolute left-[12.5%] right-[12.5%] top-5 h-1 rounded-full bg-gray-200"></div>
-            <div
-              className="absolute left-[12.5%] top-5 h-1 rounded-full bg-blue-600 transition-all duration-500 ease-out"
-              style={{ width: `${((currentStep - 1) / (STEPS.length - 1)) * 75}%` }}
+        <div className="mb-8 rounded-2xl border border-gray-100 bg-white px-4 py-8 shadow-sm sm:px-12 sm:py-10">
+          <div className="relative flex justify-between items-center w-full max-w-3xl mx-auto">
+            {/* Connecting Line Background */}
+            <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-[3px] bg-gray-100 rounded-full"></div>
+            {/* Connecting Line Active */}
+            <div 
+              className="absolute left-0 top-1/2 -translate-y-1/2 h-[3px] bg-blue-600 rounded-full transition-all duration-500 ease-in-out"
+              style={{ width: `${((currentStep - 1) / (STEPS.length - 1)) * 100}%` }}
             ></div>
 
             {STEPS.map((step) => {
               const isDone = currentStep > step.id;
               const isActive = currentStep === step.id;
+              
               return (
-              <div key={step.id} className="relative z-10 flex min-w-0 flex-col items-center">
-                <div
-                  className={`flex h-10 w-10 items-center justify-center rounded-full border-2 text-sm font-bold shadow-sm transition-all duration-300 ${
-                    isDone
-                      ? 'border-blue-600 bg-blue-600 text-white shadow-blue-100'
-                      : isActive
-                      ? 'border-blue-600 bg-white text-blue-700 ring-4 ring-blue-50'
-                      : 'border-gray-300 bg-white text-gray-400'
-                  }`}
-                >
-                  {isDone ? <Check className="w-5 h-5" /> : step.id}
+                <div key={step.id} className="relative z-10 flex flex-col items-center">
+                  <div 
+                    className={`flex items-center justify-center w-12 h-12 rounded-full text-base font-semibold transition-all duration-300 ring-[8px] ring-white
+                      ${isDone 
+                        ? 'bg-blue-600 text-white shadow-sm' 
+                        : isActive 
+                        ? 'bg-blue-50 text-blue-700 border-[2px] border-blue-600 shadow-sm' 
+                        : 'bg-white text-gray-400 border-[2px] border-gray-200'
+                      }
+                    `}
+                  >
+                    {isDone ? <Check className="w-6 h-6 stroke-[3]" /> : step.id}
+                  </div>
+                  <span 
+                    className={`absolute -bottom-8 whitespace-nowrap text-sm font-medium transition-colors duration-300
+                      ${isActive ? 'text-blue-700 font-semibold' : isDone ? 'text-gray-800' : 'text-gray-400'}
+                    `}
+                  >
+                    {step.title}
+                  </span>
                 </div>
-                <span
-                  className={`mt-3 max-w-full truncate text-xs font-semibold ${
-                    isDone || isActive ? 'text-blue-700' : 'text-gray-400'
-                  }`}
-                >
-                  {step.title}
-                </span>
-                {isActive && (
-                  <span className="mt-1 h-1 w-6 rounded-full bg-blue-600"></span>
-                )}
-              </div>
               );
             })}
           </div>
+          <div className="h-4"></div>
         </div>
 
         {/* Step Content */}
-        <div className="mb-8">
+        <div className="mb-24">
           {isLoadingDraft ? (
             <div className="bg-white border border-gray-100 rounded-2xl p-8 text-center text-gray-500 shadow-sm">
               Memuat data survey product...
             </div>
           ) : renderStepContent()}
         </div>
+      </div>
 
-        {/* Navigation Buttons */}
-        <div className="flex justify-between items-center border-t border-gray-200 pt-6">
+      {/* Navigation Buttons */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <button
             onClick={handlePrev}
             disabled={currentStep === 1}

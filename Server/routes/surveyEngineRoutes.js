@@ -420,9 +420,11 @@ export default function (pool) {
       );
 
       const persiapanResult = await pool.query(
-        `SELECT master_persiapan_id, digunakan, qty
-         FROM survey_product_persiapan
-         WHERE survey_id = $1`,
+        `SELECT sp.master_persiapan_id, sp.digunakan, sp.qty, 
+                mp.label, mp.jenis, mp.ket_tambahan
+         FROM survey_product_persiapan sp
+         JOIN master_survey_persiapan mp ON mp.id = sp.master_persiapan_id
+         WHERE sp.survey_id = $1`,
         [id]
       );
 
@@ -476,6 +478,12 @@ export default function (pool) {
             : [{ id: 1, hari: '', tanggal: '', rencana_area: '', target_item: '' }]
         },
         persiapan: {
+          items: persiapanResult.rows.map(item => ({
+            id: item.master_persiapan_id,
+            label: item.label,
+            jenis: item.jenis,
+            ket_tambahan: item.ket_tambahan
+          })),
           state: persiapanResult.rows.reduce((acc, item) => {
             acc[item.master_persiapan_id] = {
               digunakan: item.digunakan,
@@ -532,13 +540,27 @@ export default function (pool) {
 
       for (const item of items) {
         if (!item.master_persiapan_id) continue;
+        
+        let actualMasterId = item.master_persiapan_id;
+        
+        // If it's a custom item created on the frontend
+        if (item.is_custom) {
+          const insertMaster = await client.query(
+            `INSERT INTO master_survey_persiapan (jenis, label, ket_tambahan)
+             VALUES ($1, $2, $3)
+             RETURNING id`,
+            [item.jenis, item.label, item.ket_tambahan]
+          );
+          actualMasterId = insertMaster.rows[0].id;
+        }
+
         await client.query(
           `INSERT INTO survey_product_persiapan
              (survey_id, master_persiapan_id, digunakan, qty)
            VALUES ($1, $2, $3, $4)`,
           [
             id,
-            item.master_persiapan_id,
+            actualMasterId,
             Boolean(item.digunakan),
             item.qty || 0
           ]

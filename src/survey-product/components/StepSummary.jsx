@@ -1,5 +1,6 @@
 import React from 'react';
 import { PRODUCT_LIST } from './StepData';
+import { exportToPDF } from '../utils/pdfExport';
 
 const formatDate = (value) => {
   if (!value) return '-';
@@ -55,9 +56,20 @@ export default function StepSummary({ stepData = {}, lapanganData = {} }) {
       <section className="rounded-2xl border border-sky-100 bg-sky-50/70 p-4 md:p-5 shadow-sm">
         <div className="flex items-start justify-between gap-4">
           <h2 className="text-2xl font-bold text-slate-950">Summary Survey</h2>
-          <span className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-emerald-800">
-            CLOSED
-          </span>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => exportToPDF(stepData, lapanganData)}
+              className="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-sky-700 transition-colors"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m6.75 12H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+              </svg>
+              Export Laporan PDF
+            </button>
+            <span className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-emerald-800">
+              CLOSED
+            </span>
+          </div>
         </div>
 
         <div className="mt-5 grid grid-cols-1 gap-x-16 gap-y-4 sm:grid-cols-2">
