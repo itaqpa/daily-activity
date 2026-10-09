@@ -6,13 +6,18 @@ import { apiUrl } from '../../../api';
 // const MOCK_TEMPLATE = {...} dihapus
 
 
-export default function DynamicProductForm({ product, onClose, onSave, existingData = {}, schedules = [] }) {
+export default function DynamicProductForm({ product, onClose, onSave, onChange, existingData = {}, schedules = [] }) {
   const [sections, setSections] = useState([]);
   const [currentSectionId, setCurrentSectionId] = useState(null);
   const [answers, setAnswers] = useState(existingData);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [isEditingOutstanding, setIsEditingOutstanding] = useState(false);
+
+  const onChangeRef = React.useRef(onChange);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
   useEffect(() => {
     const fetchTemplate = async () => {
@@ -73,10 +78,10 @@ export default function DynamicProductForm({ product, onClose, onSave, existingD
     });
 
     if (hariSurveyQId) {
-      const todayDate = new Date().toISOString().split('T')[0];
-      const matchedSch = schedules.find(s => s.tanggal === todayDate) || schedules[0] || { hari_ke: 1 };
-      const val = `Hari ke ${matchedSch.hari_ke} - ${todayDate} - ${product?.code || ''}`;
-      if (answers[hariSurveyQId] !== val) {
+      if (!answers[hariSurveyQId]) {
+        const todayDate = new Date().toISOString().split('T')[0];
+        const matchedSch = schedules.find(s => s.tanggal === todayDate) || schedules[0] || { hari_ke: 1, tanggal: todayDate };
+        const val = `Hari ke ${matchedSch.hari_ke || 1} - ${matchedSch.tanggal || todayDate} - ${product?.code || ''}`;
         setAnswers(prev => ({ ...prev, [hariSurveyQId]: val }));
       }
     }
@@ -183,28 +188,55 @@ export default function DynamicProductForm({ product, onClose, onSave, existingD
 
   const getSectionProgress = (section) => {
     const visibleQuestions = section.questions.filter(q => evaluateVisibility(q, answers));
-    const requiredQuestions = visibleQuestions.filter(q => q.required);
-    const totalRequired = requiredQuestions.length;
+    const totalAll = visibleQuestions.length;
     
-    if (totalRequired === 0) return { filled: 0, total: 0, status: 'green' };
+    let filledAll = 0;
+    let filledRequired = 0;
+    let totalRequired = 0;
 
-    let filled = 0;
-    requiredQuestions.forEach(q => {
-      if (answers[q.id] !== undefined && answers[q.id] !== '') filled++;
+    visibleQuestions.forEach(q => {
+      const isFilled = answers[q.id] !== undefined && answers[q.id] !== '';
+      if (isFilled) filledAll++;
+      
+      if (q.required) {
+        totalRequired++;
+        if (isFilled) filledRequired++;
+      }
     });
 
-    let status = 'red'; // Kosong
-    if (filled === totalRequired) status = 'green'; // Lengkap
-    else if (filled > 0) status = 'yellow'; // Sebagian
+    let status = 'red';
+    if (totalRequired === 0 || filledRequired === totalRequired) {
+      status = 'green';
+    } else if (filledRequired > 0) {
+      status = 'yellow';
+    }
 
-    return { filled, total: totalRequired, status };
+    return { filled: filledAll, total: totalAll, filledRequired, totalRequired, status };
   };
+
+  const getOverallPercent = () => {
+    let totalFilledAll = 0;
+    let totalAll = 0;
+    sections.forEach(sec => {
+      const prog = getSectionProgress(sec);
+      totalFilledAll += prog.filled;
+      totalAll += prog.total;
+    });
+    if (totalAll === 0) return 0;
+    return Math.round((totalFilledAll / totalAll) * 100);
+  };
+
+  useEffect(() => {
+    if (onChangeRef.current && sections.length > 0) {
+      onChangeRef.current(answers, getOverallPercent());
+    }
+  }, [answers, sections]);
 
   // Tampilan Form Input per Section
   if (currentSectionId) {
     const section = sections.find(s => s.id === currentSectionId);
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 md:p-6">
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 md:p-6">
         <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl flex flex-col max-h-[90vh] overflow-hidden">
           {/* Header Section */}
           <div className="p-5 border-b border-gray-100 flex items-center gap-3 bg-slate-50">
@@ -233,12 +265,18 @@ export default function DynamicProductForm({ product, onClose, onSave, existingD
                     <label className="block text-sm font-semibold text-gray-700">
                       {q.label} {q.required && <span className="text-red-500">*</span>}
                     </label>
-                    <input
-                      type="text"
-                      disabled
+                    <select
                       value={answers[q.id] || ''}
-                      className="w-full px-4 py-2.5 rounded-lg border border-gray-300 bg-gray-100 text-gray-700 font-medium cursor-not-allowed outline-none text-sm"
-                    />
+                      onChange={(e) => handleInputChange(q.id, e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none text-gray-700 bg-white text-sm"
+                    >
+                      <option value="">-- Pilih Hari Survey --</option>
+                      {schedules.map((sch, idx) => {
+                        const todayDate = new Date().toISOString().split('T')[0];
+                        const val = `Hari ke ${sch.hari_ke || idx + 1} - ${sch.tanggal || todayDate} - ${product?.code || ''}`;
+                        return <option key={val} value={val}>{val}</option>;
+                      })}
+                    </select>
                   </div>
                 );
               }
@@ -479,12 +517,12 @@ export default function DynamicProductForm({ product, onClose, onSave, existingD
           </div>
 
           {/* Footer Section */}
-          <div className="p-5 border-t border-gray-100 bg-gray-50 flex justify-end">
+          <div className="p-4 md:p-5 border-t border-gray-100 bg-gray-50 flex justify-end">
             <button 
               onClick={() => {
                 setCurrentSectionId(null);
               }}
-              className="bg-blue-600 text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-sm"
+              className="w-full md:w-auto bg-blue-600 text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-sm"
             >
               Simpan & Kembali
             </button>
@@ -512,7 +550,7 @@ export default function DynamicProductForm({ product, onClose, onSave, existingD
 
   if (isLoading) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
         <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Memuat template pertanyaan...</p>
@@ -524,7 +562,7 @@ export default function DynamicProductForm({ product, onClose, onSave, existingD
   // Jika tidak ada section setelah loading
   if (!sections || sections.length === 0) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
         <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 text-center">
           <AlertTriangle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-gray-800 mb-2">Template Tidak Tersedia</h2>
@@ -536,7 +574,7 @@ export default function DynamicProductForm({ product, onClose, onSave, existingD
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 md:p-6">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 md:p-6">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl flex flex-col max-h-[90vh] overflow-hidden">
         
         {/* Header Master */}
@@ -594,6 +632,21 @@ export default function DynamicProductForm({ product, onClose, onSave, existingD
                   
                   <h4 className="font-bold text-gray-800 text-lg mb-1">{section.title}</h4>
                   <p className="text-sm text-gray-500 line-clamp-2">{section.description}</p>
+                  
+                  {/* Info Data Utama */}
+                  <div className="mt-3">
+                    {progress.totalRequired === 0 ? (
+                      <span className="text-xs font-medium text-gray-400 bg-gray-100 px-2 py-1 rounded">Tidak ada data wajib</span>
+                    ) : progress.filledRequired < progress.totalRequired ? (
+                      <span className="text-xs font-medium text-rose-600 bg-rose-50 px-2 py-1 rounded">
+                        {progress.totalRequired - progress.filledRequired} info utama belum terisi
+                      </span>
+                    ) : (
+                      <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded">
+                        Semua info utama sudah terisi
+                      </span>
+                    )}
+                  </div>
                   
                   <div className="absolute right-4 bottom-4 text-gray-300 group-hover:text-blue-500 transition-colors">
                     <ChevronRight className="w-5 h-5" />
@@ -670,21 +723,21 @@ export default function DynamicProductForm({ product, onClose, onSave, existingD
         </div>
 
         {/* Footer Master */}
-        <div className="p-5 border-t border-gray-100 bg-white flex justify-between items-center">
-          <div className="text-sm text-gray-500">
+        <div className="p-4 md:p-5 border-t border-gray-100 bg-white flex flex-col md:flex-row justify-between items-center gap-4">
+          <div className="text-sm text-gray-500 w-full md:w-auto text-center md:text-left">
             {isAllComplete ? (
-              <span className="text-emerald-600 font-bold flex items-center gap-1">
+              <span className="text-emerald-600 font-bold flex items-center justify-center md:justify-start gap-1">
                 <CheckCircle2 className="w-4 h-4" /> Seluruh section lengkap
               </span>
             ) : (
-              <span className="text-rose-500 font-bold flex items-center gap-1">
+              <span className="text-rose-500 font-bold flex items-center justify-center md:justify-start gap-1">
                 <AlertCircle className="w-4 h-4" /> Masih ada section yang belum lengkap
               </span>
             )}
           </div>
           <button 
-            onClick={() => onSave(answers)}
-            className="flex items-center gap-2 bg-blue-600 text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={() => onSave(answers, getOverallPercent())}
+            className="flex items-center justify-center w-full md:w-auto gap-2 bg-blue-600 text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Save className="w-5 h-5" />
             Simpan Data Produk

@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS divisi_permissions (
 CREATE TABLE IF NOT EXISTS user_permissions (
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     permission_id INTEGER REFERENCES permissions(id) ON DELETE CASCADE,
+    is_auto_assigned BOOLEAN DEFAULT FALSE,
     PRIMARY KEY (user_id, permission_id)
 );
 

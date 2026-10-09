@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { MapPin, Box, Plus, Trash2, ChevronRight, X } from 'lucide-react';
 import DynamicProductForm from './modals/DynamicProductForm';
-import { exportToPDF } from '../utils/pdfExport';
+import { exportToPDF, generatePreviewHTML } from '../utils/pdfExport';
 
 export const PRODUCT_LIST = [
   { code: 'EJR', name: 'Expansion Joint Rubber', category: 'Expansion joint' },
@@ -27,6 +27,9 @@ export default function StepLapangan({ data = createEmptyLapanganData(), stepDat
   const productProgress = data.productProgress || [];
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [previewHtml, setPreviewHtml] = useState(null);
+  const [previewScale, setPreviewScale] = useState(1);
+  const [previewParams, setPreviewParams] = useState(null);
 
   const updateData = (patch) => onChange?.({ ...data, ...patch });
 
@@ -82,20 +85,41 @@ export default function StepLapangan({ data = createEmptyLapanganData(), stepDat
     setIsAddingProduct(false);
   };
 
-  const handleSaveProductForm = (answers) => {
-    const filledKeys = Object.entries(answers).filter(([key, value]) =>
-      !key.endsWith('_lainnya') && key !== 'custom_refs' && value !== undefined && value !== ''
-    ).length;
-    const estimatedTotal = Math.max(filledKeys, 10);
-    const calcPercent = Math.min(Math.round((filledKeys / estimatedTotal) * 100), 100);
+  const handleProductDataChange = (answers, percentage) => {
+    // Jika tidak ada percentage dari component anak, fallback ke hitungan manual (sebagai backup)
+    let calcPercent = percentage;
+    if (calcPercent === undefined) {
+      const filledKeys = Object.entries(answers).filter(([key, value]) =>
+        !key.endsWith('_lainnya') && key !== 'custom_refs' && value !== undefined && value !== ''
+      ).length;
+      const estimatedTotal = Math.max(filledKeys, 10);
+      calcPercent = Math.min(Math.round((filledKeys / estimatedTotal) * 100), 100);
+    }
+
+    // Extract hari_ke from the "Hari Survey" field if it exists in answers
+    let newHariKe = selectedProduct ? selectedProduct.hari_ke : 1;
+    const hariKeString = Object.values(answers).find(val => typeof val === 'string' && val.startsWith('Hari ke '));
+    if (hariKeString) {
+      const match = hariKeString.match(/Hari ke (\d+)/);
+      if (match && match[1]) {
+        newHariKe = parseInt(match[1], 10);
+      }
+    }
 
     updateData({
       productProgress: productProgress.map(product =>
         product.id === selectedProduct.id
-          ? { ...product, formData: answers, percent: calcPercent }
+          ? { ...product, formData: answers, percent: calcPercent, hari_ke: newHariKe }
           : product
       )
     });
+    
+    // Auto update selectedProduct without closing to keep formData in sync
+    setSelectedProduct(prev => prev ? { ...prev, formData: answers, percent: calcPercent, hari_ke: newHariKe } : prev);
+  };
+
+  const handleSaveProductForm = (answers, percentage) => {
+    handleProductDataChange(answers, percentage);
     setSelectedProduct(null);
   };
 
@@ -255,7 +279,14 @@ export default function StepLapangan({ data = createEmptyLapanganData(), stepDat
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        exportToPDF(stepData, data, product.code);
+                        // Hitung skala agar A4 pas dengan LEBAR layar, sisanya bisa di-scroll ke bawah
+                        const screenWidth = window.innerWidth;
+                        const scaleW = (screenWidth - 32) / 794; // 32 = padding container
+                        const initialScale = Math.max(0.1, Math.min(scaleW, 1));
+                        
+                        setPreviewParams({ code: product.code });
+                        setPreviewScale(initialScale);
+                        setPreviewHtml(generatePreviewHTML(stepData, data, product.code, initialScale));
                       }}
                       className="bg-orange-50 text-orange-600 border border-orange-200 px-3 py-1 rounded-md text-xs font-bold hover:bg-orange-100 transition-colors"
                     >
@@ -282,8 +313,44 @@ export default function StepLapangan({ data = createEmptyLapanganData(), stepDat
           existingData={selectedProduct.formData || {}}
           onClose={() => setSelectedProduct(null)}
           onSave={handleSaveProductForm}
+          onChange={handleProductDataChange}
           schedules={actualSchedules}
         />
+      )}
+
+      {previewHtml && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 backdrop-blur-sm p-0 md:p-8">
+          <div className="bg-[#1f1f1f] md:rounded-2xl shadow-2xl w-full h-full md:max-w-5xl md:h-[90vh] flex flex-col overflow-hidden">
+            <div className="p-4 border-b border-gray-700 flex justify-between items-center bg-[#2d2d2d] text-gray-200">
+              <h3 className="font-bold text-gray-100 text-lg">Preview Laporan</h3>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center bg-[#3d3d3d] rounded-lg shadow-sm overflow-hidden mr-2">
+                  <button onClick={() => {
+                    const s = Math.max(previewScale - 0.1, 0.1);
+                    setPreviewScale(s);
+                    setPreviewHtml(generatePreviewHTML(stepData, data, previewParams?.code, s));
+                  }} className="px-3 py-1.5 hover:bg-[#4d4d4d] font-bold text-gray-300">-</button>
+                  <span className="px-3 py-1.5 text-sm font-semibold text-gray-200 min-w-[3.5rem] text-center">{Math.round((previewScale || 1) * 100)}%</span>
+                  <button onClick={() => {
+                    const s = Math.min(previewScale + 0.1, 3);
+                    setPreviewScale(s);
+                    setPreviewHtml(generatePreviewHTML(stepData, data, previewParams?.code, s));
+                  }} className="px-3 py-1.5 hover:bg-[#4d4d4d] font-bold text-gray-300">+</button>
+                </div>
+                <button onClick={() => setPreviewHtml(null)} className="p-2 text-gray-400 hover:text-white bg-[#3d3d3d] rounded-lg shadow-sm hover:bg-red-500 transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 w-full h-full bg-white relative">
+              <iframe 
+                srcDoc={previewHtml} 
+                className="absolute top-0 left-0 w-full h-full border-0"
+                title="Preview"
+              />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

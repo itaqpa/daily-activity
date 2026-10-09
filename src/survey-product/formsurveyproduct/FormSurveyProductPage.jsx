@@ -48,9 +48,8 @@ export default function FormSurveyProductPage() {
   const [isLoadingDraft, setIsLoadingDraft] = useState(!!editId);
 
   const checkOnProgress = (lapData) => {
-    const hasValidSchedule = lapData?.actualSchedules?.some(s => s.tanggal && s.kegiatan);
     const hasProductProgress = lapData?.productProgress?.length > 0;
-    return Boolean(hasValidSchedule && hasProductProgress);
+    return Boolean(hasProductProgress);
   };
 
   const visibleSteps = editId 
@@ -225,15 +224,19 @@ export default function FormSurveyProductPage() {
     }
   };
 
-  const saveLapanganDraft = async () => {
+  const saveLapanganDraft = async (silent = false) => {
     let targetSurveyId = surveyDraftId;
     if (!surveyDraftId) {
-      const savedStepDataId = await saveStepDataDraft();
-      if (!savedStepDataId) return false;
-      targetSurveyId = savedStepDataId;
+      if (!silent) {
+        const savedStepDataId = await saveStepDataDraft();
+        if (!savedStepDataId) return false;
+        targetSurveyId = savedStepDataId;
+      } else {
+        return false;
+      }
     }
 
-    setIsSavingDraft(true);
+    if (!silent) setIsSavingDraft(true);
     try {
       const response = await fetch(apiUrl('survey-engine/submit-lapangan'), {
         method: 'POST',
@@ -254,10 +257,10 @@ export default function FormSurveyProductPage() {
       setSurveyDraftId(result.survey_id || targetSurveyId);
       return true;
     } catch (error) {
-      alert(error.message);
+      if (!silent) alert(error.message);
       return false;
     } finally {
-      setIsSavingDraft(false);
+      if (!silent) setIsSavingDraft(false);
     }
   };
 
@@ -310,6 +313,16 @@ export default function FormSurveyProductPage() {
       setCurrentStep((prev) => prev - 1);
     }
   };
+
+  // Auto-save untuk StepLapangan (Step 3)
+  useEffect(() => {
+    if (currentStep === 3 && editId && hasAccessForStep(3)) {
+      const timer = setTimeout(() => {
+        saveLapanganDraft(true);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [lapanganData]);
 
   const renderStepContent = () => {
     switch (currentStep) {

@@ -58,63 +58,64 @@ const mapDataToLegacyState = (stepData, lapanganData, filterProductCode) => {
   };
 };
 
+export const generatePreviewHTML = (stepData, lapanganData, filterProductCode = null, scale = 1) => {
+  const mappedS = mapDataToLegacyState(stepData || {}, lapanganData || {}, filterProductCode);
+  const reportBodyHtml = generateReportHTML(mappedS, {});
+  
+  return `
+    <!DOCTYPE html>
+    <html lang="id">
+    <head>
+      <meta charset="utf-8">
+      <title>Laporan Survey ${mappedS.info.client || ''}</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+      <style>
+        :root {
+          --body: 'Barlow', system-ui, sans-serif;
+          --cond: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+        }
+        body {
+          margin: 0;
+          background: #fff; 
+          zoom: ${scale};
+        }
+        /* Inject original template CSS */
+        ${cssContent}
+        .rpt {
+          width: 794px; /* A4 width */
+          min-height: 100vh;
+          margin: 0 auto;
+          background: #fff;
+          padding: 10mm;
+          box-sizing: border-box;
+        }
+        @media print {
+          body { zoom: 1 !important; }
+          .rpt { width: 100%; min-height: auto; margin: 0; padding: 0; box-shadow: none; }
+          .noprint { display: none !important; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="rpt">
+        ${reportBodyHtml}
+      </div>
+    </body>
+    </html>
+  `;
+};
+
 export const exportToPDF = (stepData, lapanganData, filterProductCode = null) => {
   try {
-    const mappedS = mapDataToLegacyState(stepData || {}, lapanganData || {}, filterProductCode);
-    
-    // Generate inner report HTML using Legacy logic
-    const reportBodyHtml = generateReportHTML(mappedS, {});
-    
-    // Construct full HTML document
-    const html = `
-      <!DOCTYPE html>
-      <html lang="id">
-      <head>
-        <meta charset="utf-8">
-        <title>Laporan Survey ${mappedS.info.client || ''}</title>
-        <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
-        <style>
-          :root {
-            --body: 'Barlow', system-ui, sans-serif;
-            --cond: 'Barlow Condensed', 'Arial Narrow', sans-serif;
-          }
-          body {
-            margin: 0;
-            background: #fff;
-          }
-          /* Inject original template CSS */
-          ${cssContent}
-          .rpt {
-            max-width: 960px;
-            margin: 0 auto;
-          }
-          @media print {
-            .rpt { padding: 0; }
-            .noprint { display: none !important; }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="rpt">
-          ${reportBodyHtml}
-        </div>
-        <script>
-          // Wait for fonts/images to load before printing
-          window.onload = () => {
-            setTimeout(() => {
-              window.print();
-            }, 500);
-          };
-        </script>
-      </body>
-      </html>
-    `;
+    const html = generatePreviewHTML(stepData, lapanganData, filterProductCode);
+    const htmlWithPrint = html.replace('</body>', '<script>window.onload = () => setTimeout(() => window.print(), 500);</script></body>');
 
     // Open in new window
     const printWindow = window.open('', '_blank');
     if (printWindow) {
       printWindow.document.open();
-      printWindow.document.write(html);
+      printWindow.document.write(htmlWithPrint);
       printWindow.document.close();
     } else {
       alert("Popup diblokir oleh browser. Izinkan popup untuk mencetak PDF.");

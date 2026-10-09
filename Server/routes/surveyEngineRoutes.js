@@ -1,4 +1,5 @@
 import express from 'express';
+import { syncSurveyPermissionsForUsers } from '../utils/surveyPermissions.js';
 
 export default function (pool) {
   const router = express.Router();
@@ -197,16 +198,22 @@ export default function (pool) {
 
       let surveyId = survey_id || null;
       let surveyNo = data.no_survey || null;
+      let oldAffectedUsers = [];
 
       if (surveyId) {
         const existing = await client.query(
-          'SELECT no_survey FROM survey_product_data WHERE id = $1',
+          'SELECT no_survey, leader_surveyor_id, leader_surveyor, anggota_surveyor FROM survey_product_data WHERE id = $1',
           [surveyId]
         );
         if (existing.rows.length === 0) {
           throw new Error(`Draft survey product dengan id ${surveyId} tidak ditemukan`);
         }
         surveyNo = surveyNo || existing.rows[0].no_survey;
+        
+        const eRow = existing.rows[0];
+        if (eRow.leader_surveyor_id) oldAffectedUsers.push(eRow.leader_surveyor_id);
+        if (Array.isArray(eRow.leader_surveyor)) eRow.leader_surveyor.forEach(u => (u.id || u.value) && oldAffectedUsers.push(u.id || u.value));
+        if (Array.isArray(eRow.anggota_surveyor)) eRow.anggota_surveyor.forEach(u => (u.id || u.value) && oldAffectedUsers.push(u.id || u.value));
 
         await client.query(
           `UPDATE survey_product_data
@@ -313,6 +320,19 @@ export default function (pool) {
       }
 
       await client.query('COMMIT');
+      
+      try {
+        const currentAffected = [];
+        if (data.leader_surveyor_id) currentAffected.push(data.leader_surveyor_id);
+        if (Array.isArray(data.leader_surveyor)) data.leader_surveyor.forEach(u => (u.id || u.value) && currentAffected.push(u.id || u.value));
+        if (Array.isArray(data.anggota_surveyor)) data.anggota_surveyor.forEach(u => (u.id || u.value) && currentAffected.push(u.id || u.value));
+        
+        const allAffected = [...new Set([...oldAffectedUsers, ...currentAffected])];
+        syncSurveyPermissionsForUsers(pool, allAffected).catch(console.error);
+      } catch (e) {
+        console.error('Error syncing permissions:', e);
+      }
+
       res.json({
         survey_id: surveyId,
         no_survey: surveyNo,
@@ -329,6 +349,43 @@ export default function (pool) {
 
   router.get('/product-drafts', async (req, res) => {
     try {
+      const user = req.user;
+      let isSuperAdminOrAdmin = false;
+      let userId = null;
+
+      if (user && user.id) {
+        userId = user.id;
+        const uRes = await pool.query(`
+          SELECT j.nama_jabatan, u.role
+          FROM users u
+          LEFT JOIN jabatans j ON u.jabatan_id = j.id
+          WHERE u.id = $1
+        `, [user.id]);
+        if (uRes.rows.length > 0) {
+          const jName = (uRes.rows[0].nama_jabatan || '').toLowerCase();
+          const role = (uRes.rows[0].role || '').toLowerCase();
+          if (jName.includes('super admin') || jName.includes('admin') || role === 'admin' || role === 'superadmin') {
+            isSuperAdminOrAdmin = true;
+          }
+        }
+      }
+
+      let whereClause = '';
+      const queryParams = [];
+
+      if (!isSuperAdminOrAdmin && userId) {
+        whereClause = `
+          WHERE (
+             spd.leader_surveyor_id = $1 
+             OR (spd.leader_surveyor::jsonb @> $2::jsonb)
+             OR (spd.anggota_surveyor::jsonb @> $2::jsonb)
+             OR (spd.leader_surveyor::jsonb @> $3::jsonb)
+             OR (spd.anggota_surveyor::jsonb @> $3::jsonb)
+          ) AND LOWER(COALESCE(spd.status, '')) != 'draft'
+        `;
+        queryParams.push(userId, JSON.stringify([{ value: userId }]), JSON.stringify([{ id: userId }]));
+      }
+
       const result = await pool.query(`
         SELECT
           spd.id,
@@ -354,8 +411,9 @@ export default function (pool) {
           FROM survey_product_progress
           GROUP BY survey_id
         ) progress ON progress.survey_id = spd.id
+        ${whereClause}
         ORDER BY spd.updated_at DESC, spd.created_at DESC, spd.id DESC
-      `);
+      `, queryParams);
 
       res.json({
         data: result.rows.map(row => ({
@@ -582,6 +640,21 @@ export default function (pool) {
       );
 
       await client.query('COMMIT');
+      
+      try {
+        const surveyRes = await pool.query('SELECT leader_surveyor_id, leader_surveyor, anggota_surveyor FROM survey_product_data WHERE id = $1', [id]);
+        if (surveyRes.rows.length > 0) {
+          const sData = surveyRes.rows[0];
+          const affectedUsers = [];
+          if (sData.leader_surveyor_id) affectedUsers.push(sData.leader_surveyor_id);
+          if (Array.isArray(sData.leader_surveyor)) sData.leader_surveyor.forEach(u => (u.id || u.value) && affectedUsers.push(u.id || u.value));
+          if (Array.isArray(sData.anggota_surveyor)) sData.anggota_surveyor.forEach(u => (u.id || u.value) && affectedUsers.push(u.id || u.value));
+          syncSurveyPermissionsForUsers(pool, affectedUsers).catch(console.error);
+        }
+      } catch (e) {
+        console.error('Error syncing permissions:', e);
+      }
+
       res.json({ survey_id: Number(id), status: normalizedStatus });
     } catch (error) {
       await client.query('ROLLBACK');
@@ -759,9 +832,16 @@ export default function (pool) {
 
       await client.query('BEGIN');
 
-      const normalizedStatus = status === 'draft' ? 'Draft' : status;
-      const allowedStatuses = new Set(['Draft', 'Persiapan', 'Lapangan', 'Selesai', 'Batal']);
-      if (!allowedStatuses.has(normalizedStatus)) {
+      const hasProducts = products && products.length > 0;
+      let finalStatus = status === 'draft' ? 'Draft' : status;
+
+      // Allow backend to intelligently set Open vs On Progress
+      if (finalStatus !== 'Selesai' && finalStatus !== 'Batal') {
+        finalStatus = hasProducts ? 'On Progress' : 'Open';
+      }
+
+      const allowedStatuses = new Set(['Draft', 'Open', 'On Progress', 'Persiapan', 'Lapangan', 'Selesai', 'Batal']);
+      if (!allowedStatuses.has(finalStatus)) {
         await client.query('ROLLBACK');
         return res.status(400).json({ error: 'Status survey product tidak valid' });
       }
@@ -819,14 +899,29 @@ export default function (pool) {
          SET status = $1,
              updated_at = CURRENT_TIMESTAMP
          WHERE id = $2`,
-        [normalizedStatus, survey_id]
+        [finalStatus, survey_id]
       );
 
       await client.query('COMMIT');
+      
+      try {
+        const surveyRes = await pool.query('SELECT leader_surveyor_id, leader_surveyor, anggota_surveyor FROM survey_product_data WHERE id = $1', [survey_id]);
+        if (surveyRes.rows.length > 0) {
+          const sData = surveyRes.rows[0];
+          const affectedUsers = [];
+          if (sData.leader_surveyor_id) affectedUsers.push(sData.leader_surveyor_id);
+          if (Array.isArray(sData.leader_surveyor)) sData.leader_surveyor.forEach(u => (u.id || u.value) && affectedUsers.push(u.id || u.value));
+          if (Array.isArray(sData.anggota_surveyor)) sData.anggota_surveyor.forEach(u => (u.id || u.value) && affectedUsers.push(u.id || u.value));
+          syncSurveyPermissionsForUsers(pool, affectedUsers).catch(console.error);
+        }
+      } catch (e) {
+        console.error('Error syncing permissions:', e);
+      }
+
       res.json({
         message: 'Data lapangan berhasil disimpan',
         survey_id: Number(survey_id),
-        status: normalizedStatus
+        status: finalStatus
       });
     } catch (error) {
       await client.query('ROLLBACK');
@@ -977,6 +1072,27 @@ export default function (pool) {
       res.status(500).json({ error: 'Terjadi kesalahan saat menyimpan data dinamis' });
     } finally {
       client.release();
+    }
+  });
+
+  // ─── POST /product-drafts/:id/tokens/verify ────────────────────────────────
+  router.post('/product-drafts/:id/tokens/verify', async (req, res) => {
+    const { id } = req.params;
+    const { token, userId } = req.body;
+    
+    try {
+      const result = await pool.query(
+        'SELECT * FROM survey_product_tokens WHERE survey_id = $1 AND token = $2 AND user_id = $3',
+        [id, token, userId]
+      );
+      if (result.rows.length > 0) {
+        res.json({ success: true });
+      } else {
+        res.status(401).json({ success: false, error: 'Token tidak valid atau bukan token untuk akun Anda' });
+      }
+    } catch (error) {
+      console.error('Error verifying token:', error);
+      res.status(500).json({ error: 'Terjadi kesalahan saat verifikasi token' });
     }
   });
 

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import MainLayout from '../components/layouts/MainLayout';
 import { Eye, Edit, Trash2, Plus, FileSpreadsheet, MapPin, Calendar, Box, PackageOpen, Key, Search, MoreVertical, ChevronLeft, ChevronRight } from 'lucide-react';
 import TokenAccessModal from './components/token-access/TokenAccessModal';
+import TokenInputModal from './components/token-access/TokenInputModal';
 import { apiUrl } from '../api';
 
 export default function SurveyProductList() {
@@ -15,8 +16,18 @@ export default function SurveyProductList() {
   const [page, setPage] = useState(1);
   const [openDropdownId, setOpenDropdownId] = useState(null);
   const [tokenModalOpen, setTokenModalOpen] = useState(false);
+  const [tokenInputModalOpen, setTokenInputModalOpen] = useState(false);
   const [selectedSurvey, setSelectedSurvey] = useState(null);
   const dropdownRef = useRef(null);
+
+  const storedUser = localStorage.getItem('user');
+  const user = storedUser ? JSON.parse(storedUser) : null;
+  const isSuperAdmin = user?.jabatan_name?.toLowerCase().includes('super admin') || 
+                       user?.role === 'Super Admin' || 
+                       user?.jabatan?.toLowerCase().includes('super admin') || 
+                       user?.role === 'admin' || 
+                       user?.role === 'superadmin' || 
+                       user?.jabatan?.toLowerCase().includes('admin');
 
   useEffect(() => {
     const fetchSurveyProducts = async () => {
@@ -101,6 +112,14 @@ export default function SurveyProductList() {
     setTokenModalOpen(true);
   };
 
+  const handleOpenTokenInputModal = (event, item) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setOpenDropdownId(null);
+    setSelectedSurvey(item);
+    setTokenInputModalOpen(true);
+  };
+
   const handleDelete = async (id) => {
     if (!window.confirm('Apakah Anda yakin ingin menghapus data survey product ini?')) {
       return;
@@ -121,36 +140,52 @@ export default function SurveyProductList() {
     }
   };
 
-  const ActionMenu = ({ item, isMobile }) => (
-    <div className={`absolute ${isMobile ? 'bottom-full mb-2 right-0' : 'top-full mt-1 right-0'} w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50`} ref={dropdownRef}>
-      <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-        <Eye className="w-4 h-4 text-blue-500" /> Detail
-      </button>
-      <button
-        onMouseDown={(event) => handleEdit(event, item)}
-        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-      >
-        <Edit className="w-4 h-4 text-yellow-500" /> Edit
-      </button>
-      <button
-        onMouseDown={(event) => handleOpenTokenModal(event, item)}
-        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-      >
-        <Key className="w-4 h-4 text-purple-500" /> Token Access
-      </button>
-      <div className="border-t border-gray-100 my-1"></div>
-      <button 
-        onMouseDown={(event) => {
-          event.preventDefault();
-          handleDelete(item.id);
-          setOpenDropdownId(null);
-        }}
-        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-      >
-        <Trash2 className="w-4 h-4" /> Hapus
-      </button>
-    </div>
-  );
+  const ActionMenu = ({ item, isMobile }) => {
+    if (!isSuperAdmin) {
+      const isDraft = (item.status || '').toLowerCase() === 'draft';
+      return (
+        <div className={`absolute ${isMobile ? 'bottom-full mb-2 right-0' : 'top-full mt-1 right-0'} w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50`} ref={dropdownRef}>
+          <button
+            onMouseDown={(event) => handleOpenTokenInputModal(event, item)}
+            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+          >
+            <Edit className="w-4 h-4 text-blue-500" /> {isDraft ? 'Mulai pengisian' : 'Lanjutkan pengisian'}
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <div className={`absolute ${isMobile ? 'bottom-full mb-2 right-0' : 'top-full mt-1 right-0'} w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50`} ref={dropdownRef}>
+        <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+          <Eye className="w-4 h-4 text-blue-500" /> Detail
+        </button>
+        <button
+          onMouseDown={(event) => handleEdit(event, item)}
+          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+        >
+          <Edit className="w-4 h-4 text-yellow-500" /> Edit
+        </button>
+        <button
+          onMouseDown={(event) => handleOpenTokenModal(event, item)}
+          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+        >
+          <Key className="w-4 h-4 text-purple-500" /> Token Access
+        </button>
+        <div className="border-t border-gray-100 my-1"></div>
+        <button 
+          onMouseDown={(event) => {
+            event.preventDefault();
+            handleDelete(item.id);
+            setOpenDropdownId(null);
+          }}
+          className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+        >
+          <Trash2 className="w-4 h-4" /> Hapus
+        </button>
+      </div>
+    );
+  };
 
   return (
     <MainLayout currentModule="Survey Product">
@@ -184,13 +219,15 @@ export default function SurveyProductList() {
                 <FileSpreadsheet className="w-4 h-4 text-green-600" />
                 <span className="hidden sm:inline">Export</span>
               </button>
-              <button 
-                onClick={() => navigate('/survey-product/create')}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition-colors font-semibold text-sm shadow-sm"
-              >
-                <Plus className="w-4 h-4" />
-                <span className="hidden sm:inline">Buat Survey</span>
-              </button>
+              {isSuperAdmin && (
+                <button 
+                  onClick={() => navigate('/survey-product/create')}
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition-colors font-semibold text-sm shadow-sm"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span className="hidden sm:inline">Buat Survey</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -275,13 +312,25 @@ export default function SurveyProductList() {
                       </span>
                     </td>
                     <td className="py-4 px-6 text-center relative">
-                      <button 
-                        onClick={() => setOpenDropdownId(openDropdownId === item.id ? null : item.id)}
-                        className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                      >
-                        <MoreVertical className="w-5 h-5" />
-                      </button>
-                      {openDropdownId === item.id && <ActionMenu item={item} isMobile={false} />}
+                      {isSuperAdmin ? (
+                        <>
+                          <button 
+                            onClick={() => setOpenDropdownId(openDropdownId === item.id ? null : item.id)}
+                            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                          >
+                            <MoreVertical className="w-5 h-5" />
+                          </button>
+                          {openDropdownId === item.id && <ActionMenu item={item} isMobile={false} />}
+                        </>
+                      ) : (
+                        <button
+                          onClick={(event) => handleOpenTokenInputModal(event, item)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap"
+                        >
+                          <Edit className="w-3.5 h-3.5" /> 
+                          {['draft', 'open'].includes((item.status || '').toLowerCase()) ? 'Mulai pengisian' : 'Lanjutkan pengisian'}
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -369,13 +418,25 @@ export default function SurveyProductList() {
                   <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold border ${getPercentColor(item.percent_kelengkapan)}`}>
                     {item.percent_kelengkapan}%
                   </span>
-                  <button 
-                    onClick={() => setOpenDropdownId(openDropdownId === item.id ? null : item.id)}
-                    className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                  >
-                    <MoreVertical className="w-5 h-5" />
-                  </button>
-                  {openDropdownId === item.id && <ActionMenu item={item} isMobile={true} />}
+                  {isSuperAdmin ? (
+                    <>
+                      <button 
+                        onClick={() => setOpenDropdownId(openDropdownId === item.id ? null : item.id)}
+                        className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                      >
+                        <MoreVertical className="w-5 h-5" />
+                      </button>
+                      {openDropdownId === item.id && <ActionMenu item={item} isMobile={true} />}
+                    </>
+                  ) : (
+                    <button
+                      onClick={(event) => handleOpenTokenInputModal(event, item)}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap"
+                    >
+                      <Edit className="w-3.5 h-3.5" /> 
+                      {['draft', 'open'].includes((item.status || '').toLowerCase()) ? 'Mulai' : 'Lanjutkan'}
+                    </button>
+                  )}
                 </div>
               </div>
               
@@ -472,6 +533,14 @@ export default function SurveyProductList() {
         onClose={() => setTokenModalOpen(false)}
         surveyId={selectedSurvey?.id}
         noSurvey={selectedSurvey?.no_survey}
+      />
+
+      <TokenInputModal
+        isOpen={tokenInputModalOpen}
+        onClose={() => setTokenInputModalOpen(false)}
+        surveyId={selectedSurvey?.id}
+        noSurvey={selectedSurvey?.no_survey}
+        userId={user?.id}
       />
     </MainLayout>
   );
