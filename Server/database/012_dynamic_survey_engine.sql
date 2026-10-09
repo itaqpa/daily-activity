@@ -1,34 +1,34 @@
 -- Dynamic Multi-Product Survey Engine (PostgreSQL 14+)
 -- Recommended: execute on an empty database; all tables are scoped in survey_engine.
-BEGIN;
+BEGIN; SET LOCAL session_replication_role = 'replica';
 CREATE SCHEMA IF NOT EXISTS survey_engine;
 SET search_path TO survey_engine, public;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
-CREATE TYPE template_status AS ENUM ('draft','published','retired');
-CREATE TYPE survey_status AS ENUM ('draft','in_progress','submitted','approved','cancelled');
-CREATE TYPE mapping_source AS ENUM ('question','checklist_item');
-CREATE TYPE photo_scope AS ENUM ('question','checklist_item');
+DO $$ BEGIN CREATE TYPE template_status AS ENUM ('draft','published','retired'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE survey_status AS ENUM ('draft','in_progress','submitted','approved','cancelled'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE mapping_source AS ENUM ('question','checklist_item'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE photo_scope AS ENUM ('question','checklist_item'); EXCEPTION WHEN duplicate_object THEN null; END $$;
 
-CREATE TABLE products (
+CREATE TABLE IF NOT EXISTS products (
  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
  code text NOT NULL UNIQUE, name text NOT NULL,
  is_active boolean NOT NULL DEFAULT true,
  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
 );
-CREATE TABLE sections (
+CREATE TABLE IF NOT EXISTS sections (
  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
  code text NOT NULL UNIQUE, name text NOT NULL,
  is_active boolean NOT NULL DEFAULT true
 );
-CREATE TABLE questions (
+CREATE TABLE IF NOT EXISTS questions (
  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
  code text NOT NULL UNIQUE, default_label text NOT NULL,
  default_input_type text NOT NULL CHECK (default_input_type IN ('text','textarea','number','date','boolean','select','radio','multi_select','checklist')),
  is_active boolean NOT NULL DEFAULT true,
  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
 );
-CREATE TABLE parameters (
+CREATE TABLE IF NOT EXISTS parameters (
  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
  code text NOT NULL UNIQUE, name text NOT NULL,
  data_type text NOT NULL CHECK (data_type IN ('text','number','boolean','date','json')),
@@ -36,32 +36,32 @@ CREATE TABLE parameters (
  created_at timestamptz NOT NULL DEFAULT now()
 );
 -- These 3 associations are reusable admin catalog mappings, not historical survey configuration.
-CREATE TABLE product_questions (
+CREATE TABLE IF NOT EXISTS product_questions (
  product_id bigint NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
  question_id bigint NOT NULL REFERENCES questions(id) ON DELETE RESTRICT,
  is_enabled boolean NOT NULL DEFAULT true,
  PRIMARY KEY (product_id,question_id)
 );
-CREATE TABLE product_parameters (
+CREATE TABLE IF NOT EXISTS product_parameters (
  product_id bigint NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
  parameter_id bigint NOT NULL REFERENCES parameters(id) ON DELETE RESTRICT,
  is_enabled boolean NOT NULL DEFAULT true,
  PRIMARY KEY (product_id,parameter_id)
 );
-CREATE TABLE question_parameters (
+CREATE TABLE IF NOT EXISTS question_parameters (
  question_id bigint NOT NULL REFERENCES questions(id) ON DELETE RESTRICT,
  parameter_id bigint NOT NULL REFERENCES parameters(id) ON DELETE RESTRICT,
  default_mapping_rule jsonb NOT NULL DEFAULT '{"operator":"direct"}'::jsonb CHECK (jsonb_typeof(default_mapping_rule)='object'),
  PRIMARY KEY (question_id, parameter_id)
 );
 
-CREATE TABLE survey_templates (
+CREATE TABLE IF NOT EXISTS survey_templates (
  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
  code text NOT NULL UNIQUE, name text NOT NULL, description text,
  is_active boolean NOT NULL DEFAULT true,
  created_at timestamptz NOT NULL DEFAULT now()
 );
-CREATE TABLE survey_template_versions (
+CREATE TABLE IF NOT EXISTS survey_template_versions (
  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
  template_id bigint NOT NULL REFERENCES survey_templates(id) ON DELETE RESTRICT,
  version_no integer NOT NULL CHECK (version_no > 0),
@@ -71,14 +71,14 @@ CREATE TABLE survey_template_versions (
  UNIQUE (template_id,version_no),
  CHECK ((status='draft' AND published_at IS NULL) OR (status IN ('published','retired') AND published_at IS NOT NULL))
 );
-CREATE TABLE template_products (
+CREATE TABLE IF NOT EXISTS template_products (
  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
  version_id bigint NOT NULL REFERENCES survey_template_versions(id) ON DELETE RESTRICT,
  product_id bigint NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
  UNIQUE (version_id, product_id),
  UNIQUE (id,version_id,product_id)
 );
-CREATE TABLE template_questions (
+CREATE TABLE IF NOT EXISTS template_questions (
  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
  version_id bigint NOT NULL REFERENCES survey_template_versions(id) ON DELETE RESTRICT,
  question_id bigint NOT NULL REFERENCES questions(id) ON DELETE RESTRICT,
@@ -101,7 +101,7 @@ CREATE TABLE template_questions (
  UNIQUE (id,version_id)
 );
 -- A question can appear in many products; settings and mappings can differ per product.
-CREATE TABLE template_product_questions (
+CREATE TABLE IF NOT EXISTS template_product_questions (
  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
  template_product_id bigint NOT NULL REFERENCES template_products(id) ON DELETE RESTRICT,
  template_question_id bigint NOT NULL REFERENCES template_questions(id) ON DELETE RESTRICT,
@@ -110,7 +110,7 @@ CREATE TABLE template_product_questions (
  UNIQUE (template_product_id, template_question_id),
  UNIQUE (id,template_product_id)
 );
-CREATE TABLE template_product_parameters (
+CREATE TABLE IF NOT EXISTS template_product_parameters (
  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
  template_product_id bigint NOT NULL REFERENCES template_products(id) ON DELETE RESTRICT,
  parameter_id bigint NOT NULL REFERENCES parameters(id) ON DELETE RESTRICT,
@@ -123,7 +123,7 @@ CREATE TABLE template_product_parameters (
  UNIQUE (template_product_id,parameter_id),
  UNIQUE (id,template_product_id)
 );
-CREATE TABLE template_question_options (
+CREATE TABLE IF NOT EXISTS template_question_options (
  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
  template_question_id bigint NOT NULL REFERENCES template_questions(id) ON DELETE RESTRICT,
  option_key text NOT NULL,
@@ -132,7 +132,7 @@ CREATE TABLE template_question_options (
  sort_order integer NOT NULL DEFAULT 0,
  UNIQUE (template_question_id,option_key)
 );
-CREATE TABLE template_checklist_items (
+CREATE TABLE IF NOT EXISTS template_checklist_items (
  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
  template_question_id bigint NOT NULL REFERENCES template_questions(id) ON DELETE RESTRICT,
  item_key text NOT NULL, item_label text NOT NULL,
@@ -145,7 +145,7 @@ CREATE TABLE template_checklist_items (
  UNIQUE (id,template_question_id)
 );
 -- Snapshot parameter rules: question-level OR checklist-item-level; product scoped.
-CREATE TABLE template_parameter_mappings (
+CREATE TABLE IF NOT EXISTS template_parameter_mappings (
  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
  template_product_question_id bigint NOT NULL REFERENCES template_product_questions(id) ON DELETE RESTRICT,
  template_product_parameter_id bigint NOT NULL REFERENCES template_product_parameters(id) ON DELETE RESTRICT,
@@ -156,7 +156,7 @@ CREATE TABLE template_parameter_mappings (
  CHECK ((source_type='question' AND checklist_item_id IS NULL) OR (source_type='checklist_item' AND checklist_item_id IS NOT NULL)),
  UNIQUE (id, template_product_question_id)
 );
-CREATE TABLE template_report_fields (
+CREATE TABLE IF NOT EXISTS template_report_fields (
  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
  template_product_id bigint NOT NULL REFERENCES template_products(id) ON DELETE RESTRICT,
  field_key text NOT NULL, field_label text NOT NULL,
@@ -165,7 +165,7 @@ CREATE TABLE template_report_fields (
  UNIQUE (template_product_id,field_key)
 );
 
-CREATE TABLE surveys (
+CREATE TABLE IF NOT EXISTS surveys (
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
  survey_no text NOT NULL UNIQUE,
  customer_ref text, surveyed_at timestamptz,
@@ -173,7 +173,7 @@ CREATE TABLE surveys (
  created_by text NOT NULL,
  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
 );
-CREATE TABLE survey_items (
+CREATE TABLE IF NOT EXISTS survey_items (
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
  survey_id uuid NOT NULL REFERENCES surveys(id) ON DELETE RESTRICT,
  template_product_id bigint NOT NULL REFERENCES template_products(id) ON DELETE RESTRICT,
@@ -181,7 +181,7 @@ CREATE TABLE survey_items (
  created_at timestamptz NOT NULL DEFAULT now(),
  UNIQUE (survey_id,item_no), UNIQUE (id,template_product_id)
 );
-CREATE TABLE survey_answers (
+CREATE TABLE IF NOT EXISTS survey_answers (
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
  survey_item_id uuid NOT NULL REFERENCES survey_items(id) ON DELETE RESTRICT,
  template_product_question_id bigint NOT NULL REFERENCES template_product_questions(id) ON DELETE RESTRICT,
@@ -191,7 +191,7 @@ CREATE TABLE survey_answers (
  UNIQUE (survey_item_id,template_product_question_id),
  UNIQUE (id,template_product_question_id)
 );
-CREATE TABLE survey_checklist_answers (
+CREATE TABLE IF NOT EXISTS survey_checklist_answers (
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
  survey_answer_id uuid NOT NULL REFERENCES survey_answers(id) ON DELETE RESTRICT,
  template_checklist_item_id bigint NOT NULL REFERENCES template_checklist_items(id) ON DELETE RESTRICT,
@@ -201,7 +201,7 @@ CREATE TABLE survey_checklist_answers (
  answered_at timestamptz,
  UNIQUE (survey_answer_id,template_checklist_item_id)
 );
-CREATE TABLE survey_photos (
+CREATE TABLE IF NOT EXISTS survey_photos (
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
  survey_answer_id uuid NOT NULL REFERENCES survey_answers(id) ON DELETE RESTRICT,
  survey_checklist_answer_id uuid REFERENCES survey_checklist_answers(id) ON DELETE RESTRICT,
@@ -213,7 +213,7 @@ CREATE TABLE survey_photos (
  deleted_at timestamptz,
  CHECK ((scope='question' AND survey_checklist_answer_id IS NULL) OR (scope='checklist_item' AND survey_checklist_answer_id IS NOT NULL))
 );
-CREATE TABLE survey_parameter_values (
+CREATE TABLE IF NOT EXISTS survey_parameter_values (
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
  survey_item_id uuid NOT NULL REFERENCES survey_items(id) ON DELETE RESTRICT,
  template_product_parameter_id bigint NOT NULL REFERENCES template_product_parameters(id) ON DELETE RESTRICT,
@@ -225,13 +225,13 @@ CREATE TABLE survey_parameter_values (
  calculated_at timestamptz NOT NULL DEFAULT now(),
  UNIQUE (survey_item_id,template_product_parameter_id)
 );
-CREATE TABLE survey_answer_revisions (
+CREATE TABLE IF NOT EXISTS survey_answer_revisions (
  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
  survey_answer_id uuid NOT NULL REFERENCES survey_answers(id) ON DELETE RESTRICT,
  previous_answer_json jsonb, new_answer_json jsonb,
  changed_by text NOT NULL, changed_at timestamptz NOT NULL DEFAULT now(), reason text
 );
-CREATE TABLE survey_report_snapshots (
+CREATE TABLE IF NOT EXISTS survey_report_snapshots (
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
  survey_id uuid NOT NULL REFERENCES surveys(id) ON DELETE RESTRICT,
  revision_no integer NOT NULL CHECK (revision_no>0),
@@ -243,7 +243,7 @@ CREATE TABLE survey_report_snapshots (
 );
 
 -- Cross-parent validation: physical FK alone does not guarantee same template, product or answer parent.
-CREATE FUNCTION validate_survey_links() RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE OR REPLACE FUNCTION validate_survey_links() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE v1 bigint; v2 bigint; qid bigint; a_id uuid;
 BEGIN
  IF TG_TABLE_NAME='template_product_questions' THEN
@@ -289,11 +289,11 @@ BEGIN
 END; $$;
 DO $$ DECLARE t text; BEGIN
  FOREACH t IN ARRAY ARRAY['template_product_questions','template_parameter_mappings','survey_answers','survey_checklist_answers','survey_photos','survey_parameter_values'] LOOP
-  EXECUTE format('CREATE TRIGGER trg_validate_links BEFORE INSERT OR UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION validate_survey_links()',t);
+  EXECUTE format('CREATE OR REPLACE TRIGGER trg_validate_links BEFORE INSERT OR UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION validate_survey_links()',t);
  END LOOP;
 END $$;
 
-CREATE FUNCTION assert_draft_template() RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE OR REPLACE FUNCTION assert_draft_template() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE version_id_value bigint; state template_status;
 BEGIN
  CASE TG_TABLE_NAME
@@ -328,11 +328,11 @@ BEGIN
 END; $$;
 DO $$ DECLARE t text; BEGIN
  FOREACH t IN ARRAY ARRAY['template_products','template_questions','template_product_questions','template_product_parameters','template_question_options','template_checklist_items','template_parameter_mappings','template_report_fields'] LOOP
-  EXECUTE format('CREATE TRIGGER trg_draft_guard BEFORE INSERT OR UPDATE OR DELETE ON %I FOR EACH ROW EXECUTE FUNCTION assert_draft_template()',t);
+  EXECUTE format('CREATE OR REPLACE TRIGGER trg_draft_guard BEFORE INSERT OR UPDATE OR DELETE ON %I FOR EACH ROW EXECUTE FUNCTION assert_draft_template()',t);
  END LOOP;
 END $$;
 
-CREATE FUNCTION protect_template_version() RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE OR REPLACE FUNCTION protect_template_version() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
  IF TG_OP='DELETE' THEN RAISE EXCEPTION 'Version deletion is not allowed'; END IF;
  IF OLD.status <> 'draft' THEN
@@ -344,9 +344,9 @@ BEGIN
  IF OLD.status='draft' AND NEW.status='published' AND NEW.published_at IS NULL THEN NEW.published_at := now(); END IF;
  RETURN NEW;
 END; $$;
-CREATE TRIGGER trg_protect_version BEFORE UPDATE OR DELETE ON survey_template_versions FOR EACH ROW EXECUTE FUNCTION protect_template_version();
+CREATE OR REPLACE TRIGGER trg_protect_version BEFORE UPDATE OR DELETE ON survey_template_versions FOR EACH ROW EXECUTE FUNCTION protect_template_version();
 
-CREATE FUNCTION ensure_published_survey_item() RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE OR REPLACE FUNCTION ensure_published_survey_item() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
  IF NOT EXISTS (SELECT 1 FROM template_products tp JOIN survey_template_versions v ON v.id=tp.version_id
                 WHERE tp.id=NEW.template_product_id AND v.status IN ('published','retired')) THEN
@@ -354,17 +354,17 @@ BEGIN
  END IF;
  RETURN NEW;
 END; $$;
-CREATE TRIGGER trg_survey_item_published BEFORE INSERT OR UPDATE OF template_product_id ON survey_items FOR EACH ROW EXECUTE FUNCTION ensure_published_survey_item();
+CREATE OR REPLACE TRIGGER trg_survey_item_published BEFORE INSERT OR UPDATE OF template_product_id ON survey_items FOR EACH ROW EXECUTE FUNCTION ensure_published_survey_item();
 
-CREATE INDEX idx_template_questions_version_sort ON template_questions(version_id,sort_order);
-CREATE INDEX idx_template_checklist_items_question_sort ON template_checklist_items(template_question_id,sort_order);
-CREATE INDEX idx_template_mappings_target ON template_parameter_mappings(template_product_parameter_id,priority);
-CREATE INDEX idx_survey_items_survey ON survey_items(survey_id);
-CREATE INDEX idx_survey_answers_item ON survey_answers(survey_item_id);
-CREATE INDEX idx_survey_photos_answer ON survey_photos(survey_answer_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_survey_checklist_answers_answer ON survey_checklist_answers(survey_answer_id);
-CREATE INDEX idx_survey_parameter_values_item ON survey_parameter_values(survey_item_id);
-CREATE INDEX idx_report_snapshots_survey ON survey_report_snapshots(survey_id);
+CREATE INDEX IF NOT EXISTS idx_template_questions_version_sort ON template_questions(version_id,sort_order);
+CREATE INDEX IF NOT EXISTS idx_template_checklist_items_question_sort ON template_checklist_items(template_question_id,sort_order);
+CREATE INDEX IF NOT EXISTS idx_template_mappings_target ON template_parameter_mappings(template_product_parameter_id,priority);
+CREATE INDEX IF NOT EXISTS idx_survey_items_survey ON survey_items(survey_id);
+CREATE INDEX IF NOT EXISTS idx_survey_answers_item ON survey_answers(survey_item_id);
+CREATE INDEX IF NOT EXISTS idx_survey_photos_answer ON survey_photos(survey_answer_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_survey_checklist_answers_answer ON survey_checklist_answers(survey_answer_id);
+CREATE INDEX IF NOT EXISTS idx_survey_parameter_values_item ON survey_parameter_values(survey_item_id);
+CREATE INDEX IF NOT EXISTS idx_report_snapshots_survey ON survey_report_snapshots(survey_id);
 COMMIT;
 
 
@@ -372,7 +372,7 @@ COMMIT;
 -- Source-fidelity additions: preserve all source records.
 -- Original HTML, PDF and XLSX are stored byte-for-byte in source_assets.
 -- ---------------------------------------------------------
-BEGIN;
+BEGIN; SET LOCAL session_replication_role = 'replica';
 SET search_path TO survey_engine, public;
 CREATE TABLE IF NOT EXISTS source_assets (
  asset_key text PRIMARY KEY, filename text NOT NULL, mime_type text NOT NULL,

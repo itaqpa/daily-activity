@@ -6,7 +6,7 @@ import { apiUrl } from '../../../api';
 // const MOCK_TEMPLATE = {...} dihapus
 
 
-export default function DynamicProductForm({ product, onClose, onSave, onChange, existingData = {}, schedules = [] }) {
+export default function DynamicProductForm({ product, onClose, onSave, onChange, existingData = {}, schedules = [], readOnly = false }) {
   const [sections, setSections] = useState([]);
   const [currentSectionId, setCurrentSectionId] = useState(null);
   const [answers, setAnswers] = useState(existingData);
@@ -61,6 +61,7 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
   }, [product.code]);
 
   const handleInputChange = (questionId, value) => {
+    if (readOnly) return;
     setAnswers(prev => ({ ...prev, [questionId]: value }));
   };
 
@@ -77,7 +78,7 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
       });
     });
 
-    if (hariSurveyQId) {
+    if (hariSurveyQId && !readOnly) {
       if (!answers[hariSurveyQId]) {
         const todayDate = new Date().toISOString().split('T')[0];
         const matchedSch = schedules.find(s => s.tanggal === todayDate) || schedules[0] || { hari_ke: 1, tanggal: todayDate };
@@ -85,9 +86,10 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
         setAnswers(prev => ({ ...prev, [hariSurveyQId]: val }));
       }
     }
-  }, [sections, schedules, product?.code]);
+  }, [sections, schedules, product?.code, readOnly]);
 
   const handleAddCustomRef = () => {
+    if (readOnly) return;
     setAnswers(prev => ({
       ...prev,
       custom_refs: [...(prev.custom_refs || []), { id: Date.now().toString(), parameter: '', value: '', tolerance: '' }]
@@ -95,6 +97,7 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
   };
 
   const handleUpdateCustomRef = (id, field, value) => {
+    if (readOnly) return;
     setAnswers(prev => ({
       ...prev,
       custom_refs: (prev.custom_refs || []).map(ref => ref.id === id ? { ...ref, [field]: value } : ref)
@@ -102,6 +105,7 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
   };
 
   const handleRemoveCustomRef = (id) => {
+    if (readOnly) return;
     setAnswers(prev => ({
       ...prev,
       custom_refs: (prev.custom_refs || []).filter(ref => ref.id !== id)
@@ -227,10 +231,10 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
   };
 
   useEffect(() => {
-    if (onChangeRef.current && sections.length > 0) {
+    if (!readOnly && onChangeRef.current && sections.length > 0) {
       onChangeRef.current(answers, getOverallPercent());
     }
-  }, [answers, sections]);
+  }, [answers, sections, readOnly]);
 
   // Tampilan Form Input per Section
   if (currentSectionId) {
@@ -268,7 +272,8 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
                     <select
                       value={answers[q.id] || ''}
                       onChange={(e) => handleInputChange(q.id, e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none text-gray-700 bg-white text-sm"
+                      disabled={readOnly}
+                      className={`w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none text-gray-700 text-sm ${readOnly ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
                     >
                       <option value="">-- Pilih Hari Survey --</option>
                       {schedules.map((sch, idx) => {
@@ -292,8 +297,9 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
                     <input
                       type={q.type}
                       value={answers[q.id] || ''}
+                      disabled={readOnly}
                       onChange={(e) => handleInputChange(q.id, e.target.value)}
-                      className={`w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none text-gray-700 ${q.unit ? 'pr-16' : ''}`}
+                      className={`w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none text-gray-700 ${q.unit ? 'pr-16' : ''} ${readOnly ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
                       placeholder={`Masukkan ${q.label.toLowerCase()}`}
                     />
                     {q.unit && (
@@ -305,16 +311,18 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
                 ) : q.type === 'textarea' ? (
                   <textarea
                     value={answers[q.id] || ''}
+                    disabled={readOnly}
                     onChange={(e) => handleInputChange(q.id, e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none text-gray-700 min-h-[100px]"
+                    className={`w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none text-gray-700 min-h-[100px] ${readOnly ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
                     placeholder="Ketik catatan di sini..."
                   />
                 ) : q.type === 'select' ? (
                   <div className="space-y-2">
                     <select
                       value={answers[q.id] || ''}
+                      disabled={readOnly}
                       onChange={(e) => handleInputChange(q.id, e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none text-gray-700 bg-white"
+                      className={`w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none text-gray-700 ${readOnly ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
                     >
                       <option value="">-- Pilih --</option>
                       {q.options.map(opt => {
@@ -327,8 +335,9 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
                       <input
                         type="text"
                         value={answers[`${q.id}_lainnya`] || ''}
+                        disabled={readOnly}
                         onChange={(e) => handleInputChange(`${q.id}_lainnya`, e.target.value)}
-                        className="w-full px-4 py-2.5 rounded-lg border border-dashed border-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none text-gray-700 mt-2 bg-gray-50"
+                        className={`w-full px-4 py-2.5 rounded-lg border border-dashed border-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none text-gray-700 mt-2 ${readOnly ? 'bg-gray-100 cursor-not-allowed' : 'bg-gray-50'}`}
                         placeholder={`Sebutkan ${q.label.toLowerCase()} lainnya...`}
                       />
                     )}
@@ -344,9 +353,10 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
                               type="radio"
                               name={q.id}
                               value={val}
+                              disabled={readOnly}
                               checked={answers[q.id] === val}
                               onChange={(e) => handleInputChange(q.id, e.target.value)}
-                              className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                              className={`w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 ${readOnly ? 'cursor-not-allowed' : ''}`}
                             />
                             <span className="text-sm text-gray-700">{val}</span>
                           </label>
@@ -364,6 +374,7 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
                           <input
                             type="checkbox"
                             checked={currentVals.includes(itemValue)}
+                            disabled={readOnly}
                             onChange={(e) => {
                               const checked = e.target.checked;
                               const newVals = checked 
@@ -371,7 +382,7 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
                                 : currentVals.filter(v => v !== itemValue);
                               handleInputChange(q.id, newVals);
                             }}
-                            className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                            className={`w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 ${readOnly ? 'cursor-not-allowed' : ''}`}
                           />
                           <span className="text-sm text-gray-700">{itemValue}</span>
                         </label>
@@ -408,8 +419,9 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
                             <td className="px-4 py-2">
                               <select 
                                 value={ref.parameter} 
+                                disabled={readOnly}
                                 onChange={(e) => handleUpdateCustomRef(ref.id, 'parameter', e.target.value)}
-                                className="w-full px-3 py-1.5 rounded-md border border-gray-200 focus:ring-1 focus:ring-blue-500 outline-none text-sm bg-white"
+                                className={`w-full px-3 py-1.5 rounded-md border border-gray-200 focus:ring-1 focus:ring-blue-500 outline-none text-sm ${readOnly ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
                               >
                                 <option value="">Pilih...</option>
                                 {sections.flatMap(s => s.questions).filter(q => q.type === 'number').map(q => (
@@ -421,8 +433,9 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
                               <input 
                                 type="number" 
                                 value={ref.value} 
+                                disabled={readOnly}
                                 onChange={(e) => handleUpdateCustomRef(ref.id, 'value', e.target.value)}
-                                className="w-full px-3 py-1.5 rounded-md border border-gray-200 focus:ring-1 focus:ring-blue-500 outline-none text-sm"
+                                className={`w-full px-3 py-1.5 rounded-md border border-gray-200 focus:ring-1 focus:ring-blue-500 outline-none text-sm ${readOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                                 placeholder="Nilai"
                               />
                             </td>
@@ -430,18 +443,21 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
                               <input 
                                 type="number" 
                                 value={ref.tolerance} 
+                                disabled={readOnly}
                                 onChange={(e) => handleUpdateCustomRef(ref.id, 'tolerance', e.target.value)}
-                                className="w-full px-3 py-1.5 rounded-md border border-gray-200 focus:ring-1 focus:ring-blue-500 outline-none text-sm"
+                                className={`w-full px-3 py-1.5 rounded-md border border-gray-200 focus:ring-1 focus:ring-blue-500 outline-none text-sm ${readOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                                 placeholder="Toleransi"
                               />
                             </td>
                             <td className="px-4 py-2 text-center">
-                              <button 
-                                onClick={() => handleRemoveCustomRef(ref.id)}
-                                className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition-colors"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                              {!readOnly && (
+                                <button 
+                                  onClick={() => handleRemoveCustomRef(ref.id)}
+                                  className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
                             </td>
                           </tr>
                         ))}
@@ -450,13 +466,15 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
                   </div>
                 )}
 
-                <button 
-                  onClick={handleAddCustomRef}
-                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-100"
-                >
-                  <Plus className="w-4 h-4" />
-                  Tambah acuan custom
-                </button>
+                {!readOnly && (
+                  <button 
+                    onClick={handleAddCustomRef}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-100"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Tambah acuan custom
+                  </button>
+                )}
               </div>
             )}
 
@@ -466,9 +484,11 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
                 <div className="bg-blue-50/50 p-5 rounded-xl border border-blue-100">
                   <h4 className="font-bold text-gray-800 mb-1">Cocokkan standar dari hasil ukur</h4>
                   <p className="text-sm text-gray-500 mb-4">Isi OD, PCD, dan jumlah lubang di form utama, lalu cari standar yang mendekati.</p>
-                  <button className="px-4 py-2 bg-white border border-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
-                    Cari standar yang cocok
-                  </button>
+                  {!readOnly && (
+                    <button className="px-4 py-2 bg-white border border-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
+                      Cari standar yang cocok
+                    </button>
+                  )}
                 </div>
 
                 <div className="bg-blue-50/50 p-5 rounded-xl border border-blue-100">
@@ -476,18 +496,20 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
                   <div className="grid grid-cols-2 gap-4 mb-4">
                     <div>
                       <label className="block text-xs font-semibold text-gray-600 mb-1">Jumlah lubang</label>
-                      <input type="number" className="w-full px-3 py-2 rounded-md border border-gray-200 outline-none text-sm focus:ring-1 focus:ring-blue-500" placeholder="0" />
+                      <input type="number" disabled={readOnly} className={`w-full px-3 py-2 rounded-md border border-gray-200 outline-none text-sm focus:ring-1 focus:ring-blue-500 ${readOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`} placeholder="0" />
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-gray-600 mb-1">Jarak antar pusat (mm)</label>
-                      <input type="number" className="w-full px-3 py-2 rounded-md border border-gray-200 outline-none text-sm focus:ring-1 focus:ring-blue-500" placeholder="0" />
+                      <input type="number" disabled={readOnly} className={`w-full px-3 py-2 rounded-md border border-gray-200 outline-none text-sm focus:ring-1 focus:ring-blue-500 ${readOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`} placeholder="0" />
                     </div>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-bold text-blue-600">PCD: -</span>
-                    <button className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
-                      Pakai sebagai PCD
-                    </button>
+                    {!readOnly && (
+                      <button className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
+                        Pakai sebagai PCD
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -504,13 +526,15 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
                     {['Jam 12', 'Jam 3', 'Jam 6', 'Jam 9', 'OD Flange'].map(label => (
                       <div key={label}>
                         <label className="block text-xs font-semibold text-gray-600 mb-1">{label} (mm)</label>
-                        <input type="number" className="w-full px-3 py-2 rounded-md border border-gray-200 outline-none text-sm focus:ring-1 focus:ring-blue-500" placeholder="0" />
+                        <input type="number" disabled={readOnly} className={`w-full px-3 py-2 rounded-md border border-gray-200 outline-none text-sm focus:ring-1 focus:ring-blue-500 ${readOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`} placeholder="0" />
                       </div>
                     ))}
                   </div>
-                  <button className="px-4 py-2 bg-white border border-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
-                    Hitung & Isi panjang terpasang / misalignment
-                  </button>
+                  {!readOnly && (
+                    <button className="px-4 py-2 bg-white border border-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
+                      Hitung & Isi panjang terpasang / misalignment
+                    </button>
+                  )}
                 </div>
               </div>
             )}
@@ -524,7 +548,7 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
               }}
               className="w-full md:w-auto bg-blue-600 text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-sm"
             >
-              Simpan & Kembali
+              {readOnly ? 'Kembali' : 'Simpan & Kembali'}
             </button>
           </div>
         </div>
@@ -599,7 +623,7 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
         <div className="flex-1 overflow-y-auto p-5 md:p-6 bg-slate-50">
           <div className="mb-4 flex items-center justify-between">
             <h3 className="font-bold text-gray-700">Form Inspeksi Lapangan</h3>
-            <span className="text-xs font-medium text-gray-500">Pilih modul untuk mengisi data</span>
+              <span className="text-xs font-medium text-gray-500">{readOnly ? 'Data hanya dapat dilihat' : 'Pilih modul untuk mengisi data'}</span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -662,18 +686,23 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
             <div className="bg-white border border-gray-200 rounded-xl p-4">
               <div className="flex justify-between items-center mb-2">
                 <h4 className="font-bold text-gray-800">Catatan Item</h4>
-                <button 
-                  onClick={() => setIsEditingNotes(!isEditingNotes)}
-                  className="text-sm font-bold text-slate-800 hover:text-blue-600 transition-colors"
-                >
-                  {isEditingNotes || answers.catatan ? 'Edit Catatan' : '+ Catatan'}
-                </button>
+                {!readOnly && (
+                  <button 
+                    onClick={() => setIsEditingNotes(!isEditingNotes)}
+                    className="text-sm font-bold text-slate-800 hover:text-blue-600 transition-colors"
+                  >
+                    {isEditingNotes || answers.catatan ? 'Edit Catatan' : '+ Catatan'}
+                  </button>
+                )}
               </div>
-              {isEditingNotes ? (
+              {isEditingNotes && !readOnly ? (
                 <textarea
                   autoFocus
                   value={answers.catatan || ''}
-                  onChange={(e) => setAnswers(prev => ({ ...prev, catatan: e.target.value }))}
+                  onChange={(e) => {
+                    if (readOnly) return;
+                    setAnswers(prev => ({ ...prev, catatan: e.target.value }));
+                  }}
                   onBlur={() => setIsEditingNotes(false)}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-700 min-h-[80px]"
                   placeholder="Masukkan catatan item..."
@@ -689,18 +718,23 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
             <div className="bg-white border border-gray-200 rounded-xl p-4">
               <div className="flex justify-between items-center mb-2">
                 <h4 className="font-bold text-gray-800">Perlu Konfirmasi / Outstanding</h4>
-                <button 
-                  onClick={() => setIsEditingOutstanding(!isEditingOutstanding)}
-                  className="text-sm font-bold text-slate-800 hover:text-blue-600 transition-colors"
-                >
-                  {isEditingOutstanding || answers.outstanding ? 'Edit Outstanding' : '+ Outstanding'}
-                </button>
+                {!readOnly && (
+                  <button 
+                    onClick={() => setIsEditingOutstanding(!isEditingOutstanding)}
+                    className="text-sm font-bold text-slate-800 hover:text-blue-600 transition-colors"
+                  >
+                    {isEditingOutstanding || answers.outstanding ? 'Edit Outstanding' : '+ Outstanding'}
+                  </button>
+                )}
               </div>
-              {isEditingOutstanding ? (
+              {isEditingOutstanding && !readOnly ? (
                 <textarea
                   autoFocus
                   value={answers.outstanding || ''}
-                  onChange={(e) => setAnswers(prev => ({ ...prev, outstanding: e.target.value }))}
+                  onChange={(e) => {
+                    if (readOnly) return;
+                    setAnswers(prev => ({ ...prev, outstanding: e.target.value }));
+                  }}
                   onBlur={() => setIsEditingOutstanding(false)}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-700 min-h-[80px]"
                   placeholder="Masukkan outstanding item..."
@@ -735,13 +769,22 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
               </span>
             )}
           </div>
-          <button 
-            onClick={() => onSave(answers, getOverallPercent())}
-            className="flex items-center justify-center w-full md:w-auto gap-2 bg-blue-600 text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Save className="w-5 h-5" />
-            Simpan Data Produk
-          </button>
+          {!readOnly ? (
+            <button 
+              onClick={() => onSave(answers, getOverallPercent())}
+              className="flex items-center justify-center w-full md:w-auto gap-2 bg-blue-600 text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Save className="w-5 h-5" />
+              Simpan Data Produk
+            </button>
+          ) : (
+            <button 
+              onClick={onClose}
+              className="flex items-center justify-center w-full md:w-auto gap-2 bg-slate-200 text-slate-700 px-6 py-2.5 rounded-lg font-semibold hover:bg-slate-300 transition-colors shadow-sm"
+            >
+              Tutup
+            </button>
+          )}
         </div>
       </div>
     </div>

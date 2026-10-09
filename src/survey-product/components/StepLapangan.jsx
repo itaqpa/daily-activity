@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { MapPin, Box, Plus, Trash2, ChevronRight, X } from 'lucide-react';
+import { MapPin, Box, Plus, Trash2, ChevronRight, X, Download, Share2 } from 'lucide-react';
 import DynamicProductForm from './modals/DynamicProductForm';
 import { exportToPDF, generatePreviewHTML } from '../utils/pdfExport';
+import { useAuth } from '../../context/AuthContext';
 
 export const PRODUCT_LIST = [
   { code: 'EJR', name: 'Expansion Joint Rubber', category: 'Expansion joint' },
@@ -22,7 +23,8 @@ export const createEmptyLapanganData = () => {
   };
 };
 
-export default function StepLapangan({ data = createEmptyLapanganData(), stepData = {}, onChange }) {
+export default function StepLapangan({ data = createEmptyLapanganData(), stepData = {}, onChange, readOnly = false }) {
+  const { user } = useAuth();
   const actualSchedules = data.actualSchedules?.length ? data.actualSchedules : createEmptyLapanganData().actualSchedules;
   const productProgress = data.productProgress || [];
   const [isAddingProduct, setIsAddingProduct] = useState(false);
@@ -31,9 +33,13 @@ export default function StepLapangan({ data = createEmptyLapanganData(), stepDat
   const [previewScale, setPreviewScale] = useState(1);
   const [previewParams, setPreviewParams] = useState(null);
 
-  const updateData = (patch) => onChange?.({ ...data, ...patch });
+  const updateData = (patch) => {
+    if (readOnly) return;
+    onChange?.({ ...data, ...patch });
+  };
 
   const addSchedule = () => {
+    if (readOnly) return;
     const today = new Date().toISOString().split('T')[0];
     updateData({
       actualSchedules: [
@@ -44,6 +50,7 @@ export default function StepLapangan({ data = createEmptyLapanganData(), stepDat
   };
 
   const updateSchedule = (id, field, value) => {
+    if (readOnly) return;
     updateData({
       actualSchedules: actualSchedules.map(schedule =>
         schedule.id === id ? { ...schedule, [field]: value } : schedule
@@ -52,6 +59,7 @@ export default function StepLapangan({ data = createEmptyLapanganData(), stepDat
   };
 
   const removeSchedule = (id) => {
+    if (readOnly) return;
     if (actualSchedules.length === 1) return;
     
     const newSchedules = actualSchedules
@@ -64,6 +72,7 @@ export default function StepLapangan({ data = createEmptyLapanganData(), stepDat
   };
 
   const handleAddProduct = (product) => {
+    if (readOnly) return;
     const count = productProgress.filter(item => item.code === product.code).length + 1;
     const formattedId = `${product.code}-${String(count).padStart(3, '0')}`;
 
@@ -78,6 +87,7 @@ export default function StepLapangan({ data = createEmptyLapanganData(), stepDat
           lokasi: '',
           hari_ke: 1,
           percent: 0,
+          filled_by: user ? (user.name || user.username || user.email) : 'Unknown',
           formData: {}
         }
       ]
@@ -86,6 +96,7 @@ export default function StepLapangan({ data = createEmptyLapanganData(), stepDat
   };
 
   const handleProductDataChange = (answers, percentage) => {
+    if (readOnly) return;
     // Jika tidak ada percentage dari component anak, fallback ke hitungan manual (sebagai backup)
     let calcPercent = percentage;
     if (calcPercent === undefined) {
@@ -119,11 +130,16 @@ export default function StepLapangan({ data = createEmptyLapanganData(), stepDat
   };
 
   const handleSaveProductForm = (answers, percentage) => {
+    if (readOnly) {
+      setSelectedProduct(null);
+      return;
+    }
     handleProductDataChange(answers, percentage);
     setSelectedProduct(null);
   };
 
   const removeProductProgress = (id) => {
+    if (readOnly) return;
     updateData({
       productProgress: productProgress.filter(product => product.id !== id)
     });
@@ -131,6 +147,16 @@ export default function StepLapangan({ data = createEmptyLapanganData(), stepDat
 
   return (
     <div className="space-y-8">
+      {readOnly && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 shadow-sm">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="rounded-full bg-emerald-600 px-2.5 py-1 text-xs font-bold text-white">Read-Only</span>
+            <span className="font-semibold text-emerald-900">Survey sudah selesai.</span>
+            <span className="text-emerald-700">Data lapangan dan form produk hanya dapat dilihat.</span>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white p-5 md:p-8 rounded-2xl shadow-sm border border-gray-100">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
@@ -142,9 +168,11 @@ export default function StepLapangan({ data = createEmptyLapanganData(), stepDat
               <p className="text-sm text-gray-500">Pencatatan kegiatan harian di lapangan</p>
             </div>
           </div>
-          <button onClick={addSchedule} className="flex items-center gap-1.5 text-sm bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg font-semibold hover:bg-blue-200 transition-colors">
-            <Plus className="w-4 h-4" /> Tambah Hari
-          </button>
+          {!readOnly && (
+            <button onClick={addSchedule} className="flex items-center gap-1.5 text-sm bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg font-semibold hover:bg-blue-200 transition-colors">
+              <Plus className="w-4 h-4" /> Tambah Hari
+            </button>
+          )}
         </div>
 
         <div className="space-y-4">
@@ -168,8 +196,9 @@ export default function StepLapangan({ data = createEmptyLapanganData(), stepDat
                 <input
                   type="date"
                   value={tanggal}
+                  disabled={readOnly}
                   onChange={(e) => updateSchedule(schedule.id, 'tanggal', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-700 bg-white"
+                  className={`w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-700 ${readOnly ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
                 />
               </div>
               <div className="md:col-span-6">
@@ -177,20 +206,23 @@ export default function StepLapangan({ data = createEmptyLapanganData(), stepDat
                 <input
                   type="text"
                   value={schedule.kegiatan || ''}
+                  disabled={readOnly}
                   onChange={(e) => updateSchedule(schedule.id, 'kegiatan', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
+                  className={`w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-700 ${readOnly ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
                   placeholder="Cth: Survey area produksi 1"
                 />
               </div>
-              <div className="md:col-span-1 flex justify-end md:justify-center pt-5">
-                <button
-                  onClick={() => removeSchedule(schedule.id)}
-                  disabled={actualSchedules.length === 1}
-                  className="p-2 text-red-500 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
-              </div>
+              {!readOnly && (
+                <div className="md:col-span-1 flex justify-end md:justify-center pt-5">
+                  <button
+                    onClick={() => removeSchedule(schedule.id)}
+                    disabled={actualSchedules.length === 1}
+                    className="p-2 text-red-500 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
+              )}
             </div>
             );
           })}
@@ -208,16 +240,18 @@ export default function StepLapangan({ data = createEmptyLapanganData(), stepDat
               <p className="text-sm text-gray-500">Progress survey produk di lapangan</p>
             </div>
           </div>
-          <button
-            onClick={() => setIsAddingProduct(!isAddingProduct)}
-            className="flex items-center gap-1.5 text-sm bg-purple-100 text-purple-700 px-3 py-1.5 rounded-lg font-semibold hover:bg-purple-200 transition-colors"
-          >
-            {isAddingProduct ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-            {isAddingProduct ? 'Batal' : 'Tambah Produk'}
-          </button>
+          {!readOnly && (
+            <button
+              onClick={() => setIsAddingProduct(!isAddingProduct)}
+              className="flex items-center gap-1.5 text-sm bg-purple-100 text-purple-700 px-3 py-1.5 rounded-lg font-semibold hover:bg-purple-200 transition-colors"
+            >
+              {isAddingProduct ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+              {isAddingProduct ? 'Batal' : 'Tambah Produk'}
+            </button>
+          )}
         </div>
 
-        {isAddingProduct && (
+        {isAddingProduct && !readOnly && (
           <div className="mb-6 bg-purple-50 p-4 rounded-xl border border-purple-100">
             <h3 className="text-sm font-bold text-purple-800 mb-3">Pilih Jenis Produk:</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
@@ -250,15 +284,17 @@ export default function StepLapangan({ data = createEmptyLapanganData(), stepDat
                 onClick={() => setSelectedProduct(product)}
                 className="relative group bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col gap-3 hover:border-blue-300 transition-colors cursor-pointer shadow-sm"
               >
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeProductProgress(product.id);
-                  }}
-                  className="absolute -top-2 -right-2 bg-red-100 text-red-600 p-1.5 rounded-full hover:bg-red-200 opacity-0 group-hover:opacity-100 transition-opacity z-10 shadow-sm"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
+                {!readOnly && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeProductProgress(product.id);
+                    }}
+                    className="absolute -top-2 -right-2 bg-red-100 text-red-600 p-1.5 rounded-full hover:bg-red-200 opacity-0 group-hover:opacity-100 transition-opacity z-10 shadow-sm"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
 
                 <div className="flex justify-between items-start">
                   <div className="flex items-center gap-3">
@@ -269,6 +305,9 @@ export default function StepLapangan({ data = createEmptyLapanganData(), stepDat
                       <div className="font-bold text-slate-800 text-base">{product.displayId}</div>
                       <div className="text-xs text-slate-500 mt-0.5">
                         {product.lokasi || 'Lokasi belum diisi'} - Hari {product.hari_ke}
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        Oleh: {product.filled_by || 'Belum ada'}
                       </div>
                     </div>
                   </div>
@@ -315,6 +354,7 @@ export default function StepLapangan({ data = createEmptyLapanganData(), stepDat
           onSave={handleSaveProductForm}
           onChange={handleProductDataChange}
           schedules={actualSchedules}
+          readOnly={readOnly}
         />
       )}
 
@@ -337,7 +377,36 @@ export default function StepLapangan({ data = createEmptyLapanganData(), stepDat
                     setPreviewHtml(generatePreviewHTML(stepData, data, previewParams?.code, s));
                   }} className="px-3 py-1.5 hover:bg-[#4d4d4d] font-bold text-gray-300">+</button>
                 </div>
-                <button onClick={() => setPreviewHtml(null)} className="p-2 text-gray-400 hover:text-white bg-[#3d3d3d] rounded-lg shadow-sm hover:bg-red-500 transition-colors">
+                
+                <button 
+                  onClick={() => exportToPDF(stepData, data, previewParams?.code)} 
+                  className="p-2 text-gray-400 hover:text-white bg-[#3d3d3d] rounded-lg shadow-sm hover:bg-blue-600 transition-colors mr-1"
+                  title="Unduh Laporan"
+                >
+                  <Download className="w-5 h-5" />
+                </button>
+                
+                <button 
+                  onClick={() => {
+                    if (navigator.share) {
+                      navigator.share({
+                        title: 'Laporan Survey GTE',
+                        text: 'Silakan lihat lampiran Laporan Survey ini.',
+                        url: window.location.href // Fallback to app link
+                      }).catch(err => {
+                        console.log("Error sharing:", err);
+                      });
+                    } else {
+                      alert('Fitur bagikan otomatis tidak didukung. Silakan gunakan fitur Unduh (Save as PDF) lalu bagikan filenya secara manual.');
+                    }
+                  }} 
+                  className="p-2 text-gray-400 hover:text-white bg-[#3d3d3d] rounded-lg shadow-sm hover:bg-green-600 transition-colors mr-1"
+                  title="Bagikan"
+                >
+                  <Share2 className="w-5 h-5" />
+                </button>
+
+                <button onClick={() => setPreviewHtml(null)} className="p-2 text-gray-400 hover:text-white bg-[#3d3d3d] rounded-lg shadow-sm hover:bg-red-500 transition-colors ml-1">
                   <X className="w-5 h-5" />
                 </button>
               </div>

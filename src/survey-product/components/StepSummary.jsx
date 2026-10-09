@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { X, Download, Share2 } from 'lucide-react';
 import { PRODUCT_LIST } from './StepData';
-import { exportToPDF } from '../utils/pdfExport';
+import { exportToPDF, generatePreviewHTML } from '../utils/pdfExport';
 
 const formatDate = (value) => {
   if (!value) return '-';
@@ -25,7 +26,10 @@ const productCodesFromText = (text = '') => PRODUCT_LIST
   .filter(product => new RegExp(`\\b${product.code}\\b`, 'i').test(text))
   .map(product => product.code);
 
-export default function StepSummary({ stepData = {}, lapanganData = {}, onChange }) {
+export default function StepSummary({ stepData = {}, lapanganData = {}, onChange, readOnly = false }) {
+  const [previewHtml, setPreviewHtml] = useState(null);
+  const [previewScale, setPreviewScale] = useState(1);
+
   const plannedCodes = stepData.selectedProducts || [];
   const plannedSchedules = stepData.schedules || [];
   const actualSchedules = lapanganData.actualSchedules || [];
@@ -55,6 +59,7 @@ export default function StepSummary({ stepData = {}, lapanganData = {}, onChange
   const outstandingUmum = stepData.outstandingUmum || [];
 
   const handleAddCatatan = () => {
+    if (readOnly) return;
     onChange && onChange(prev => ({
       ...prev,
       catatanUmum: [...(prev.catatanUmum || []), '']
@@ -62,6 +67,7 @@ export default function StepSummary({ stepData = {}, lapanganData = {}, onChange
   };
 
   const handleUpdateCatatan = (index, value) => {
+    if (readOnly) return;
     onChange && onChange(prev => {
       const newCatatan = [...(prev.catatanUmum || [])];
       newCatatan[index] = value;
@@ -70,6 +76,7 @@ export default function StepSummary({ stepData = {}, lapanganData = {}, onChange
   };
 
   const handleRemoveCatatan = (index) => {
+    if (readOnly) return;
     onChange && onChange(prev => {
       const newCatatan = [...(prev.catatanUmum || [])];
       newCatatan.splice(index, 1);
@@ -78,6 +85,7 @@ export default function StepSummary({ stepData = {}, lapanganData = {}, onChange
   };
 
   const handleAddOutstanding = () => {
+    if (readOnly) return;
     onChange && onChange(prev => ({
       ...prev,
       outstandingUmum: [...(prev.outstandingUmum || []), '']
@@ -85,6 +93,7 @@ export default function StepSummary({ stepData = {}, lapanganData = {}, onChange
   };
 
   const handleUpdateOutstanding = (index, value) => {
+    if (readOnly) return;
     onChange && onChange(prev => {
       const newOut = [...(prev.outstandingUmum || [])];
       newOut[index] = value;
@@ -93,6 +102,7 @@ export default function StepSummary({ stepData = {}, lapanganData = {}, onChange
   };
 
   const handleRemoveOutstanding = (index) => {
+    if (readOnly) return;
     onChange && onChange(prev => {
       const newOut = [...(prev.outstandingUmum || [])];
       newOut.splice(index, 1);
@@ -102,18 +112,37 @@ export default function StepSummary({ stepData = {}, lapanganData = {}, onChange
 
   return (
     <div className="space-y-4 md:space-y-6 text-slate-950">
+      {readOnly && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 shadow-sm">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="rounded-full bg-emerald-600 px-2.5 py-1 text-xs font-bold text-white">Read-Only</span>
+            <span className="font-semibold text-emerald-900">Survey sudah selesai.</span>
+            <span className="text-emerald-700">Summary dan rekomendasi hanya dapat dilihat.</span>
+          </div>
+        </div>
+      )}
+
       <section className="rounded-2xl border border-gray-200 bg-white p-4 md:p-6 shadow-sm">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <h2 className="text-xl md:text-2xl font-bold text-slate-900">Summary Survey</h2>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
             <button
-              onClick={() => exportToPDF(stepData, lapanganData)}
+              onClick={(e) => {
+                e.stopPropagation();
+                // Hitung skala agar A4 pas dengan LEBAR layar, sisanya bisa di-scroll ke bawah
+                const screenWidth = window.innerWidth;
+                const scaleW = (screenWidth - 32) / 794; // 32 = padding container
+                const initialScale = Math.max(0.1, Math.min(scaleW, 1));
+                
+                setPreviewScale(initialScale);
+                setPreviewHtml(generatePreviewHTML(stepData, lapanganData, null, initialScale));
+              }}
               className="inline-flex justify-center items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 md:py-2 text-sm font-bold text-white shadow-sm hover:bg-blue-700 transition-colors w-full sm:w-auto"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m6.75 12H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
               </svg>
-              Export Laporan PDF
+              Preview Laporan Akhir
             </button>
             <span className={`inline-flex justify-center items-center rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wide border ${
               (stepData.status || 'OPEN').toUpperCase() === 'CLOSED' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
@@ -301,12 +330,14 @@ export default function StepSummary({ stepData = {}, lapanganData = {}, onChange
       <section className="rounded-2xl border border-gray-200 bg-white p-4 md:p-6 shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg md:text-xl font-bold text-slate-900">Catatan Kegiatan Umum</h3>
-          <button
-            onClick={handleAddCatatan}
-            className="flex items-center gap-1.5 text-sm font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors border border-blue-100"
-          >
-            <span className="text-lg leading-none">+</span> <span className="hidden sm:inline">Tambah</span>
-          </button>
+          {!readOnly && (
+            <button
+              onClick={handleAddCatatan}
+              className="flex items-center gap-1.5 text-sm font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors border border-blue-100"
+            >
+              <span className="text-lg leading-none">+</span> <span className="hidden sm:inline">Tambah</span>
+            </button>
+          )}
         </div>
         
         {catatanUmum.length === 0 ? (
@@ -318,18 +349,21 @@ export default function StepSummary({ stepData = {}, lapanganData = {}, onChange
             {catatanUmum.map((catatan, index) => (
               <div key={index} className="flex gap-2 items-start relative group">
                 <textarea
-                  className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100 min-h-[80px] transition-all resize-y"
+                  className={`flex-1 rounded-xl border border-gray-200 px-4 py-3 text-sm text-slate-700 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100 min-h-[80px] transition-all resize-y ${readOnly ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
                   placeholder={`Catatan #${index + 1}...`}
                   value={catatan}
+                  disabled={readOnly}
                   onChange={(e) => handleUpdateCatatan(index, e.target.value)}
                 />
-                <button
-                  onClick={() => handleRemoveCatatan(index)}
-                  className="absolute right-2 top-2 p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors md:opacity-0 md:group-hover:opacity-100"
-                  title="Hapus Catatan"
-                >
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                </button>
+                {!readOnly && (
+                  <button
+                    onClick={() => handleRemoveCatatan(index)}
+                    className="absolute right-2 top-2 p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors md:opacity-0 md:group-hover:opacity-100"
+                    title="Hapus Catatan"
+                  >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -339,12 +373,14 @@ export default function StepSummary({ stepData = {}, lapanganData = {}, onChange
       <section className="rounded-2xl border border-gray-200 bg-white p-4 md:p-6 shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg md:text-xl font-bold text-slate-900">Outstanding Umum</h3>
-          <button
-            onClick={handleAddOutstanding}
-            className="flex items-center gap-1.5 text-sm font-semibold text-orange-600 hover:text-orange-700 bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-lg transition-colors border border-orange-100"
-          >
-            <span className="text-lg leading-none">+</span> <span className="hidden sm:inline">Tambah</span>
-          </button>
+          {!readOnly && (
+            <button
+              onClick={handleAddOutstanding}
+              className="flex items-center gap-1.5 text-sm font-semibold text-orange-600 hover:text-orange-700 bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-lg transition-colors border border-orange-100"
+            >
+              <span className="text-lg leading-none">+</span> <span className="hidden sm:inline">Tambah</span>
+            </button>
+          )}
         </div>
         
         {outstandingUmum.length === 0 ? (
@@ -356,18 +392,21 @@ export default function StepSummary({ stepData = {}, lapanganData = {}, onChange
             {outstandingUmum.map((out, index) => (
               <div key={index} className="flex gap-2 items-start relative group">
                 <textarea
-                  className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none focus:border-orange-400 focus:ring-4 focus:ring-orange-100 min-h-[80px] transition-all resize-y"
+                  className={`flex-1 rounded-xl border border-gray-200 px-4 py-3 text-sm text-slate-700 outline-none focus:border-orange-400 focus:ring-4 focus:ring-orange-100 min-h-[80px] transition-all resize-y ${readOnly ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
                   placeholder={`Outstanding #${index + 1}...`}
                   value={out}
+                  disabled={readOnly}
                   onChange={(e) => handleUpdateOutstanding(index, e.target.value)}
                 />
-                <button
-                  onClick={() => handleRemoveOutstanding(index)}
-                  className="absolute right-2 top-2 p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors md:opacity-0 md:group-hover:opacity-100"
-                  title="Hapus Outstanding"
-                >
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                </button>
+                {!readOnly && (
+                  <button
+                    onClick={() => handleRemoveOutstanding(index)}
+                    className="absolute right-2 top-2 p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors md:opacity-0 md:group-hover:opacity-100"
+                    title="Hapus Outstanding"
+                  >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -377,12 +416,80 @@ export default function StepSummary({ stepData = {}, lapanganData = {}, onChange
       <section className="rounded-2xl border border-gray-200 bg-white p-4 md:p-6 shadow-sm">
         <h3 className="text-lg md:text-xl font-bold text-slate-900 mb-3">Ringkasan & Rekomendasi</h3>
         <textarea
-          className="min-h-[120px] w-full rounded-xl border border-gray-200 bg-gray-50 hover:bg-white px-4 py-3 text-sm text-slate-700 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100 transition-all resize-y"
+          className={`min-h-[120px] w-full rounded-xl border border-gray-200 px-4 py-3 text-sm text-slate-700 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100 transition-all resize-y ${readOnly ? 'bg-gray-100 cursor-not-allowed' : 'bg-gray-50 hover:bg-white'}`}
           placeholder="Tuliskan ringkasan hasil survey, kondisi umum di lapangan, rekomendasi awal, dan catatan untuk pelaporan..."
           value={stepData.ringkasan || ''}
-          onChange={(e) => onChange && onChange(prev => ({ ...prev, ringkasan: e.target.value }))}
+          disabled={readOnly}
+          onChange={(e) => {
+            if (readOnly) return;
+            onChange && onChange(prev => ({ ...prev, ringkasan: e.target.value }));
+          }}
         />
       </section>
+
+      {previewHtml && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 backdrop-blur-sm p-0 md:p-8">
+          <div className="bg-[#1f1f1f] md:rounded-2xl shadow-2xl w-full h-full md:max-w-5xl md:h-[90vh] flex flex-col overflow-hidden">
+            <div className="p-4 border-b border-gray-700 flex justify-between items-center bg-[#2d2d2d] text-gray-200">
+              <h3 className="font-bold text-gray-100 text-lg">Preview Laporan Akhir</h3>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center bg-[#3d3d3d] rounded-lg shadow-sm overflow-hidden mr-2">
+                  <button onClick={() => {
+                    const s = Math.max(previewScale - 0.1, 0.1);
+                    setPreviewScale(s);
+                    setPreviewHtml(generatePreviewHTML(stepData, lapanganData, null, s));
+                  }} className="px-3 py-1.5 hover:bg-[#4d4d4d] font-bold text-gray-300">-</button>
+                  <span className="px-3 py-1.5 text-sm font-semibold text-gray-200 min-w-[3.5rem] text-center">{Math.round((previewScale || 1) * 100)}%</span>
+                  <button onClick={() => {
+                    const s = Math.min(previewScale + 0.1, 3);
+                    setPreviewScale(s);
+                    setPreviewHtml(generatePreviewHTML(stepData, lapanganData, null, s));
+                  }} className="px-3 py-1.5 hover:bg-[#4d4d4d] font-bold text-gray-300">+</button>
+                </div>
+                
+                <button 
+                  onClick={() => exportToPDF(stepData, lapanganData, null)} 
+                  className="p-2 text-gray-400 hover:text-white bg-[#3d3d3d] rounded-lg shadow-sm hover:bg-blue-600 transition-colors mr-1"
+                  title="Unduh Laporan"
+                >
+                  <Download className="w-5 h-5" />
+                </button>
+                
+                <button 
+                  onClick={() => {
+                    if (navigator.share) {
+                      navigator.share({
+                        title: 'Laporan Survey Akhir GTE',
+                        text: 'Silakan lihat lampiran Laporan Survey Akhir ini.',
+                        url: window.location.href
+                      }).catch(err => {
+                        console.log("Error sharing:", err);
+                      });
+                    } else {
+                      alert('Fitur bagikan otomatis tidak didukung. Silakan gunakan fitur Unduh (Save as PDF) lalu bagikan filenya secara manual.');
+                    }
+                  }} 
+                  className="p-2 text-gray-400 hover:text-white bg-[#3d3d3d] rounded-lg shadow-sm hover:bg-green-600 transition-colors mr-1"
+                  title="Bagikan"
+                >
+                  <Share2 className="w-5 h-5" />
+                </button>
+
+                <button onClick={() => setPreviewHtml(null)} className="p-2 text-gray-400 hover:text-white bg-[#3d3d3d] rounded-lg shadow-sm hover:bg-red-500 transition-colors ml-1">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 w-full h-full bg-white relative">
+              <iframe 
+                srcDoc={previewHtml} 
+                className="absolute top-0 left-0 w-full h-full border-0"
+                title="Preview"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

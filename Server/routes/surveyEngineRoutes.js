@@ -3,6 +3,24 @@ import { syncSurveyPermissionsForUsers } from '../utils/surveyPermissions.js';
 
 export default function (pool) {
   const router = express.Router();
+  const finalSurveyStatuses = new Set(['completed', 'complited', 'selesai', 'closed', 'batal']);
+  const isFinalSurveyStatus = (status) => finalSurveyStatuses.has(String(status || '').toLowerCase().trim());
+  const isAdminUser = async (user) => {
+    if (!user?.id) return false;
+    const result = await pool.query(
+      `SELECT j.nama_jabatan, u.role
+       FROM users u
+       LEFT JOIN jabatans j ON u.jabatan_id = j.id
+       WHERE u.id = $1`,
+      [user.id]
+    );
+    if (result.rows.length === 0) return false;
+    const jabatan = (result.rows[0].nama_jabatan || '').toLowerCase();
+    const role = (result.rows[0].role || '').toLowerCase();
+    return jabatan.includes('super admin')
+      || jabatan.includes('admin')
+      || ['admin', 'superadmin', 'super admin', 'super-admin'].includes(role);
+  };
 
   // ─── GET /template/:productCode ───────────────────────────────────────────
   // Kembalikan seluruh konfigurasi template yang dibutuhkan frontend:
@@ -190,7 +208,7 @@ export default function (pool) {
       await client.query('BEGIN');
 
       const normalizedStatus = status === 'draft' ? 'Draft' : status;
-      const allowedStatuses = new Set(['Draft', 'Open', 'On Progress', 'Persiapan', 'Lapangan', 'Selesai', 'Batal']);
+      const allowedStatuses = new Set(['Draft', 'Open', 'On Progress', 'Persiapan', 'Lapangan', 'Completed', 'Complited', 'Selesai', 'Closed', 'Batal']);
       if (!allowedStatuses.has(normalizedStatus)) {
         await client.query('ROLLBACK');
         return res.status(400).json({ error: 'Status survey product tidak valid' });
@@ -202,11 +220,19 @@ export default function (pool) {
 
       if (surveyId) {
         const existing = await client.query(
-          'SELECT no_survey, leader_surveyor_id, leader_surveyor, anggota_surveyor FROM survey_product_data WHERE id = $1',
+          'SELECT no_survey, status, leader_surveyor_id, leader_surveyor, anggota_surveyor FROM survey_product_data WHERE id = $1',
           [surveyId]
         );
         if (existing.rows.length === 0) {
           throw new Error(`Draft survey product dengan id ${surveyId} tidak ditemukan`);
+        }
+        if (isFinalSurveyStatus(existing.rows[0].status)) {
+          await client.query('ROLLBACK');
+          return res.json({
+            survey_id: Number(surveyId),
+            no_survey: existing.rows[0].no_survey,
+            status: existing.rows[0].status
+          });
         }
         surveyNo = surveyNo || existing.rows[0].no_survey;
         
@@ -255,33 +281,34 @@ export default function (pool) {
         );
       } else {
         surveyNo = surveyNo || `SP-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
-        const inserted = await client.query(
-          `INSERT INTO survey_product_data
-             (no_survey, nama_client, plant_area, alamat_lokasi, tanggal_mulai,
-              nama_surveyor, leader_surveyor_id, leader_surveyor_name, anggota_surveyor,
-              leader_surveyor, nama_marketing, pic_client, kontak_pic, no_inquiry,
-              tujuan_survey, status)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
-           RETURNING id, no_survey`,
-          [
-            surveyNo,
-            data.nama_client || null,
-            data.plant_area || null,
-            data.alamat_lokasi || null,
-            data.tanggal_mulai || null,
-            data.nama_surveyor || null,
-            data.leader_surveyor_id || null,
-            data.leader_surveyor_name || null,
-            JSON.stringify(data.anggota_surveyor || []),
-            JSON.stringify(data.leader_surveyor || []),
-            data.nama_marketing || null,
-            data.pic_client || null,
-            data.kontak_pic || null,
-            data.no_inquiry || null,
-            data.tujuan_survey || null,
-            normalizedStatus
-          ]
-        );
+          const inserted = await client.query(
+            `INSERT INTO survey_product_data
+               (no_survey, nama_client, plant_area, alamat_lokasi, tanggal_mulai,
+                nama_surveyor, leader_surveyor_id, leader_surveyor_name, anggota_surveyor,
+                leader_surveyor, nama_marketing, pic_client, kontak_pic, no_inquiry,
+                tujuan_survey, status, created_by)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+             RETURNING id, no_survey`,
+            [
+              surveyNo,
+              data.nama_client || null,
+              data.plant_area || null,
+              data.alamat_lokasi || null,
+              data.tanggal_mulai || null,
+              data.nama_surveyor || null,
+              data.leader_surveyor_id || null,
+              data.leader_surveyor_name || null,
+              JSON.stringify(data.anggota_surveyor || []),
+              JSON.stringify(data.leader_surveyor || []),
+              data.nama_marketing || null,
+              data.pic_client || null,
+              data.kontak_pic || null,
+              data.no_inquiry || null,
+              data.tujuan_survey || null,
+              normalizedStatus,
+              data.created_by || null
+            ]
+          );
         surveyId = inserted.rows[0].id;
         surveyNo = inserted.rows[0].no_survey;
       }
@@ -593,11 +620,15 @@ export default function (pool) {
       await client.query('BEGIN');
 
       const existing = await client.query(
-        'SELECT id FROM survey_product_data WHERE id = $1',
+        'SELECT id, status FROM survey_product_data WHERE id = $1',
         [id]
       );
       if (existing.rows.length === 0) {
         throw new Error(`Draft survey product dengan id ${id} tidak ditemukan`);
+      }
+      if (isFinalSurveyStatus(existing.rows[0].status)) {
+        await client.query('ROLLBACK');
+        return res.json({ survey_id: Number(id), status: existing.rows[0].status });
       }
 
       await client.query('DELETE FROM survey_product_persiapan WHERE survey_id = $1', [id]);
@@ -680,6 +711,41 @@ export default function (pool) {
     } catch (error) {
       console.error('Error deleting survey product:', error);
       res.status(500).json({ error: 'Terjadi kesalahan saat menghapus data' });
+    }
+  });
+
+  router.patch('/product-drafts/:id/status', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+
+      if (!(await isAdminUser(req.user))) {
+        return res.status(403).json({ error: 'Hanya admin yang dapat mengubah status survey product' });
+      }
+
+      const normalizedStatus = status === 'draft' ? 'Draft' : status;
+      const allowedStatuses = new Set(['Draft', 'Open', 'On Progress', 'Persiapan', 'Lapangan', 'Completed', 'Complited', 'Selesai', 'Closed', 'Batal']);
+      if (!allowedStatuses.has(normalizedStatus)) {
+        return res.status(400).json({ error: 'Status survey product tidak valid' });
+      }
+
+      const result = await pool.query(
+        `UPDATE survey_product_data
+         SET status = $1,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $2
+         RETURNING id, status`,
+        [normalizedStatus, id]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Survey product tidak ditemukan' });
+      }
+
+      res.json({ survey_id: Number(result.rows[0].id), status: result.rows[0].status });
+    } catch (error) {
+      console.error('Error updating survey product status:', error);
+      res.status(500).json({ error: 'Terjadi kesalahan saat mengubah status survey product' });
     }
   });
 
@@ -836,22 +902,31 @@ export default function (pool) {
       let finalStatus = status === 'draft' ? 'Draft' : status;
 
       // Allow backend to intelligently set Open vs On Progress
-      if (finalStatus !== 'Selesai' && finalStatus !== 'Batal') {
+      // Allow backend to intelligently set Open vs On Progress
+      if (!['Completed', 'Selesai', 'Closed', 'Batal'].includes(finalStatus)) {
         finalStatus = hasProducts ? 'On Progress' : 'Open';
       }
 
-      const allowedStatuses = new Set(['Draft', 'Open', 'On Progress', 'Persiapan', 'Lapangan', 'Selesai', 'Batal']);
+      const allowedStatuses = new Set(['Draft', 'Open', 'On Progress', 'Persiapan', 'Lapangan', 'Completed', 'Complited', 'Selesai', 'Closed', 'Batal']);
       if (!allowedStatuses.has(finalStatus)) {
         await client.query('ROLLBACK');
         return res.status(400).json({ error: 'Status survey product tidak valid' });
       }
 
       const existing = await client.query(
-        'SELECT id FROM survey_product_data WHERE id = $1',
+        'SELECT id, status FROM survey_product_data WHERE id = $1',
         [survey_id]
       );
       if (existing.rows.length === 0) {
         throw new Error(`Draft survey product dengan id ${survey_id} tidak ditemukan`);
+      }
+      if (isFinalSurveyStatus(existing.rows[0].status)) {
+        await client.query('ROLLBACK');
+        return res.json({
+          message: 'Survey sudah selesai, data lapangan tidak diubah',
+          survey_id: Number(survey_id),
+          status: existing.rows[0].status
+        });
       }
 
       // 1. Simpan schedules
@@ -878,8 +953,8 @@ export default function (pool) {
           if (!p.code && !p.name) continue;
           await client.query(
             `INSERT INTO survey_product_progress 
-             (survey_id, product_name, product_code, percent, form_data, hari_ke, display_id, lokasi)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+             (survey_id, product_name, product_code, percent, form_data, hari_ke, display_id, lokasi, filled_by)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
             [
               survey_id, 
               p.name, 
@@ -888,7 +963,8 @@ export default function (pool) {
               p.formData ? JSON.stringify(p.formData) : '{}',
               p.hari_ke || 1,
               p.displayId || p.code,
-              p.lokasi || ''
+              p.lokasi || '',
+              p.filled_by || null
             ]
           );
         }

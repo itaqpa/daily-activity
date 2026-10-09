@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '../components/layouts/MainLayout';
-import { Eye, Edit, Trash2, Plus, FileSpreadsheet, MapPin, Calendar, Box, PackageOpen, Key, Search, MoreVertical, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Eye, Edit, Trash2, Plus, FileSpreadsheet, MapPin, Calendar, Box, PackageOpen, Key, Search, MoreVertical, ChevronLeft, ChevronRight, RotateCcw, Lock } from 'lucide-react';
 import TokenAccessModal from './components/token-access/TokenAccessModal';
 import TokenInputModal from './components/token-access/TokenInputModal';
 import { apiUrl } from '../api';
@@ -97,11 +97,20 @@ export default function SurveyProductList() {
     ? filteredData 
     : filteredData.slice((page - 1) * limit, page * limit);
 
-  const handleEdit = (event, item) => {
+  const isFinalStatus = (status) => ['closed', 'completed', 'complited', 'selesai'].includes((status || '').toLowerCase());
+  const isCompletedStatus = (status) => ['completed', 'complited'].includes((status || '').toLowerCase());
+  const getContinueStep = (status) => {
+    const normalized = (status || '').toLowerCase();
+    if (isFinalStatus(status)) return 'summary';
+    if (['draft', 'open'].includes(normalized)) return null;
+    return 'lapangan';
+  };
+
+  const handleEdit = (event, item, targetStep = null) => {
     event.preventDefault();
     event.stopPropagation();
     setOpenDropdownId(null);
-    navigate(`/survey-product/create?id=${item.id}`);
+    navigate(`/survey-product/create?id=${item.id}${targetStep ? `&step=${targetStep}` : ''}`);
   };
 
   const handleOpenTokenModal = (event, item) => {
@@ -118,6 +127,17 @@ export default function SurveyProductList() {
     setOpenDropdownId(null);
     setSelectedSurvey(item);
     setTokenInputModalOpen(true);
+  };
+
+  const handleSurveyAction = (event, item) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const isClosed = isFinalStatus(item.status);
+    if (isClosed) {
+      handleEdit(event, item, 'summary');
+    } else {
+      handleOpenTokenInputModal(event, item);
+    }
   };
 
   const handleDelete = async (id) => {
@@ -140,37 +160,118 @@ export default function SurveyProductList() {
     }
   };
 
+  const handleUpdateStatus = async (event, item, nextStatus) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const actionLabel = nextStatus === 'Closed' ? 'Close Survey' : 'Buka Kembali';
+    const confirmMessage = nextStatus === 'Closed'
+      ? 'Survey akan dikunci sebagai Closed. Lanjutkan?'
+      : 'Survey akan dibuka kembali ke status On Progress. Lanjutkan?';
+
+    if (!window.confirm(confirmMessage)) return;
+
+    try {
+      const response = await fetch(apiUrl(`survey-engine/product-drafts/${item.id}/status`), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: nextStatus })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || `Gagal menjalankan ${actionLabel}`);
+
+      setData(prev => prev.map(row =>
+        row.id === item.id ? { ...row, status: result.status || nextStatus } : row
+      ));
+      setOpenDropdownId(null);
+    } catch (error) {
+      alert(error.message);
+    }
+  };
+
   const ActionMenu = ({ item, isMobile }) => {
     if (!isSuperAdmin) {
       const isDraft = (item.status || '').toLowerCase() === 'draft';
+      const isClosed = isFinalStatus(item.status);
       return (
         <div className={`absolute ${isMobile ? 'bottom-full mb-2 right-0' : 'top-full mt-1 right-0'} w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50`} ref={dropdownRef}>
           <button
-            onMouseDown={(event) => handleOpenTokenInputModal(event, item)}
+            onMouseDown={(event) => handleSurveyAction(event, item)}
             className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
           >
-            <Edit className="w-4 h-4 text-blue-500" /> {isDraft ? 'Mulai pengisian' : 'Lanjutkan pengisian'}
+            <Edit className={`w-4 h-4 ${isClosed ? 'text-gray-500' : 'text-blue-500'}`} /> {isClosed ? 'Lihat Laporan' : (isDraft ? 'Mulai pengisian' : 'Lanjutkan pengisian')}
           </button>
         </div>
       );
     }
 
+    const isClosed = isFinalStatus(item.status);
+    const isCompleted = isCompletedStatus(item.status);
+
     return (
       <div className={`absolute ${isMobile ? 'bottom-full mb-2 right-0' : 'top-full mt-1 right-0'} w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50`} ref={dropdownRef}>
-        <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+        <button
+          onMouseDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            setOpenDropdownId(null);
+            navigate(`/survey-product/${item.id}`);
+          }}
+          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+        >
           <Eye className="w-4 h-4 text-blue-500" /> Detail
         </button>
         <button
-          onMouseDown={(event) => handleEdit(event, item)}
-          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+          onMouseDown={(event) => {
+            if (isCompleted) {
+              event.preventDefault();
+              event.stopPropagation();
+              return;
+            }
+            handleEdit(event, item, getContinueStep(item.status));
+          }}
+          disabled={isCompleted}
+          className={`w-full text-left px-4 py-2 text-sm flex items-center gap-2 ${
+            isCompleted
+              ? 'text-gray-400 cursor-not-allowed bg-gray-50'
+              : 'text-gray-700 hover:bg-gray-50'
+          }`}
         >
-          <Edit className="w-4 h-4 text-yellow-500" /> Edit
+          <Edit className={`w-4 h-4 ${isCompleted ? 'text-gray-400' : 'text-yellow-500'}`} /> Edit
         </button>
+        {isCompleted && (
+          <>
+            <button
+              onMouseDown={(event) => handleUpdateStatus(event, item, 'On Progress')}
+              className="w-full text-left px-4 py-2 text-sm text-emerald-700 hover:bg-emerald-50 flex items-center gap-2"
+            >
+              <RotateCcw className="w-4 h-4 text-emerald-600" /> Buka Kembali
+            </button>
+            <button
+              onMouseDown={(event) => handleUpdateStatus(event, item, 'Closed')}
+              className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+            >
+              <Lock className="w-4 h-4 text-slate-600" /> Close Survey
+            </button>
+          </>
+        )}
         <button
-          onMouseDown={(event) => handleOpenTokenModal(event, item)}
-          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+          onMouseDown={(event) => {
+            if (isCompleted) {
+              event.preventDefault();
+              event.stopPropagation();
+              return;
+            }
+            handleOpenTokenModal(event, item);
+          }}
+          disabled={isCompleted}
+          className={`w-full text-left px-4 py-2 text-sm flex items-center gap-2 ${
+            isCompleted
+              ? 'text-gray-400 cursor-not-allowed bg-gray-50'
+              : 'text-gray-700 hover:bg-gray-50'
+          }`}
         >
-          <Key className="w-4 h-4 text-purple-500" /> Token Access
+          <Key className={`w-4 h-4 ${isCompleted ? 'text-gray-400' : 'text-purple-500'}`} /> Token Access
         </button>
         <div className="border-t border-gray-100 my-1"></div>
         <button 
@@ -324,11 +425,17 @@ export default function SurveyProductList() {
                         </>
                       ) : (
                         <button
-                          onClick={(event) => handleOpenTokenInputModal(event, item)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap"
+                          onClick={(event) => handleSurveyAction(event, item)}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
+                            isFinalStatus(item.status)
+                              ? 'bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200'
+                              : 'bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200'
+                          }`}
                         >
                           <Edit className="w-3.5 h-3.5" /> 
-                          {['draft', 'open'].includes((item.status || '').toLowerCase()) ? 'Mulai pengisian' : 'Lanjutkan pengisian'}
+                          {isFinalStatus(item.status) 
+                            ? 'Lihat Laporan' 
+                            : (['draft', 'open'].includes((item.status || '').toLowerCase()) ? 'Mulai pengisian' : 'Lanjutkan pengisian')}
                         </button>
                       )}
                     </td>
@@ -430,11 +537,17 @@ export default function SurveyProductList() {
                     </>
                   ) : (
                     <button
-                      onClick={(event) => handleOpenTokenInputModal(event, item)}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap"
+                      onClick={(event) => handleSurveyAction(event, item)}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
+                        isFinalStatus(item.status)
+                          ? 'bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200'
+                          : 'bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200'
+                      }`}
                     >
                       <Edit className="w-3.5 h-3.5" /> 
-                      {['draft', 'open'].includes((item.status || '').toLowerCase()) ? 'Mulai' : 'Lanjutkan'}
+                      {isFinalStatus(item.status) 
+                        ? 'Lihat Laporan' 
+                        : (['draft', 'open'].includes((item.status || '').toLowerCase()) ? 'Mulai' : 'Lanjutkan')}
                     </button>
                   )}
                 </div>
@@ -541,6 +654,7 @@ export default function SurveyProductList() {
         surveyId={selectedSurvey?.id}
         noSurvey={selectedSurvey?.no_survey}
         userId={user?.id}
+        targetStep={getContinueStep(selectedSurvey?.status)}
       />
     </MainLayout>
   );

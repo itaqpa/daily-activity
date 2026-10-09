@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Select from 'react-select';
 import { Building2, MapPin, Calendar, User, Phone, FileText, Target, Plus, Trash2, PackageOpen, CalendarDays, Users } from 'lucide-react';
 import { apiUrl } from '../../api';
+import { useAuth } from '../../context/AuthContext';
 
 export const PRODUCT_LIST = [
   { code: 'EJR', name: 'Expansion Joint Rubber', category: 'Expansion joint' },
@@ -15,6 +16,7 @@ export const PRODUCT_LIST = [
 ];
 
 export const createEmptyStepData = () => ({
+  created_by: '',
   nama_client: '',
   plant_area: '',
   alamat_lokasi: '',
@@ -35,10 +37,19 @@ export const createEmptyStepData = () => ({
   ]
 });
 
-export default function StepData({ data = createEmptyStepData(), onChange }) {
+export default function StepData({ data = createEmptyStepData(), onChange, readOnly = false }) {
+  const { user } = useAuth();
+  
   // Constants
   const selectedProducts = data.selectedProducts || [];
   const schedules = data.schedules?.length ? data.schedules : createEmptyStepData().schedules;
+  
+  useEffect(() => {
+    if (!readOnly && user && !data.created_by) {
+      onChange?.({ ...data, created_by: user.name || user.username || user.email || 'Unknown' });
+    }
+  }, [readOnly, user, data.created_by, onChange]);
+
   const leaderSurveyor = data.leader_surveyor?.length
     ? data.leader_surveyor
     : (data.leader_surveyor_id || data.leader_surveyor_name
@@ -116,6 +127,7 @@ export default function StepData({ data = createEmptyStepData(), onChange }) {
   };
 
   const updateData = (patch) => {
+    if (readOnly) return;
     onChange?.({ ...data, ...patch });
   };
 
@@ -191,8 +203,9 @@ export default function StepData({ data = createEmptyStepData(), onChange }) {
       ...base,
       minHeight: '42px',
       borderRadius: '0.75rem',
-      borderColor: state.isFocused ? '#3b82f6' : '#e5e7eb',
-      boxShadow: state.isFocused ? '0 0 0 2px rgba(59, 130, 246, 0.2)' : 'none',
+      borderColor: readOnly ? '#e5e7eb' : (state.isFocused ? '#3b82f6' : '#e5e7eb'),
+      boxShadow: !readOnly && state.isFocused ? '0 0 0 2px rgba(59, 130, 246, 0.2)' : 'none',
+      backgroundColor: readOnly ? '#f3f4f6' : '#fff',
       '&:hover': { borderColor: '#3b82f6' },
       fontSize: '0.875rem'
     }),
@@ -210,6 +223,16 @@ export default function StepData({ data = createEmptyStepData(), onChange }) {
 
   return (
     <div className="space-y-8">
+      {readOnly && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 shadow-sm">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="rounded-full bg-emerald-600 px-2.5 py-1 text-xs font-bold text-white">Read-Only</span>
+            <span className="font-semibold text-emerald-900">Survey sudah selesai.</span>
+            <span className="text-emerald-700">Data pada step ini hanya dapat dilihat.</span>
+          </div>
+        </div>
+      )}
+
       {/* Section 1: Data Survey */}
       <div className="bg-white p-5 md:p-8 rounded-2xl shadow-sm border border-gray-100">
         <div className="flex items-center gap-3 mb-6">
@@ -228,7 +251,7 @@ export default function StepData({ data = createEmptyStepData(), onChange }) {
             <label className="block text-sm font-semibold text-gray-700 mb-1">Data Client / Perusahaan <span className="text-red-500">*</span></label>
             <div className="relative">
               <Building2 className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input type="text" value={data.nama_client || ''} onChange={(e) => updateField('nama_client', e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm" placeholder="Nama Perusahaan Client" />
+              <input type="text" value={data.nama_client || ''} disabled={readOnly} onChange={(e) => updateField('nama_client', e.target.value)} className={`w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm ${readOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`} placeholder="Nama Perusahaan Client" />
             </div>
           </div>
 
@@ -237,14 +260,14 @@ export default function StepData({ data = createEmptyStepData(), onChange }) {
             <label className="block text-sm font-semibold text-gray-700 mb-1">Plant / Area <span className="text-red-500">*</span></label>
             <div className="relative">
               <MapPin className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input type="text" value={data.plant_area || ''} onChange={(e) => updateField('plant_area', e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm" placeholder="Area Plant" />
+              <input type="text" value={data.plant_area || ''} disabled={readOnly} onChange={(e) => updateField('plant_area', e.target.value)} className={`w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm ${readOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`} placeholder="Area Plant" />
             </div>
           </div>
 
           {/* Alamat Lokasi */}
           <div className="md:col-span-2">
             <label className="block text-sm font-semibold text-gray-700 mb-1">Alamat Lokasi <span className="text-red-500">*</span></label>
-            <textarea rows="3" value={data.alamat_lokasi || ''} onChange={(e) => updateField('alamat_lokasi', e.target.value)} className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm" placeholder="Alamat lengkap lokasi survey..."></textarea>
+            <textarea rows="3" value={data.alamat_lokasi || ''} disabled={readOnly} onChange={(e) => updateField('alamat_lokasi', e.target.value)} className={`w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm ${readOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`} placeholder="Alamat lengkap lokasi survey..."></textarea>
           </div>
 
           {/* Tanggal Mulai */}
@@ -252,7 +275,7 @@ export default function StepData({ data = createEmptyStepData(), onChange }) {
             <label className="block text-sm font-semibold text-gray-700 mb-1">Tanggal Mulai <span className="text-red-500">*</span></label>
             <div className="relative">
               <Calendar className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input type="date" value={data.tanggal_mulai || ''} onChange={(e) => updateField('tanggal_mulai', e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-700" />
+              <input type="date" value={data.tanggal_mulai || ''} disabled={readOnly} onChange={(e) => updateField('tanggal_mulai', e.target.value)} className={`w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-700 ${readOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`} />
             </div>
           </div>
 
@@ -279,6 +302,7 @@ export default function StepData({ data = createEmptyStepData(), onChange }) {
                   isMulti
                   isSearchable
                   isLoading={isLoadingUsers}
+                  isDisabled={readOnly}
                   closeMenuOnSelect={false}
                   styles={selectStyles}
                   noOptionsMessage={() => 'User tidak ditemukan'}
@@ -294,6 +318,7 @@ export default function StepData({ data = createEmptyStepData(), onChange }) {
                   isMulti
                   isSearchable
                   isLoading={isLoadingUsers}
+                  isDisabled={readOnly}
                   closeMenuOnSelect={false}
                   styles={selectStyles}
                   noOptionsMessage={() => 'User tidak ditemukan'}
@@ -307,7 +332,7 @@ export default function StepData({ data = createEmptyStepData(), onChange }) {
             <label className="block text-sm font-semibold text-gray-700 mb-1">Marketing / Sales <span className="text-red-500">*</span></label>
             <div className="relative">
               <User className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input type="text" value={data.nama_marketing || ''} onChange={(e) => updateField('nama_marketing', e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm" placeholder="Nama Marketing" />
+              <input type="text" value={data.nama_marketing || ''} disabled={readOnly} onChange={(e) => updateField('nama_marketing', e.target.value)} className={`w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm ${readOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`} placeholder="Nama Marketing" />
             </div>
           </div>
 
@@ -316,7 +341,7 @@ export default function StepData({ data = createEmptyStepData(), onChange }) {
             <label className="block text-sm font-semibold text-gray-700 mb-1">No Inquiry / Referensi</label>
             <div className="relative">
               <FileText className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input type="text" value={data.no_inquiry || ''} onChange={(e) => updateField('no_inquiry', e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm" placeholder="Nomor referensi (opsional)" />
+              <input type="text" value={data.no_inquiry || ''} disabled={readOnly} onChange={(e) => updateField('no_inquiry', e.target.value)} className={`w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm ${readOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`} placeholder="Nomor referensi (opsional)" />
             </div>
           </div>
 
@@ -325,7 +350,7 @@ export default function StepData({ data = createEmptyStepData(), onChange }) {
             <label className="block text-sm font-semibold text-gray-700 mb-1">PIC Client <span className="text-red-500">*</span></label>
             <div className="relative">
               <User className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input type="text" value={data.pic_client || ''} onChange={(e) => updateField('pic_client', e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm" placeholder="Nama PIC dari Client" />
+              <input type="text" value={data.pic_client || ''} disabled={readOnly} onChange={(e) => updateField('pic_client', e.target.value)} className={`w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm ${readOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`} placeholder="Nama PIC dari Client" />
             </div>
           </div>
 
@@ -334,7 +359,7 @@ export default function StepData({ data = createEmptyStepData(), onChange }) {
             <label className="block text-sm font-semibold text-gray-700 mb-1">Kontak PIC <span className="text-red-500">*</span></label>
             <div className="relative">
               <Phone className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input type="text" value={data.kontak_pic || ''} onChange={(e) => updateField('kontak_pic', e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm" placeholder="No HP / Email PIC" />
+              <input type="text" value={data.kontak_pic || ''} disabled={readOnly} onChange={(e) => updateField('kontak_pic', e.target.value)} className={`w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm ${readOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`} placeholder="No HP / Email PIC" />
             </div>
           </div>
 
@@ -343,7 +368,7 @@ export default function StepData({ data = createEmptyStepData(), onChange }) {
             <label className="block text-sm font-semibold text-gray-700 mb-1">Tujuan Survey <span className="text-red-500">*</span></label>
             <div className="relative">
               <Target className="w-5 h-5 text-gray-400 absolute left-3 top-3" />
-              <textarea rows="3" value={data.tujuan_survey || ''} onChange={(e) => updateField('tujuan_survey', e.target.value)} className="w-full pl-10 p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm" placeholder="Sebutkan tujuan pelaksanaan survey..."></textarea>
+              <textarea rows="3" value={data.tujuan_survey || ''} disabled={readOnly} onChange={(e) => updateField('tujuan_survey', e.target.value)} className={`w-full pl-10 p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm ${readOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`} placeholder="Sebutkan tujuan pelaksanaan survey..."></textarea>
             </div>
           </div>
         </div>
@@ -367,7 +392,7 @@ export default function StepData({ data = createEmptyStepData(), onChange }) {
             return (
               <label 
                 key={product.code} 
-                className={`relative flex flex-col p-4 cursor-pointer rounded-xl border-2 transition-all duration-200 ${
+                className={`relative flex flex-col p-4 rounded-xl border-2 transition-all duration-200 ${readOnly ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'} ${
                   isSelected 
                     ? 'border-purple-500 bg-purple-50/50 shadow-sm' 
                     : 'border-gray-200 bg-white hover:border-purple-200 hover:bg-gray-50'
@@ -393,6 +418,7 @@ export default function StepData({ data = createEmptyStepData(), onChange }) {
                   type="checkbox" 
                   className="hidden" 
                   checked={isSelected}
+                  disabled={readOnly}
                   onChange={() => toggleProduct(product.code)}
                 />
               </label>
@@ -413,9 +439,11 @@ export default function StepData({ data = createEmptyStepData(), onChange }) {
               <p className="text-sm text-gray-500">Alokasi hari dan target item di lapangan</p>
             </div>
           </div>
-          <button onClick={addSchedule} className="flex items-center gap-1.5 text-sm bg-green-100 text-green-700 px-3 py-1.5 rounded-lg font-semibold hover:bg-green-200 transition-colors">
-            <Plus className="w-4 h-4" /> Tambah Jadwal
-          </button>
+          {!readOnly && (
+            <button onClick={addSchedule} className="flex items-center gap-1.5 text-sm bg-green-100 text-green-700 px-3 py-1.5 rounded-lg font-semibold hover:bg-green-200 transition-colors">
+              <Plus className="w-4 h-4" /> Tambah Jadwal
+            </button>
+          )}
         </div>
 
         <div className="space-y-4">
@@ -423,20 +451,21 @@ export default function StepData({ data = createEmptyStepData(), onChange }) {
             <div key={schedule.id} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start bg-gray-50 p-4 rounded-xl border border-gray-100">
               <div className="md:col-span-2">
                 <label className="block text-xs font-semibold text-gray-500 mb-1">Hari ke:</label>
-                <input type="number" min="1" value={schedule.hari || ''} onChange={(e) => updateSchedule(schedule.id, 'hari', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-sm bg-white" placeholder="Cth: 1" />
+                <input type="number" min="1" value={schedule.hari || ''} disabled={readOnly} onChange={(e) => updateSchedule(schedule.id, 'hari', e.target.value)} className={`w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-sm ${readOnly ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`} placeholder="Cth: 1" />
               </div>
               <div className="md:col-span-3">
                 <label className="block text-xs font-semibold text-gray-500 mb-1">Tanggal</label>
-                <input type="date" value={schedule.tanggal || ''} onChange={(e) => updateSchedule(schedule.id, 'tanggal', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-sm text-gray-700" />
+                <input type="date" value={schedule.tanggal || ''} disabled={readOnly} onChange={(e) => updateSchedule(schedule.id, 'tanggal', e.target.value)} className={`w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-sm text-gray-700 ${readOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`} />
               </div>
               <div className="md:col-span-4">
                 <label className="block text-xs font-semibold text-gray-500 mb-1">Rencana / Area</label>
-                <input type="text" value={schedule.rencana_area || ''} onChange={(e) => updateSchedule(schedule.id, 'rencana_area', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-sm" placeholder="Cth: Area Produksi 1" />
+                <input type="text" value={schedule.rencana_area || ''} disabled={readOnly} onChange={(e) => updateSchedule(schedule.id, 'rencana_area', e.target.value)} className={`w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-sm ${readOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`} placeholder="Cth: Area Produksi 1" />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-xs font-semibold text-gray-500 mb-1">Target Item</label>
-                <input type="number" value={schedule.target_item || ''} onChange={(e) => updateSchedule(schedule.id, 'target_item', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-sm" placeholder="Jml Target" />
+                <input type="number" value={schedule.target_item || ''} disabled={readOnly} onChange={(e) => updateSchedule(schedule.id, 'target_item', e.target.value)} className={`w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-sm ${readOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`} placeholder="Jml Target" />
               </div>
+              {!readOnly && (
               <div className="md:col-span-1 flex justify-end md:justify-center pt-5">
                 <button 
                   onClick={() => removeSchedule(schedule.id)}
@@ -446,6 +475,7 @@ export default function StepData({ data = createEmptyStepData(), onChange }) {
                   <Trash2 className="w-5 h-5" />
                 </button>
               </div>
+              )}
             </div>
           ))}
         </div>

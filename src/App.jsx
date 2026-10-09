@@ -53,6 +53,7 @@ import StandaloneAddActivity from './install-project/pages/StandaloneAddActivity
 import StandaloneAddCost from './install-project/pages/StandaloneAddCost';
 
 import SurveyProductList from './survey-product/SurveyProductList';
+import SurveyProductShow from './survey-product/SurveyProductShow';
 import DataSurveyor from './master-admin/surveyor/DataSurveyor';
 import FormSurveyProductPage from './survey-product/formsurveyproduct/FormSurveyProductPage';
 
@@ -119,6 +120,7 @@ function App() {
             <Route path="create" element={<FormSurveyProductPage />} />
             <Route path="reports" element={<div>Laporan Coming Soon...</div>} />
             <Route path="master-data/surveyor" element={<DataSurveyor />} />
+            <Route path=":id" element={<SurveyProductShow />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

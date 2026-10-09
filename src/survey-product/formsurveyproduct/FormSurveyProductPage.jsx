@@ -1,25 +1,29 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Check, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Check, ChevronRight, Download, FileText } from 'lucide-react';
 import { apiUrl } from '../../api';
 import { useAuth } from '../../context/AuthContext';
+import Swal from 'sweetalert2';
+import { exportToPDF, generatePreviewHTML } from '../utils/pdfExport';
 
 import StepData, { createEmptyStepData, PRODUCT_LIST } from '../components/StepData';
 import StepPersiapan, { createEmptyPersiapanData } from '../components/StepPersiapan';
 import StepLapangan, { createEmptyLapanganData } from '../components/StepLapangan';
 import StepSummary from '../components/StepSummary';
 
-const STEPS = [
+const ALL_STEPS = [
   { id: 1, title: 'Data' },
   { id: 2, title: 'Persiapan' },
   { id: 3, title: 'Lapangan' },
-  { id: 4, title: 'Summary' }
+  { id: 4, title: 'Summary' },
+  { id: 5, title: 'Laporan' }
 ];
 
 export default function FormSurveyProductPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const editId = searchParams.get('id');
+  const initialStepParam = (searchParams.get('step') || '').toLowerCase();
   const { user, hasPermission } = useAuth();
   
   const isSuperAdmin = user?.jabatan_name === 'Super Admin' || user?.role === 'Super Admin' || user?.jabatan === 'Super Admin';
@@ -28,9 +32,21 @@ export default function FormSurveyProductPage() {
   const hasLapPerm = hasPermission('survey_product_fill_lapangan') || user?.role === 'Admin' || isSuperAdmin;
   const hasSummaryPerm = hasPermission('survey_product_fill_summary') || user?.role === 'Admin' || isSuperAdmin;
   
+  
+
   const [currentStep, setCurrentStep] = useState(1);
   
+  const [stepData, setStepData] = useState(createEmptyStepData());
+  const [persiapanData, setPersiapanData] = useState(createEmptyPersiapanData());
+  const [lapanganData, setLapanganData] = useState(createEmptyLapanganData());
+
+  const isAdmin = user?.role === 'Admin' || isSuperAdmin;
+  const statusStr = (stepData?.status || '').toLowerCase().trim();
+  const isClosed = ['closed', 'completed', 'selesai', 'complited'].includes(statusStr);
+  const isReadonlyClosed = isClosed; // Locked for everyone when closed or completed
+
   const hasAccessForStep = (step) => {
+    if (isReadonlyClosed) return false;
     switch(step) {
       case 1: return hasDataPerm;
       case 2: return hasPersiapanPerm;
@@ -40,12 +56,21 @@ export default function FormSurveyProductPage() {
     }
   };
   
-  const [stepData, setStepData] = useState(createEmptyStepData());
-  const [persiapanData, setPersiapanData] = useState(createEmptyPersiapanData());
-  const [lapanganData, setLapanganData] = useState(createEmptyLapanganData());
+  const isLeader = stepData?.leader_surveyor?.some?.(leader => String(leader.id) === String(user?.id)) || String(stepData?.leader_surveyor_id) === String(user?.id);
+  const canSaveFinal = isAdmin || isLeader;
   const [surveyDraftId, setSurveyDraftId] = useState(null);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [isLoadingDraft, setIsLoadingDraft] = useState(!!editId);
+  const getDefaultReportScale = () => (
+    typeof window !== 'undefined' && window.innerWidth >= 768 ? 1.15 : 0.4
+  );
+  const [reportPreviewScale, setReportPreviewScale] = useState(getDefaultReportScale);
+
+  useEffect(() => {
+    const handleResize = () => setReportPreviewScale(getDefaultReportScale());
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const checkOnProgress = (lapData) => {
     const hasProductProgress = lapData?.productProgress?.length > 0;
@@ -53,8 +78,18 @@ export default function FormSurveyProductPage() {
   };
 
   const visibleSteps = editId 
-    ? (checkOnProgress(lapanganData) ? STEPS : STEPS.slice(0, 3)) 
-    : STEPS.slice(0, 2);
+    ? (isReadonlyClosed ? ALL_STEPS : (checkOnProgress(lapanganData) ? ALL_STEPS.slice(0, 4) : ALL_STEPS.slice(0, 3)))
+    : ALL_STEPS.slice(0, 2);
+
+  const resolveStepFromParam = (stepParam) => {
+    if (stepParam === 'data') return 1;
+    if (stepParam === 'persiapan' || stepParam === 'preparation') return 2;
+    if (stepParam === 'lapangan' || stepParam === 'field') return 3;
+    if (stepParam === 'summary' || stepParam === 'resume') return 4;
+    if (stepParam === 'laporan' || stepParam === 'report') return 5;
+    const stepNumber = Number(stepParam);
+    return Number.isInteger(stepNumber) ? stepNumber : null;
+  };
 
   const checkDataComplete = (data, silent = false) => {
     const checks = {
@@ -111,6 +146,13 @@ export default function FormSurveyProductPage() {
           ...createEmptyLapanganData(),
           ...(result.lapangan || {})
         });
+        const requestedStep = resolveStepFromParam(initialStepParam);
+        if (requestedStep) {
+          const status = (result.data?.status || '').toLowerCase().trim();
+          const isFinal = ['closed', 'completed', 'complited', 'selesai', 'batal'].includes(status);
+          const maxStep = isFinal ? ALL_STEPS.length : (checkOnProgress(result.lapangan || {}) ? 4 : 3);
+          setCurrentStep(Math.min(Math.max(requestedStep, 1), maxStep));
+        }
       } catch (error) {
         alert(error.message);
         navigate('/survey-product');
@@ -120,9 +162,10 @@ export default function FormSurveyProductPage() {
     };
 
     fetchDraft();
-  }, [editId, navigate]);
+  }, [editId, navigate, initialStepParam]);
 
-  const saveStepDataDraft = async (forceStatus = null) => {
+  const saveStepDataDraft = async (forceStatus = null, surveyIdOverride = surveyDraftId) => {
+    if (isReadonlyClosed) return surveyIdOverride || false;
     setIsSavingDraft(true);
     try {
       const selectedProducts = (stepData.selectedProducts || []).map(code => {
@@ -146,16 +189,14 @@ export default function FormSurveyProductPage() {
         }
       }
 
-      // If forceStatus is 'Submit', use calculatedStatus (or Draft if somehow incomplete, but handled by checks)
-      // Otherwise, use calculatedStatus as well! This ensures it doesn't revert to Draft just because we saved silently.
       const finalStatus = calculatedStatus;
 
       const response = await fetch(apiUrl('survey-engine/product-drafts'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          survey_id: surveyDraftId,
-          status: finalStatus !== 'Submit' ? finalStatus : 'Draft',
+          survey_id: surveyIdOverride,
+          status: (forceStatus && forceStatus !== 'Submit') ? forceStatus : finalStatus,
           data: stepData,
           selected_products: selectedProducts,
           schedules: stepData.schedules || []
@@ -183,6 +224,7 @@ export default function FormSurveyProductPage() {
   };
 
   const savePersiapanDraft = async () => {
+    if (isReadonlyClosed) return surveyDraftId || false;
     let targetSurveyId = surveyDraftId;
     if (!surveyDraftId) {
       const savedStepDataId = await saveStepDataDraft();
@@ -215,7 +257,8 @@ export default function FormSurveyProductPage() {
       if (!response.ok) {
         throw new Error(result.error || 'Gagal menyimpan draft persiapan');
       }
-      return true;
+      setSurveyDraftId(targetSurveyId);
+      return targetSurveyId;
     } catch (error) {
       alert(error.message);
       return false;
@@ -225,6 +268,7 @@ export default function FormSurveyProductPage() {
   };
 
   const saveLapanganDraft = async (silent = false) => {
+    if (isReadonlyClosed) return surveyDraftId || false;
     let targetSurveyId = surveyDraftId;
     if (!surveyDraftId) {
       if (!silent) {
@@ -266,6 +310,10 @@ export default function FormSurveyProductPage() {
 
   const handleNext = async () => {
     if (currentStep < visibleSteps.length) {
+      if (isReadonlyClosed) {
+        setCurrentStep((prev) => prev + 1);
+        return;
+      }
       if (currentStep === 1) {
         if (!stepData.nama_client) {
           alert('Data Client / Perusahaan wajib diisi terlebih dahulu sebelum melanjutkan!');
@@ -298,6 +346,10 @@ export default function FormSurveyProductPage() {
 
   const handlePrev = async () => {
     if (currentStep > 1) {
+      if (isReadonlyClosed) {
+        setCurrentStep((prev) => prev - 1);
+        return;
+      }
       if (currentStep === 1) {
         const savedId = await saveStepDataDraft();
         if (!savedId) return;
@@ -325,6 +377,47 @@ export default function FormSurveyProductPage() {
   }, [lapanganData]);
 
   const renderStepContent = () => {
+    if (currentStep === 5) {
+      const reportHtml = generatePreviewHTML(stepData, lapanganData, null, reportPreviewScale);
+
+      return (
+        <div className="space-y-6">
+          <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm md:p-6">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-orange-50 p-2 text-orange-600">
+                  <FileText className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">Preview Laporan PDF</h2>
+                  <p className="text-sm text-gray-500">Pratinjau laporan akhir berdasarkan data survey yang sudah tersimpan di form.</p>
+                </div>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <button
+                  onClick={() => exportToPDF(stepData, lapanganData)}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-orange-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition-colors hover:bg-orange-700"
+                >
+                  <Download className="h-4 w-4" />
+                  Unduh / Export PDF
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm md:p-4">
+            <div className="h-[760px] overflow-hidden rounded-xl border border-gray-200 bg-white">
+              <iframe
+                srcDoc={reportHtml}
+                className="h-full w-full border-0"
+                title="Preview Laporan Survey Product"
+              />
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     switch (currentStep) {
       case 1:
         return <StepData data={stepData} onChange={setStepData} readOnly={!hasAccessForStep(1)} />;
@@ -419,10 +512,10 @@ export default function FormSurveyProductPage() {
               Memuat data survey product...
             </div>
           ) : (
-            <div className={`${!hasAccessForStep(currentStep) ? 'pointer-events-none opacity-75 grayscale-[20%]' : ''} relative`}>
-              {!hasAccessForStep(currentStep) && (
-                <div className="absolute top-0 left-0 w-full h-full z-50 flex items-start justify-center pt-8">
-                  <div className="bg-white px-4 py-2 rounded-lg shadow border border-red-200 text-red-600 font-medium text-sm">
+            <div className={`${!hasAccessForStep(currentStep) && !isReadonlyClosed ? 'pointer-events-none opacity-80' : ''} relative`}>
+              {!hasAccessForStep(currentStep) && currentStep !== 5 && !isReadonlyClosed && (
+                <div className="absolute top-0 left-0 w-full h-full flex items-start justify-center pt-8 z-50">
+                  <div className="px-4 py-2 rounded-lg shadow border font-medium text-sm bg-white border-red-200 text-red-600">
                     Anda tidak memiliki akses untuk mengubah bagian ini.
                   </div>
                 </div>
@@ -453,39 +546,58 @@ export default function FormSurveyProductPage() {
               disabled={isSavingDraft || isLoadingDraft}
               className="px-6 py-2.5 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 flex items-center transition-colors shadow-sm"
             >
-              {isSavingDraft ? 'Menyimpan Draft...' : 'Selanjutnya'}
+              {isReadonlyClosed ? 'Selanjutnya' : (isSavingDraft ? 'Menyimpan Draft...' : 'Selanjutnya')}
               <ChevronRight className="w-4 h-4 ml-1" />
             </button>
           ) : (
-            <button
-              onClick={async () => {
+            !isReadonlyClosed && (
+              <button
+                onClick={async () => {
                 if (!editId && currentStep === 2 && hasPersiapanPerm) {
-                  // Final submit on create mode
-                  await savePersiapanDraft();
-                  await saveStepDataDraft('Submit');
-                  alert('Survey berhasil disimpan!');
+                  const savedSurveyId = await savePersiapanDraft();
+                  if (!savedSurveyId) return;
+                  await saveStepDataDraft('Submit', savedSurveyId);
+                  Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Survey berhasil disimpan!' });
                   navigate('/survey-product');
                 } else if (editId && currentStep === 3 && hasLapPerm) {
-                  // Final submit on edit mode (when step 4 is hidden)
                   await saveLapanganDraft();
                   await saveStepDataDraft('Submit');
-                  alert('Survey berhasil disimpan!');
+                  Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Survey berhasil disimpan!' });
                   navigate('/survey-product');
                 } else if (editId && currentStep === 4 && hasSummaryPerm) {
-                  // Final submit on edit mode (when step 4 is visible)
-                  await saveStepDataDraft('Submit');
-                  alert('Survey berhasil disimpan!');
-                  navigate('/survey-product');
+                  if (!canSaveFinal) {
+                    Swal.fire({ icon: 'error', title: 'Akses Ditolak', text: 'Hanya Leader Surveyor atau Admin yang dapat menyimpan (menyelesaikan) survey ini.' });
+                    return;
+                  }
+                  
+                  const result = await Swal.fire({
+                    title: 'Apakah Anda Yakin Menyelesaikan Survey Ini?',
+                    text: 'Jika ya, Anda dan anggota lainnya tidak dapat merubahnya kembali.',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#3085d6',
+                    cancelButtonColor: '#d33',
+                    confirmButtonText: 'Ya, Selesaikan!',
+                    cancelButtonText: 'Batal'
+                  });
+
+                  if (result.isConfirmed) {
+                    await saveStepDataDraft(isAdmin ? 'Closed' : 'Completed');
+                    Swal.fire('Berhasil!', 'Survey berhasil diselesaikan!', 'success');
+                    navigate('/survey-product');
+                  }
                 }
               }}
-              disabled={isSavingDraft || (!editId && !hasPersiapanPerm) || (editId && currentStep === 3 && !hasLapPerm) || (editId && currentStep === 4 && !hasSummaryPerm)}
+              disabled={isSavingDraft || (!editId && !hasPersiapanPerm) || (editId && currentStep === 3 && !hasLapPerm) || (editId && currentStep === 4 && (!hasSummaryPerm || !canSaveFinal))}
               className={`px-6 py-2.5 rounded-lg text-sm font-medium flex items-center transition-colors shadow-sm ${
-                (!editId && !hasPersiapanPerm) || (editId && currentStep === 3 && !hasLapPerm) || (editId && currentStep === 4 && !hasSummaryPerm) ? 'bg-gray-400 text-gray-200 cursor-not-allowed' : 'bg-green-600 text-white hover:bg-green-700'
+                (!editId && !hasPersiapanPerm) || (editId && currentStep === 3 && !hasLapPerm) || (editId && currentStep === 4 && (!hasSummaryPerm || !canSaveFinal)) ? 'bg-gray-400 text-gray-200 cursor-not-allowed' : 'bg-green-600 text-white hover:bg-green-700'
               }`}
+              title={editId && currentStep === 4 && !canSaveFinal ? "Hanya Leader Surveyor yang dapat menyimpan data" : ""}
             >
               {isSavingDraft ? 'Menyimpan...' : 'Simpan Survey'}
               <Check className="w-4 h-4 ml-1" />
             </button>
+            )
           )}
         </div>
       </div>

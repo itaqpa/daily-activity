@@ -3,7 +3,7 @@ import { X, Key, ArrowRight } from 'lucide-react';
 import { apiUrl } from '../../../api';
 import { useNavigate } from 'react-router-dom';
 
-export default function TokenInputModal({ isOpen, onClose, surveyId, noSurvey, userId }) {
+export default function TokenInputModal({ isOpen, onClose, surveyId, noSurvey, userId, targetStep = null }) {
   const [token, setToken] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -34,7 +34,7 @@ export default function TokenInputModal({ isOpen, onClose, surveyId, noSurvey, u
       
       if (response.ok && result.success) {
         onClose();
-        navigate(`/survey-product/create?id=${surveyId}`);
+        navigate(`/survey-product/create?id=${surveyId}${targetStep ? `&step=${targetStep}` : ''}`);
       } else {
         setError(result.error || 'Token tidak valid');
       }

@@ -44,9 +44,10 @@ export const createEmptyPersiapanData = () => ({
   }, {})
 });
 
-export default function StepPersiapan({ data = createEmptyPersiapanData(), onChange }) {
+export default function StepPersiapan({ data = createEmptyPersiapanData(), onChange, readOnly = false }) {
   const masterData = data.masterData || INITIAL_MASTER_PERSIAPAN;
   const state = data.state || createEmptyPersiapanData().state;
+  const selectMenuPortalTarget = typeof document !== 'undefined' ? document.body : undefined;
 
   const updateData = (patch) => {
     onChange?.({ ...data, ...patch });
@@ -150,12 +151,14 @@ export default function StepPersiapan({ data = createEmptyPersiapanData(), onCha
               <p className="text-sm text-gray-500">{description}</p>
             </div>
           </div>
-          <button 
-            onClick={() => markAllReady(jenis)}
-            className="flex items-center justify-center gap-1.5 text-sm bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg font-semibold hover:bg-gray-200 transition-colors whitespace-nowrap"
-          >
-            <CheckCircle2 className="w-4 h-4 text-green-600" /> Tandai Semua Siap
-          </button>
+          {!readOnly && (
+            <button 
+              onClick={() => markAllReady(jenis)}
+              className="flex items-center justify-center gap-1.5 text-sm bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg font-semibold hover:bg-gray-200 transition-colors whitespace-nowrap"
+            >
+              <CheckCircle2 className="w-4 h-4 text-green-600" /> Tandai Semua Siap
+            </button>
+          )}
         </div>
 
         <div className="space-y-6">
@@ -168,10 +171,10 @@ export default function StepPersiapan({ data = createEmptyPersiapanData(), onCha
                   return (
                     <div 
                       key={item.id}
-                      className={`flex items-center justify-between p-3 rounded-xl border transition-colors cursor-pointer group ${
+                      className={`flex items-center justify-between p-3 rounded-xl border transition-colors group ${
                         isChecked ? 'bg-white border-green-500 shadow-sm' : 'bg-white border-gray-200 hover:border-gray-300'
-                      }`}
-                      onClick={() => toggleCheck(item.id)}
+                      } ${readOnly ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'}`}
+                      onClick={() => { if (!readOnly) toggleCheck(item.id); }}
                     >
                       <div className="flex items-center gap-3 overflow-hidden">
                         {isChecked ? (
@@ -195,13 +198,14 @@ export default function StepPersiapan({ data = createEmptyPersiapanData(), onCha
                               type="number" 
                               min="1"
                               value={state[item.id]?.qty || 1}
+                              disabled={readOnly}
                               onChange={(e) => updateQty(item.id, e.target.value)}
-                              className="w-10 text-xs font-semibold bg-transparent text-center focus:outline-none"
+                              className={`w-10 text-xs font-semibold bg-transparent text-center focus:outline-none ${readOnly ? 'cursor-not-allowed' : ''}`}
                             />
                           </div>
                         )}
                         
-                        {!item.is_default && (
+                        {!item.is_default && !readOnly && (
                           <button 
                             onClick={(e) => {
                               e.stopPropagation();
@@ -222,65 +226,78 @@ export default function StepPersiapan({ data = createEmptyPersiapanData(), onCha
           ))}
 
           {/* Add New Item Section */}
-          <div className="pt-4 mt-4 border-t border-dashed border-gray-200">
-            {addingNew === jenis ? (
-              <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-sm font-bold text-blue-800">Tambah {jenis === 'Checklist Persiapan' ? 'Persiapan' : 'Dokumen'} Baru</h4>
-                  <button onClick={() => setAddingNew(null)} className="text-gray-400 hover:text-gray-600">
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-                <div className="flex flex-col md:flex-row gap-3">
-                  <div className="flex-1">
-                    <input 
-                      type="text" 
-                      placeholder="Nama / Label Item" 
-                      className="w-full text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      value={newItem.label}
-                      onChange={e => setNewItem({...newItem, label: e.target.value})}
-                      autoFocus
-                    />
+          {!readOnly && (
+            <div className="pt-4 mt-4 border-t border-dashed border-gray-200">
+              {addingNew === jenis ? (
+                <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-sm font-bold text-blue-800">Tambah {jenis === 'Checklist Persiapan' ? 'Persiapan' : 'Dokumen'} Baru</h4>
+                    <button onClick={() => setAddingNew(null)} className="text-gray-400 hover:text-gray-600">
+                      <X className="w-4 h-4" />
+                    </button>
                   </div>
-                  <div className="flex-1">
-                    <CreatableSelect 
-                      isClearable
-                      placeholder="Kategori / Ket. Tambahan..."
-                      options={getCategoryOptions(jenis)}
-                      value={newItem.ket_tambahan}
-                      onChange={(newValue) => setNewItem({...newItem, ket_tambahan: newValue})}
-                      formatCreateLabel={(inputValue) => `+ Add "${inputValue}"`}
-                      styles={{
-                        control: (base) => ({
-                          ...base,
-                          borderColor: '#e5e7eb',
-                          borderRadius: '0.5rem',
-                          minHeight: '38px',
-                          boxShadow: 'none',
-                          '&:hover': {
-                            borderColor: '#3b82f6'
-                          }
-                        })
-                      }}
-                    />
+                  <div className="flex flex-col md:flex-row gap-3">
+                    <div className="flex-1">
+                      <input 
+                        type="text" 
+                        placeholder="Nama / Label Item" 
+                        className="w-full text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={newItem.label}
+                        onChange={e => setNewItem({...newItem, label: e.target.value})}
+                        autoFocus
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <CreatableSelect 
+                        isClearable
+                        menuPortalTarget={selectMenuPortalTarget}
+                        menuPosition="fixed"
+                        placeholder="Kategori / Ket. Tambahan..."
+                        options={getCategoryOptions(jenis)}
+                        value={newItem.ket_tambahan}
+                        onChange={(newValue) => setNewItem({...newItem, ket_tambahan: newValue})}
+                        formatCreateLabel={(inputValue) => `+ Add "${inputValue}"`}
+                        styles={{
+                          control: (base) => ({
+                            ...base,
+                            borderColor: '#e5e7eb',
+                            borderRadius: '0.5rem',
+                            minHeight: '38px',
+                            boxShadow: 'none',
+                            '&:hover': {
+                              borderColor: '#3b82f6'
+                            }
+                          })
+                          ,
+                          menuPortal: (base) => ({
+                            ...base,
+                            zIndex: 100
+                          }),
+                          menu: (base) => ({
+                            ...base,
+                            zIndex: 100
+                          })
+                        }}
+                      />
+                    </div>
+                    <button 
+                      onClick={() => handleAddNewSubmit(jenis)}
+                      className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors whitespace-nowrap"
+                    >
+                      Simpan
+                    </button>
                   </div>
-                  <button 
-                    onClick={() => handleAddNewSubmit(jenis)}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors whitespace-nowrap"
-                  >
-                    Simpan
-                  </button>
                 </div>
-              </div>
-            ) : (
-              <button 
-                onClick={() => setAddingNew(jenis)}
-                className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-lg transition-colors"
-              >
-                <Plus className="w-4 h-4" /> Tambah {jenis === 'Checklist Persiapan' ? 'Persiapan' : 'Dokumen'} Opsional
-              </button>
-            )}
-          </div>
+              ) : (
+                <button 
+                  onClick={() => setAddingNew(jenis)}
+                  className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-lg transition-colors"
+                >
+                  <Plus className="w-4 h-4" /> Tambah {jenis === 'Checklist Persiapan' ? 'Persiapan' : 'Dokumen'} Opsional
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -288,6 +305,16 @@ export default function StepPersiapan({ data = createEmptyPersiapanData(), onCha
 
   return (
     <div className="space-y-2">
+      {readOnly && (
+        <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 shadow-sm">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="rounded-full bg-emerald-600 px-2.5 py-1 text-xs font-bold text-white">Read-Only</span>
+            <span className="font-semibold text-emerald-900">Survey sudah selesai.</span>
+            <span className="text-emerald-700">Checklist persiapan hanya dapat dilihat.</span>
+          </div>
+        </div>
+      )}
+
       {renderSection(
         'Checklist Persiapan', 
         <ClipboardCheck className="w-5 h-5" />, 
