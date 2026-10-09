@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '../components/layouts/MainLayout';
 import { Eye, Edit, Trash2, Plus, FileSpreadsheet, MapPin, Calendar, Box, PackageOpen, Key, Search, MoreVertical, ChevronLeft, ChevronRight } from 'lucide-react';
+import TokenAccessModal from './components/token-access/TokenAccessModal';
 import { apiUrl } from '../api';
 
 export default function SurveyProductList() {
@@ -13,6 +14,8 @@ export default function SurveyProductList() {
   const [limit, setLimit] = useState(15);
   const [page, setPage] = useState(1);
   const [openDropdownId, setOpenDropdownId] = useState(null);
+  const [tokenModalOpen, setTokenModalOpen] = useState(false);
+  const [selectedSurvey, setSelectedSurvey] = useState(null);
   const dropdownRef = useRef(null);
 
   useEffect(() => {
@@ -90,6 +93,34 @@ export default function SurveyProductList() {
     navigate(`/survey-product/create?id=${item.id}`);
   };
 
+  const handleOpenTokenModal = (event, item) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setOpenDropdownId(null);
+    setSelectedSurvey(item);
+    setTokenModalOpen(true);
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Apakah Anda yakin ingin menghapus data survey product ini?')) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(apiUrl(`survey-engine/product-drafts/${id}`), {
+        method: 'DELETE'
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Gagal menghapus data');
+      
+      // Update list
+      setData(data.filter(item => item.id !== id));
+      alert('Data berhasil dihapus');
+    } catch (error) {
+      alert(error.message);
+    }
+  };
+
   const ActionMenu = ({ item, isMobile }) => (
     <div className={`absolute ${isMobile ? 'bottom-full mb-2 right-0' : 'top-full mt-1 right-0'} w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50`} ref={dropdownRef}>
       <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
@@ -101,11 +132,21 @@ export default function SurveyProductList() {
       >
         <Edit className="w-4 h-4 text-yellow-500" /> Edit
       </button>
-      <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+      <button
+        onMouseDown={(event) => handleOpenTokenModal(event, item)}
+        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+      >
         <Key className="w-4 h-4 text-purple-500" /> Token Access
       </button>
       <div className="border-t border-gray-100 my-1"></div>
-      <button className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
+      <button 
+        onMouseDown={(event) => {
+          event.preventDefault();
+          handleDelete(item.id);
+          setOpenDropdownId(null);
+        }}
+        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+      >
         <Trash2 className="w-4 h-4" /> Hapus
       </button>
     </div>
@@ -161,7 +202,10 @@ export default function SurveyProductList() {
               <thead>
                 <tr className="bg-gray-50/80 border-b border-gray-100 text-sm">
                   <th className="py-4 px-6 font-semibold text-gray-600">No. Survey</th>
-                  <th className="py-4 px-6 font-semibold text-gray-600">Lokasi</th>
+                  <th className="py-4 px-6 font-semibold text-gray-600">Customer/Client</th>
+                  <th className="py-4 px-6 font-semibold text-gray-600">Plant / Area *</th>
+                  <th className="py-4 px-6 font-semibold text-gray-600">Marketing</th>
+                  <th className="py-4 px-6 font-semibold text-gray-600">Leader Surveyor</th>
                   <th className="py-4 px-6 font-semibold text-gray-600">Tanggal</th>
                   <th className="py-4 px-6 font-semibold text-gray-600">Status</th>
                   <th className="py-4 px-6 font-semibold text-gray-600">Jumlah Item</th>
@@ -173,14 +217,14 @@ export default function SurveyProductList() {
               <tbody className="divide-y divide-gray-100">
                 {isLoading && (
                   <tr>
-                    <td colSpan="8" className="py-10 text-center text-gray-500">
+                    <td colSpan="11" className="py-10 text-center text-gray-500">
                       Memuat data survey product...
                     </td>
                   </tr>
                 )}
                 {!isLoading && errorMessage && (
                   <tr>
-                    <td colSpan="8" className="py-10 text-center text-red-500">
+                    <td colSpan="11" className="py-10 text-center text-red-500">
                       {errorMessage}
                     </td>
                   </tr>
@@ -191,10 +235,19 @@ export default function SurveyProductList() {
                       <span className="font-bold text-gray-800">{item.no_survey}</span>
                     </td>
                     <td className="py-4 px-6">
+                      <span className="text-gray-700 font-medium">{item.customer || '-'}</span>
+                    </td>
+                    <td className="py-4 px-6">
                       <div className="flex items-center gap-2">
                         <MapPin className="w-4 h-4 text-gray-400" />
-                        <span className="text-gray-700 font-medium">{item.lokasi}</span>
+                        <span className="text-gray-700 font-medium">{item.lokasi || '-'}</span>
                       </div>
+                    </td>
+                    <td className="py-4 px-6">
+                      <span className="text-gray-700">{item.marketing || '-'}</span>
+                    </td>
+                    <td className="py-4 px-6">
+                      <span className="text-gray-700">{item.leader_surveyor || '-'}</span>
                     </td>
                     <td className="py-4 px-6 text-gray-600">
                       <div className="flex items-center gap-2">
@@ -234,7 +287,7 @@ export default function SurveyProductList() {
                 ))}
                 {!isLoading && !errorMessage && paginatedData.length === 0 && (
                   <tr>
-                    <td colSpan="8" className="py-10 text-center text-gray-500">
+                    <td colSpan="11" className="py-10 text-center text-gray-500">
                       Belum ada survey product tersimpan
                     </td>
                   </tr>
@@ -326,9 +379,23 @@ export default function SurveyProductList() {
                 </div>
               </div>
               
-              <div className="flex items-start gap-2 mb-4 bg-gray-50 p-3 rounded-xl border border-gray-100">
-                <MapPin className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-                <span className="text-sm font-medium text-gray-700">{item.lokasi}</span>
+              <div className="flex flex-col gap-2 mb-4 bg-gray-50 p-3 rounded-xl border border-gray-100">
+                <div className="flex items-start gap-2">
+                  <span className="text-xs text-gray-500 w-24">Customer:</span>
+                  <span className="text-sm font-medium text-gray-700">{item.customer || '-'}</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-xs text-gray-500 w-24">Plant/Area:</span>
+                  <span className="text-sm font-medium text-gray-700">{item.lokasi || '-'}</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-xs text-gray-500 w-24">Marketing:</span>
+                  <span className="text-sm font-medium text-gray-700">{item.marketing || '-'}</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-xs text-gray-500 w-24">Surveyor:</span>
+                  <span className="text-sm font-medium text-gray-700">{item.leader_surveyor || '-'}</span>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -399,6 +466,13 @@ export default function SurveyProductList() {
         </div>
 
       </div>
+
+      <TokenAccessModal
+        isOpen={tokenModalOpen}
+        onClose={() => setTokenModalOpen(false)}
+        surveyId={selectedSurvey?.id}
+        noSurvey={selectedSurvey?.no_survey}
+      />
     </MainLayout>
   );
 }

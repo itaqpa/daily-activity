@@ -189,7 +189,7 @@ export default function (pool) {
       await client.query('BEGIN');
 
       const normalizedStatus = status === 'draft' ? 'Draft' : status;
-      const allowedStatuses = new Set(['Draft', 'Persiapan', 'Lapangan', 'Selesai', 'Batal']);
+      const allowedStatuses = new Set(['Draft', 'Open', 'On Progress', 'Persiapan', 'Lapangan', 'Selesai', 'Batal']);
       if (!allowedStatuses.has(normalizedStatus)) {
         await client.query('ROLLBACK');
         return res.status(400).json({ error: 'Status survey product tidak valid' });
@@ -338,6 +338,9 @@ export default function (pool) {
           spd.alamat_lokasi,
           spd.tanggal_mulai,
           spd.status,
+          spd.nama_marketing,
+          spd.leader_surveyor_name,
+          spd.nama_surveyor,
           COALESCE(progress.jumlah_item, 0)::int AS jumlah_item,
           COALESCE(progress.jumlah_jenis_product, 0)::int AS jumlah_jenis_product,
           COALESCE(progress.percent_kelengkapan, 0)::int AS percent_kelengkapan
@@ -358,7 +361,10 @@ export default function (pool) {
         data: result.rows.map(row => ({
           id: row.id,
           no_survey: row.no_survey,
-          lokasi: [row.nama_client, row.plant_area, row.alamat_lokasi].filter(Boolean).join(' - '),
+          lokasi: row.plant_area || [row.nama_client, row.plant_area, row.alamat_lokasi].filter(Boolean).join(' - '),
+          customer: row.nama_client,
+          marketing: row.nama_marketing,
+          leader_surveyor: row.leader_surveyor_name || row.nama_surveyor,
           tanggal: row.tanggal_mulai,
           status: row.status,
           jumlah_item: Number(row.jumlah_item || 0),
@@ -581,6 +587,100 @@ export default function (pool) {
       await client.query('ROLLBACK');
       console.error('Error saving survey product persiapan:', error);
       res.status(500).json({ error: 'Terjadi kesalahan saat menyimpan draft persiapan' });
+    } finally {
+      client.release();
+    }
+  });
+
+  // ─── DELETE /product-drafts/:id ──────────────────────────────────────────
+  router.delete('/product-drafts/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const existing = await pool.query('SELECT id FROM survey_product_data WHERE id = $1', [id]);
+      
+      if (existing.rows.length === 0) {
+        return res.status(404).json({ error: 'Data tidak ditemukan' });
+      }
+
+      await pool.query('DELETE FROM survey_product_data WHERE id = $1', [id]);
+      res.json({ success: true, message: 'Data berhasil dihapus' });
+    } catch (error) {
+      console.error('Error deleting survey product:', error);
+      res.status(500).json({ error: 'Terjadi kesalahan saat menghapus data' });
+    }
+  });
+
+  // ─── GET /product-drafts/:id/tokens ────────────────────────────────────────
+  router.get('/product-drafts/:id/tokens', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const result = await pool.query(
+        `SELECT user_id, user_name as name, role, token
+         FROM survey_product_tokens
+         WHERE survey_id = $1
+         ORDER BY id ASC`,
+        [id]
+      );
+      res.json({ tokens: result.rows });
+    } catch (error) {
+      console.error('Error fetching survey tokens:', error);
+      res.status(500).json({ error: 'Terjadi kesalahan saat mengambil token survey' });
+    }
+  });
+
+  // ─── POST /product-drafts/:id/tokens/generate ──────────────────────────────
+  router.post('/product-drafts/:id/tokens/generate', async (req, res) => {
+    const client = await pool.connect();
+    try {
+      const { id } = req.params;
+      await client.query('BEGIN');
+
+      const survey = await client.query(
+        `SELECT leader_surveyor, anggota_surveyor
+         FROM survey_product_data
+         WHERE id = $1`,
+        [id]
+      );
+
+      if (survey.rows.length === 0) {
+        throw new Error(`Survey dengan id ${id} tidak ditemukan`);
+      }
+
+      const leaderSurveyor = survey.rows[0].leader_surveyor || [];
+      const anggotaSurveyor = survey.rows[0].anggota_surveyor || [];
+
+      // Combine users
+      const users = [];
+      leaderSurveyor.forEach(u => {
+        if (u.id || u.name) users.push({ ...u, role: 'Leader Surveyor' });
+      });
+      anggotaSurveyor.forEach(u => {
+        if (u.id || u.name) users.push({ ...u, role: 'Surveyor' });
+      });
+
+      const generateToken = () => Math.floor(100000 + Math.random() * 900000).toString();
+
+      await client.query('DELETE FROM survey_product_tokens WHERE survey_id = $1', [id]);
+
+      const tokens = [];
+      for (const u of users) {
+        const token = generateToken();
+        const userId = u.id || u.name;
+        const userName = u.name || u.email || userId;
+        await client.query(
+          `INSERT INTO survey_product_tokens (survey_id, user_id, user_name, role, token)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [id, userId, userName, u.role, token]
+        );
+        tokens.push({ user_id: userId, name: userName, role: u.role, token });
+      }
+
+      await client.query('COMMIT');
+      res.json({ tokens });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('Error generating tokens:', error);
+      res.status(500).json({ error: 'Terjadi kesalahan saat membuat token' });
     } finally {
       client.release();
     }

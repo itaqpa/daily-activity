@@ -25,6 +25,7 @@ export default function userRoutes(pool) {
         FROM users u
         LEFT JOIN divisis d ON u.divisi_id = d.id
         LEFT JOIN jabatans j ON u.jabatan_id = j.id
+        WHERE u.deleted_at IS NULL
         ORDER BY u.id ASC
       `);
       res.json(result.rows);
@@ -128,12 +129,12 @@ export default function userRoutes(pool) {
     }
   });
 
-  // DELETE /api/users/:id
+  // DELETE /api/users/:id (Soft Delete)
   router.delete('/:id', async (req, res) => {
     const { id } = req.params;
     try {
-      await pool.query('DELETE FROM users WHERE id = $1', [id]);
-      res.json({ message: 'User deleted' });
+      await pool.query('UPDATE users SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1', [id]);
+      res.json({ message: 'User deleted (soft)' });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }

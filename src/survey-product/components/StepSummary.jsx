@@ -25,7 +25,7 @@ const productCodesFromText = (text = '') => PRODUCT_LIST
   .filter(product => new RegExp(`\\b${product.code}\\b`, 'i').test(text))
   .map(product => product.code);
 
-export default function StepSummary({ stepData = {}, lapanganData = {} }) {
+export default function StepSummary({ stepData = {}, lapanganData = {}, onChange }) {
   const plannedCodes = stepData.selectedProducts || [];
   const plannedSchedules = stepData.schedules || [];
   const actualSchedules = lapanganData.actualSchedules || [];
@@ -51,8 +51,58 @@ export default function StepSummary({ stepData = {}, lapanganData = {} }) {
     { label: 'Item belum 100%', value: String(incompleteItems) }
   ];
 
+  const catatanUmum = stepData.catatanUmum || [];
+  const outstandingUmum = stepData.outstandingUmum || [];
+
+  const handleAddCatatan = () => {
+    onChange && onChange(prev => ({
+      ...prev,
+      catatanUmum: [...(prev.catatanUmum || []), '']
+    }));
+  };
+
+  const handleUpdateCatatan = (index, value) => {
+    onChange && onChange(prev => {
+      const newCatatan = [...(prev.catatanUmum || [])];
+      newCatatan[index] = value;
+      return { ...prev, catatanUmum: newCatatan };
+    });
+  };
+
+  const handleRemoveCatatan = (index) => {
+    onChange && onChange(prev => {
+      const newCatatan = [...(prev.catatanUmum || [])];
+      newCatatan.splice(index, 1);
+      return { ...prev, catatanUmum: newCatatan };
+    });
+  };
+
+  const handleAddOutstanding = () => {
+    onChange && onChange(prev => ({
+      ...prev,
+      outstandingUmum: [...(prev.outstandingUmum || []), '']
+    }));
+  };
+
+  const handleUpdateOutstanding = (index, value) => {
+    onChange && onChange(prev => {
+      const newOut = [...(prev.outstandingUmum || [])];
+      newOut[index] = value;
+      return { ...prev, outstandingUmum: newOut };
+    });
+  };
+
+  const handleRemoveOutstanding = (index) => {
+    onChange && onChange(prev => {
+      const newOut = [...(prev.outstandingUmum || [])];
+      newOut.splice(index, 1);
+      return { ...prev, outstandingUmum: newOut };
+    });
+  };
+
   return (
     <div className="space-y-4 text-slate-950">
+      {/* (Sections above remain the same) */}
       <section className="rounded-2xl border border-sky-100 bg-sky-50/70 p-4 md:p-5 shadow-sm">
         <div className="flex items-start justify-between gap-4">
           <h2 className="text-2xl font-bold text-slate-950">Summary Survey</h2>
@@ -167,17 +217,79 @@ export default function StepSummary({ stepData = {}, lapanganData = {} }) {
       </section>
 
       <section className="rounded-2xl border border-sky-100 bg-sky-50/70 p-4 md:p-5 shadow-sm">
-        <h3 className="text-2xl font-bold text-slate-950">Catatan Kegiatan Umum</h3>
-        <div className="flex min-h-24 items-center justify-center">
-          <p className="text-sm text-slate-500">Belum ada catatan umum.</p>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-2xl font-bold text-slate-950">Catatan Kegiatan Umum</h3>
+          <button
+            onClick={handleAddCatatan}
+            className="flex items-center gap-1 text-sm font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg transition-colors"
+          >
+            <span className="text-lg leading-none">+</span> Tambah
+          </button>
         </div>
+        
+        {catatanUmum.length === 0 ? (
+          <div className="flex min-h-24 items-center justify-center bg-white/40 rounded-xl border border-dashed border-sky-200">
+            <p className="text-sm text-slate-500">Belum ada catatan umum.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {catatanUmum.map((catatan, index) => (
+              <div key={index} className="flex gap-2 items-start">
+                <textarea
+                  className="flex-1 rounded-xl border border-sky-200 bg-white/70 px-3 py-2 text-sm text-slate-700 outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100 min-h-[60px]"
+                  placeholder={`Catatan #${index + 1}...`}
+                  value={catatan}
+                  onChange={(e) => handleUpdateCatatan(index, e.target.value)}
+                />
+                <button
+                  onClick={() => handleRemoveCatatan(index)}
+                  className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors mt-1"
+                  title="Hapus Catatan"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="rounded-2xl border border-sky-100 bg-sky-50/70 p-4 md:p-5 shadow-sm">
-        <h3 className="text-2xl font-bold text-slate-950">Outstanding Umum</h3>
-        <div className="flex min-h-24 items-center justify-center">
-          <p className="text-sm text-slate-500">Tidak ada outstanding umum.</p>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-2xl font-bold text-slate-950">Outstanding Umum</h3>
+          <button
+            onClick={handleAddOutstanding}
+            className="flex items-center gap-1 text-sm font-semibold text-orange-600 hover:text-orange-700 bg-orange-50 px-3 py-1.5 rounded-lg transition-colors"
+          >
+            <span className="text-lg leading-none">+</span> Tambah
+          </button>
         </div>
+        
+        {outstandingUmum.length === 0 ? (
+          <div className="flex min-h-24 items-center justify-center bg-white/40 rounded-xl border border-dashed border-sky-200">
+            <p className="text-sm text-slate-500">Tidak ada outstanding umum.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {outstandingUmum.map((out, index) => (
+              <div key={index} className="flex gap-2 items-start">
+                <textarea
+                  className="flex-1 rounded-xl border border-orange-200 bg-white/70 px-3 py-2 text-sm text-slate-700 outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100 min-h-[60px]"
+                  placeholder={`Outstanding #${index + 1}...`}
+                  value={out}
+                  onChange={(e) => handleUpdateOutstanding(index, e.target.value)}
+                />
+                <button
+                  onClick={() => handleRemoveOutstanding(index)}
+                  className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors mt-1"
+                  title="Hapus Outstanding"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="rounded-2xl border border-sky-100 bg-sky-50/70 p-4 md:p-5 shadow-sm">
@@ -185,6 +297,8 @@ export default function StepSummary({ stepData = {}, lapanganData = {} }) {
         <textarea
           className="mt-2 min-h-24 w-full rounded-xl border border-sky-200 bg-white/30 px-3 py-3 text-sm text-slate-700 outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
           placeholder="Ringkasan hasil survey, kondisi umum, rekomendasi awal, dan catatan untuk laporan."
+          value={stepData.ringkasan || ''}
+          onChange={(e) => onChange && onChange(prev => ({ ...prev, ringkasan: e.target.value }))}
         />
       </section>
     </div>

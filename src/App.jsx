@@ -53,7 +53,7 @@ import StandaloneAddActivity from './install-project/pages/StandaloneAddActivity
 import StandaloneAddCost from './install-project/pages/StandaloneAddCost';
 
 import SurveyProductList from './survey-product/SurveyProductList';
-import DataSurveyor from './survey-product/master-data/DataSurveyor';
+import DataSurveyor from './master-admin/surveyor/DataSurveyor';
 import FormSurveyProductPage from './survey-product/formsurveyproduct/FormSurveyProductPage';
 
 function ProtectedRoute() {

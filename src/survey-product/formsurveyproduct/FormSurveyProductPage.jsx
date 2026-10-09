@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Check, ChevronRight } from 'lucide-react';
 import { apiUrl } from '../../api';
+import { useAuth } from '../../context/AuthContext';
 
 import StepData, { createEmptyStepData, PRODUCT_LIST } from '../components/StepData';
 import StepPersiapan, { createEmptyPersiapanData } from '../components/StepPersiapan';
@@ -19,13 +20,59 @@ export default function FormSurveyProductPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const editId = searchParams.get('id');
+  const { user, hasPermission } = useAuth();
+  
+  const isSuperAdmin = user?.jabatan_name === 'Super Admin' || user?.role === 'Super Admin' || user?.jabatan === 'Super Admin';
+  const hasDataPerm = hasPermission('survey_product_fill_data') || user?.role === 'Admin' || isSuperAdmin;
+  const hasPersiapanPerm = hasPermission('survey_product_fill_persiapan') || user?.role === 'Admin' || isSuperAdmin;
+  const hasLapPerm = hasPermission('survey_product_fill_lapangan') || user?.role === 'Admin' || isSuperAdmin;
+  const hasSummaryPerm = hasPermission('survey_product_fill_summary') || user?.role === 'Admin' || isSuperAdmin;
+  
   const [currentStep, setCurrentStep] = useState(1);
+  
+  const hasAccessForStep = (step) => {
+    switch(step) {
+      case 1: return hasDataPerm;
+      case 2: return hasPersiapanPerm;
+      case 3: return hasLapPerm;
+      case 4: return hasSummaryPerm;
+      default: return false;
+    }
+  };
+  
   const [stepData, setStepData] = useState(createEmptyStepData());
   const [persiapanData, setPersiapanData] = useState(createEmptyPersiapanData());
   const [lapanganData, setLapanganData] = useState(createEmptyLapanganData());
   const [surveyDraftId, setSurveyDraftId] = useState(null);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [isLoadingDraft, setIsLoadingDraft] = useState(!!editId);
+
+  const checkOnProgress = (lapData) => {
+    const hasValidSchedule = lapData?.actualSchedules?.some(s => s.tanggal && s.kegiatan);
+    const hasProductProgress = lapData?.productProgress?.length > 0;
+    return Boolean(hasValidSchedule && hasProductProgress);
+  };
+
+  const visibleSteps = editId 
+    ? (checkOnProgress(lapanganData) ? STEPS : STEPS.slice(0, 3)) 
+    : STEPS.slice(0, 2);
+
+  const checkDataComplete = (data, silent = false) => {
+    const checks = {
+      nama_client: !!data.nama_client,
+      leader_surveyor: !!(data.leader_surveyor && data.leader_surveyor.length > 0),
+      anggota_surveyor: !!(data.anggota_surveyor && data.anggota_surveyor.length > 0),
+      plant_area: !!data.plant_area,
+      nama_marketing: !!data.nama_marketing,
+      selectedProducts: !!(data.selectedProducts && data.selectedProducts.length > 0),
+      schedules: !!(data.schedules && data.schedules.length > 0 && data.schedules.some(s => s.hari || s.tanggal || s.rencana_area || s.target_item))
+    };
+    const isComplete = Object.values(checks).every(Boolean);
+    if (!isComplete && !silent) {
+       alert('Belum Open karena data belum lengkap:\n' + JSON.stringify(checks, null, 2));
+    }
+    return isComplete;
+  };
 
   useEffect(() => {
     const fetchDraft = async () => {
@@ -51,7 +98,7 @@ export default function FormSurveyProductPage() {
           // Merge fetched items with INITIAL_MASTER_PERSIAPAN
           const existingIds = new Set(prev.masterData.map(i => i.id));
           const newItems = (result.persiapan?.items || []).filter(item => !existingIds.has(item.id));
-          
+
           return {
             ...prev,
             masterData: [...prev.masterData, ...newItems],
@@ -76,20 +123,40 @@ export default function FormSurveyProductPage() {
     fetchDraft();
   }, [editId, navigate]);
 
-  const saveStepDataDraft = async () => {
+  const saveStepDataDraft = async (forceStatus = null) => {
     setIsSavingDraft(true);
     try {
       const selectedProducts = (stepData.selectedProducts || []).map(code => {
         const product = PRODUCT_LIST.find(item => item.code === code);
         return product || { code, name: code };
       });
+      
+      const isDataComplete = checkDataComplete(stepData, forceStatus !== 'Submit');
+      const isOnProgress = checkOnProgress(lapanganData);
+      
+      let calculatedStatus = 'Draft';
+      if (!editId) {
+        calculatedStatus = isDataComplete ? 'Open' : 'Draft';
+      } else {
+        if (isOnProgress) {
+           calculatedStatus = 'On Progress';
+        } else if (isDataComplete) {
+           calculatedStatus = 'Open';
+        } else {
+           calculatedStatus = 'Draft';
+        }
+      }
+
+      // If forceStatus is 'Submit', use calculatedStatus (or Draft if somehow incomplete, but handled by checks)
+      // Otherwise, use calculatedStatus as well! This ensures it doesn't revert to Draft just because we saved silently.
+      const finalStatus = calculatedStatus;
 
       const response = await fetch(apiUrl('survey-engine/product-drafts'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           survey_id: surveyDraftId,
-          status: 'Draft',
+          status: finalStatus !== 'Submit' ? finalStatus : 'Draft',
           data: stepData,
           selected_products: selectedProducts,
           schedules: stepData.schedules || []
@@ -195,18 +262,32 @@ export default function FormSurveyProductPage() {
   };
 
   const handleNext = async () => {
-    if (currentStep < STEPS.length) {
+    if (currentStep < visibleSteps.length) {
       if (currentStep === 1) {
-        const savedId = await saveStepDataDraft();
-        if (!savedId) return;
+        if (!stepData.nama_client) {
+          alert('Data Client / Perusahaan wajib diisi terlebih dahulu sebelum melanjutkan!');
+          return;
+        }
+        if (hasAccessForStep(1)) {
+          const savedId = await saveStepDataDraft();
+          if (!savedId) return;
+        }
       }
       if (currentStep === 2) {
-        const saved = await savePersiapanDraft();
-        if (!saved) return;
+        if (hasAccessForStep(2)) {
+          const saved = await savePersiapanDraft();
+          if (!saved) return;
+        }
+        if (editId && checkDataComplete(stepData, true)) {
+          // Silent evaluation: if complete, try to set to Open automatically when progressing to Step 3
+          await saveStepDataDraft('Submit');
+        }
       }
       if (currentStep === 3) {
-        const saved = await saveLapanganDraft();
-        if (!saved) return;
+        if (hasAccessForStep(3)) {
+          const saved = await saveLapanganDraft();
+          if (!saved) return;
+        }
       }
       setCurrentStep((prev) => prev + 1);
     }
@@ -233,13 +314,13 @@ export default function FormSurveyProductPage() {
   const renderStepContent = () => {
     switch (currentStep) {
       case 1:
-        return <StepData data={stepData} onChange={setStepData} />;
+        return <StepData data={stepData} onChange={setStepData} readOnly={!hasAccessForStep(1)} />;
       case 2:
-        return <StepPersiapan data={persiapanData} onChange={setPersiapanData} />;
+        return <StepPersiapan data={persiapanData} onChange={setPersiapanData} readOnly={!hasAccessForStep(2)} />;
       case 3:
-        return <StepLapangan data={lapanganData} onChange={setLapanganData} stepData={stepData} />;
+        return <StepLapangan data={lapanganData} onChange={setLapanganData} stepData={stepData} readOnly={!hasAccessForStep(3)} />;
       case 4:
-        return <StepSummary stepData={stepData} persiapanData={persiapanData} lapanganData={lapanganData} />;
+        return <StepSummary stepData={stepData} persiapanData={persiapanData} lapanganData={lapanganData} onChange={setStepData} readOnly={!hasAccessForStep(4)} />;
       default:
         return <StepData />;
     }
@@ -267,7 +348,7 @@ export default function FormSurveyProductPage() {
                 onClick={() => navigate('/survey-product')}
                 className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
               >
-                Profil
+                Home
               </button>
             </div>
           </div>
@@ -281,30 +362,30 @@ export default function FormSurveyProductPage() {
             {/* Connecting Line Background */}
             <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-[3px] bg-gray-100 rounded-full"></div>
             {/* Connecting Line Active */}
-            <div 
+            <div
               className="absolute left-0 top-1/2 -translate-y-1/2 h-[3px] bg-blue-600 rounded-full transition-all duration-500 ease-in-out"
-              style={{ width: `${((currentStep - 1) / (STEPS.length - 1)) * 100}%` }}
+              style={{ width: `${((currentStep - 1) / (visibleSteps.length - 1)) * 100}%` }}
             ></div>
 
-            {STEPS.map((step) => {
+            {visibleSteps.map((step) => {
               const isDone = currentStep > step.id;
               const isActive = currentStep === step.id;
-              
+
               return (
                 <div key={step.id} className="relative z-10 flex flex-col items-center">
-                  <div 
+                  <div
                     className={`flex items-center justify-center w-12 h-12 rounded-full text-base font-semibold transition-all duration-300 ring-[8px] ring-white
-                      ${isDone 
-                        ? 'bg-blue-600 text-white shadow-sm' 
-                        : isActive 
-                        ? 'bg-blue-50 text-blue-700 border-[2px] border-blue-600 shadow-sm' 
-                        : 'bg-white text-gray-400 border-[2px] border-gray-200'
+                      ${isDone
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : isActive
+                          ? 'bg-blue-50 text-blue-700 border-[2px] border-blue-600 shadow-sm'
+                          : 'bg-white text-gray-400 border-[2px] border-gray-200'
                       }
                     `}
                   >
                     {isDone ? <Check className="w-6 h-6 stroke-[3]" /> : step.id}
                   </div>
-                  <span 
+                  <span
                     className={`absolute -bottom-8 whitespace-nowrap text-sm font-medium transition-colors duration-300
                       ${isActive ? 'text-blue-700 font-semibold' : isDone ? 'text-gray-800' : 'text-gray-400'}
                     `}
@@ -324,7 +405,18 @@ export default function FormSurveyProductPage() {
             <div className="bg-white border border-gray-100 rounded-2xl p-8 text-center text-gray-500 shadow-sm">
               Memuat data survey product...
             </div>
-          ) : renderStepContent()}
+          ) : (
+            <div className={`${!hasAccessForStep(currentStep) ? 'pointer-events-none opacity-75 grayscale-[20%]' : ''} relative`}>
+              {!hasAccessForStep(currentStep) && (
+                <div className="absolute top-0 left-0 w-full h-full z-50 flex items-start justify-center pt-8">
+                  <div className="bg-white px-4 py-2 rounded-lg shadow border border-red-200 text-red-600 font-medium text-sm">
+                    Anda tidak memiliki akses untuk mengubah bagian ini.
+                  </div>
+                </div>
+              )}
+              {renderStepContent()}
+            </div>
+          )}
         </div>
       </div>
 
@@ -334,16 +426,15 @@ export default function FormSurveyProductPage() {
           <button
             onClick={handlePrev}
             disabled={currentStep === 1}
-            className={`px-6 py-2.5 rounded-lg text-sm font-medium flex items-center transition-colors ${
-              currentStep === 1
+            className={`px-6 py-2.5 rounded-lg text-sm font-medium flex items-center transition-colors ${currentStep === 1
                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                 : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
-            }`}
+              }`}
           >
             Kembali
           </button>
-          
-          {currentStep < STEPS.length ? (
+
+          {currentStep < visibleSteps.length ? (
             <button
               onClick={handleNext}
               disabled={isSavingDraft || isLoadingDraft}
@@ -354,13 +445,32 @@ export default function FormSurveyProductPage() {
             </button>
           ) : (
             <button
-              onClick={() => {
-                alert('Submit Survey Dummy!');
-                navigate('/survey-product');
+              onClick={async () => {
+                if (!editId && currentStep === 2 && hasPersiapanPerm) {
+                  // Final submit on create mode
+                  await savePersiapanDraft();
+                  await saveStepDataDraft('Submit');
+                  alert('Survey berhasil disimpan!');
+                  navigate('/survey-product');
+                } else if (editId && currentStep === 3 && hasLapPerm) {
+                  // Final submit on edit mode (when step 4 is hidden)
+                  await saveLapanganDraft();
+                  await saveStepDataDraft('Submit');
+                  alert('Survey berhasil disimpan!');
+                  navigate('/survey-product');
+                } else if (editId && currentStep === 4 && hasSummaryPerm) {
+                  // Final submit on edit mode (when step 4 is visible)
+                  await saveStepDataDraft('Submit');
+                  alert('Survey berhasil disimpan!');
+                  navigate('/survey-product');
+                }
               }}
-              className="px-6 py-2.5 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 flex items-center transition-colors shadow-sm"
+              disabled={isSavingDraft || (!editId && !hasPersiapanPerm) || (editId && currentStep === 3 && !hasLapPerm) || (editId && currentStep === 4 && !hasSummaryPerm)}
+              className={`px-6 py-2.5 rounded-lg text-sm font-medium flex items-center transition-colors shadow-sm ${
+                (!editId && !hasPersiapanPerm) || (editId && currentStep === 3 && !hasLapPerm) || (editId && currentStep === 4 && !hasSummaryPerm) ? 'bg-gray-400 text-gray-200 cursor-not-allowed' : 'bg-green-600 text-white hover:bg-green-700'
+              }`}
             >
-              Simpan Survey
+              {isSavingDraft ? 'Menyimpan...' : 'Simpan Survey'}
               <Check className="w-4 h-4 ml-1" />
             </button>
           )}
