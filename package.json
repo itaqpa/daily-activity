@@ -10,7 +10,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "db:migrate": "powershell -Command \"$env:PGPASSWORD='postgres'; Get-ChildItem Server\\database\\*.sql | ForEach-Object { psql -h 127.0.0.1 -U postgres -d db_aqpa_indonesia -f $_.FullName }\""
+    "db:migrate": "node Server/database/migration.js",
+    "dev:migrate": "node Server/database/migration.js"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",

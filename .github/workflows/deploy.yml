@@ -208,6 +208,13 @@ jobs:
             }
             docker network inspect postgres_database --format '{{range .Containers}}{{.Name}} {{.IPv4Address}}{{"\\n"}}{{end}}'
 
+            phase "run database migrations"
+            docker run --rm \
+              --network postgres_database \
+              --env-file "$DEPLOY_ENV_FILE" \
+              "$GHCR_REPO/backend:latest" \
+              node Server/database/migration.js
+
             phase "remove old application containers"
             docker rm -f daily-activity-frontend daily-activity-backend 2>/dev/null || true
 
