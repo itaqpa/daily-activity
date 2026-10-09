@@ -164,7 +164,7 @@ export default function StepLapangan({ data = createEmptyLapanganData(), stepDat
               <MapPin className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-gray-800">Section 1: Pelaksanaan Aktual</h2>
+              <h2 className="text-lg font-bold text-gray-800">Pelaksanaan Aktual</h2>
               <p className="text-sm text-gray-500">Pencatatan kegiatan harian di lapangan</p>
             </div>
           </div>
@@ -236,7 +236,7 @@ export default function StepLapangan({ data = createEmptyLapanganData(), stepDat
               <Box className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-gray-800">Section 2: Data Produk</h2>
+              <h2 className="text-lg font-bold text-gray-800">Data Produk</h2>
               <p className="text-sm text-gray-500">Progress survey produk di lapangan</p>
             </div>
           </div>

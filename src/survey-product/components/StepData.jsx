@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import Select from 'react-select';
-import { Building2, MapPin, Calendar, User, Phone, FileText, Target, Plus, Trash2, PackageOpen, CalendarDays, Users } from 'lucide-react';
+import { Building2, MapPin, Calendar, User, Phone, FileText, Target, Plus, Trash2, PackageOpen, CalendarDays, Users, Printer, ClipboardCheck } from 'lucide-react';
 import { apiUrl } from '../../api';
 import { useAuth } from '../../context/AuthContext';
 
@@ -37,12 +37,22 @@ export const createEmptyStepData = () => ({
   ]
 });
 
-export default function StepData({ data = createEmptyStepData(), onChange, readOnly = false }) {
+export default function StepData({ data = createEmptyStepData(), persiapanData = null, onChange, readOnly = false }) {
   const { user } = useAuth();
   
   // Constants
   const selectedProducts = data.selectedProducts || [];
-  const schedules = data.schedules?.length ? data.schedules : createEmptyStepData().schedules;
+  const schedules = (data.schedules?.length ? data.schedules : createEmptyStepData().schedules)
+    .map((schedule, index) => ({ ...schedule, hari: index + 1 }));
+  const persiapanMasterData = persiapanData?.masterData || [];
+  const persiapanState = persiapanData?.state || {};
+  const getPersiapanCount = (jenis) => {
+    const items = persiapanMasterData.filter(item => item.jenis === jenis);
+    const ready = items.filter(item => Boolean(persiapanState[item.id]?.digunakan)).length;
+    return { ready, total: items.length };
+  };
+  const checklistCount = getPersiapanCount('Checklist Persiapan');
+  const dokumenCount = getPersiapanCount('Dokumen & Izin');
   
   useEffect(() => {
     if (!readOnly && user && !data.created_by) {
@@ -154,17 +164,87 @@ export default function StepData({ data = createEmptyStepData(), onChange, readO
     updateData({
       schedules: [
         ...schedules,
-        { id: Date.now(), hari: '', tanggal: '', rencana_area: '', target_item: '' }
+        { id: Date.now(), hari: schedules.length + 1, tanggal: '', rencana_area: '', target_item: '' }
       ]
     });
   };
 
   const removeSchedule = (id) => {
+    const nextSchedules = schedules.length === 1
+      ? schedules
+      : schedules.filter(s => s.id !== id).map((schedule, index) => ({ ...schedule, hari: index + 1 }));
+
     updateData({
-      schedules: schedules.length === 1
-        ? schedules
-        : schedules.filter(s => s.id !== id)
+      schedules: nextSchedules
     });
+  };
+
+  const escapeHtml = (value = '') => String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+
+  const printPersiapanSummary = () => {
+    const rows = persiapanMasterData.map((item, index) => {
+      const itemState = persiapanState[item.id] || {};
+      return `
+        <tr>
+          <td>${index + 1}</td>
+          <td>${escapeHtml(item.jenis || '-')}</td>
+          <td>${escapeHtml(item.ket_tambahan || '-')}</td>
+          <td>${escapeHtml(item.label || '-')}</td>
+          <td>${itemState.digunakan ? 'Ya' : 'Tidak'}</td>
+          <td>${itemState.qty || ''}</td>
+        </tr>
+      `;
+    }).join('');
+    const html = `
+      <!doctype html>
+      <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>Ringkasan Persiapan Survey</title>
+        <style>
+          body { margin: 24px; font-family: Arial, sans-serif; color: #111827; }
+          h1 { margin: 0 0 4px; font-size: 20px; }
+          .meta { margin: 0 0 18px; color: #4b5563; font-size: 12px; }
+          .cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 18px; }
+          .card { border: 1px solid #d1d5db; border-radius: 12px; padding: 12px; }
+          .label { color: #4b5563; font-size: 12px; font-weight: 700; }
+          .value { margin-top: 4px; font-size: 24px; font-weight: 800; }
+          table { width: 100%; border-collapse: collapse; font-size: 11px; }
+          th, td { border: 1px solid #d1d5db; padding: 7px; vertical-align: top; }
+          th { background: #f3f4f6; text-align: left; }
+          @media print { body { margin: 12mm; } }
+        </style>
+      </head>
+      <body>
+        <h1>Ringkasan Persiapan Survey Product</h1>
+        <p class="meta">${escapeHtml(data.no_survey || '-')} | ${escapeHtml(data.nama_client || '-')} | ${escapeHtml(data.plant_area || '-')}</p>
+        <section class="cards">
+          <div class="card"><div class="label">Peralatan / APD siap</div><div class="value">${checklistCount.ready} / ${checklistCount.total}</div></div>
+          <div class="card"><div class="label">Dokumen & izin siap</div><div class="value">${dokumenCount.ready} / ${dokumenCount.total}</div></div>
+        </section>
+        <table>
+          <thead>
+            <tr><th>No</th><th>Jenis</th><th>Kategori</th><th>Item</th><th>Siap</th><th>Qty</th></tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <script>window.onload = () => setTimeout(() => window.print(), 300);</script>
+      </body>
+      </html>
+    `;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('Popup diblokir oleh browser. Izinkan popup untuk mencetak PDF.');
+      return;
+    }
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
   };
 
   const handleLeadersChange = (selectedOptions = []) => {
@@ -240,7 +320,7 @@ export default function StepData({ data = createEmptyStepData(), onChange, readO
             <FileText className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-gray-800">Section 1: Data Survey</h2>
+            <h2 className="text-lg font-bold text-gray-800">Data Survey</h2>
             <p className="text-sm text-gray-500">Informasi utama terkait identitas dan lokasi survey</p>
           </div>
         </div>
@@ -381,7 +461,7 @@ export default function StepData({ data = createEmptyStepData(), onChange, readO
             <PackageOpen className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-gray-800">Section 2: Produk Terencana</h2>
+            <h2 className="text-lg font-bold text-gray-800">Produk Terencana</h2>
             <p className="text-sm text-gray-500">Pilih produk yang direncanakan untuk disurvey</p>
           </div>
         </div>
@@ -435,7 +515,7 @@ export default function StepData({ data = createEmptyStepData(), onChange, readO
               <CalendarDays className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-gray-800">Section 3: Rencana Jadwal</h2>
+              <h2 className="text-lg font-bold text-gray-800">Rencana Jadwal</h2>
               <p className="text-sm text-gray-500">Alokasi hari dan target item di lapangan</p>
             </div>
           </div>
@@ -447,11 +527,11 @@ export default function StepData({ data = createEmptyStepData(), onChange, readO
         </div>
 
         <div className="space-y-4">
-          {schedules.map((schedule) => (
+          {schedules.map((schedule, index) => (
             <div key={schedule.id} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start bg-gray-50 p-4 rounded-xl border border-gray-100">
               <div className="md:col-span-2">
                 <label className="block text-xs font-semibold text-gray-500 mb-1">Hari ke:</label>
-                <input type="number" min="1" value={schedule.hari || ''} disabled={readOnly} onChange={(e) => updateSchedule(schedule.id, 'hari', e.target.value)} className={`w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-sm ${readOnly ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`} placeholder="Cth: 1" />
+                <input type="number" min="1" value={index + 1} disabled className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none text-sm bg-gray-100 text-gray-500 cursor-not-allowed" />
               </div>
               <div className="md:col-span-3">
                 <label className="block text-xs font-semibold text-gray-500 mb-1">Tanggal</label>
@@ -479,7 +559,41 @@ export default function StepData({ data = createEmptyStepData(), onChange, readO
             </div>
           ))}
         </div>
+
       </div>
+
+      {persiapanMasterData.length > 0 && (
+        <div className="bg-white p-5 md:p-8 rounded-2xl shadow-sm border border-gray-100">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="rounded-lg bg-orange-50 p-2 text-orange-600">
+                <ClipboardCheck className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-gray-800">Ringkasan Persiapan</h2>
+                <p className="text-sm text-gray-500">Checklist peralatan/APD serta dokumen dan izin sebelum survey.</p>
+              </div>
+            </div>
+            <button
+              onClick={printPersiapanSummary}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-orange-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition-colors hover:bg-orange-700"
+            >
+              <Printer className="h-4 w-4" /> Unduh PDF
+            </button>
+          </div>
+
+          <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border border-orange-100 bg-orange-50/70 p-4">
+              <div className="text-xs font-bold uppercase tracking-wide text-orange-500">Peralatan / APD siap</div>
+              <div className="mt-1 text-2xl font-extrabold text-gray-900">{checklistCount.ready} / {checklistCount.total}</div>
+            </div>
+            <div className="rounded-xl border border-orange-100 bg-orange-50/70 p-4">
+              <div className="text-xs font-bold uppercase tracking-wide text-orange-500">Dokumen & izin siap</div>
+              <div className="mt-1 text-2xl font-extrabold text-gray-900">{dokumenCount.ready} / {dokumenCount.total}</div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

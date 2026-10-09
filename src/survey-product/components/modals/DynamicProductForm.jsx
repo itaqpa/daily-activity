@@ -60,6 +60,14 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
     }
   }, [product.code]);
 
+  const getAutoTagValue = () => product?.displayId || `${product?.code || 'PRD'}-001`;
+
+  const isTagQuestion = (question = {}) => {
+    const label = (question.label || '').toLowerCase();
+    const id = (question.id || '').toLowerCase();
+    return id === 'tag' || id === 'tag_no' || id === 'tag_number' || id.includes('tag') || label.includes('tag');
+  };
+
   const handleInputChange = (questionId, value) => {
     if (readOnly) return;
     setAnswers(prev => ({ ...prev, [questionId]: value }));
@@ -87,6 +95,31 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
       }
     }
   }, [sections, schedules, product?.code, readOnly]);
+
+  useEffect(() => {
+    const autoTagValue = getAutoTagValue();
+    if (!sections.length || !autoTagValue) return;
+
+    const tagQuestionIds = sections.flatMap(sec => sec.questions || [])
+      .filter(isTagQuestion)
+      .map(q => q.id);
+
+    if (!tagQuestionIds.length) return;
+
+    setAnswers(prev => {
+      let changed = false;
+      const next = { ...prev };
+
+      tagQuestionIds.forEach(id => {
+        if (next[id] !== autoTagValue) {
+          next[id] = autoTagValue;
+          changed = true;
+        }
+      });
+
+      return changed ? next : prev;
+    });
+  }, [sections, product?.displayId, product?.code]);
 
   const handleAddCustomRef = () => {
     if (readOnly) return;
@@ -262,6 +295,7 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
               const labelL = (q.label || '').toLowerCase();
               const idL = (q.id || '').toLowerCase();
               const isHariSurvey = labelL.includes('hari survey') || labelL.includes('hari pelaksanaan') || idL === 'hari_ke' || idL.includes('hari_survey') || idL.includes('hari');
+              const isTagField = isTagQuestion(q);
 
               if (isHariSurvey) {
                 return (
@@ -282,6 +316,23 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
                         return <option key={val} value={val}>{val}</option>;
                       })}
                     </select>
+                  </div>
+                );
+              }
+
+              if (isTagField) {
+                return (
+                  <div key={q.id} className="space-y-1.5">
+                    <label className="block text-sm font-semibold text-gray-700">
+                      {q.label} {q.required && <span className="text-red-500">*</span>}
+                    </label>
+                    <input
+                      type="text"
+                      value={answers[q.id] || getAutoTagValue()}
+                      disabled
+                      className="w-full px-4 py-2.5 rounded-lg border border-gray-300 outline-none text-gray-700 bg-gray-100 cursor-not-allowed"
+                      placeholder={getAutoTagValue()}
+                    />
                   </div>
                 );
               }

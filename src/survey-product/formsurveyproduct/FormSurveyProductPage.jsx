@@ -77,9 +77,21 @@ export default function FormSurveyProductPage() {
     return Boolean(hasProductProgress);
   };
 
+  const isLapanganStarted = editId && !isReadonlyClosed && checkOnProgress(lapanganData);
   const visibleSteps = editId 
-    ? (isReadonlyClosed ? ALL_STEPS : (checkOnProgress(lapanganData) ? ALL_STEPS.slice(0, 4) : ALL_STEPS.slice(0, 3)))
+    ? (isReadonlyClosed ? ALL_STEPS : (isLapanganStarted ? [ALL_STEPS[0], ALL_STEPS[2], ALL_STEPS[3]] : ALL_STEPS.slice(0, 3)))
     : ALL_STEPS.slice(0, 2);
+  const currentStepIndex = visibleSteps.findIndex(step => step.id === currentStep);
+  const isFirstVisibleStep = currentStepIndex <= 0;
+  const isLastVisibleStep = currentStepIndex === visibleSteps.length - 1;
+  const nextVisibleStep = visibleSteps[currentStepIndex + 1]?.id;
+  const prevVisibleStep = visibleSteps[currentStepIndex - 1]?.id;
+
+  useEffect(() => {
+    if (visibleSteps.length > 0 && !visibleSteps.some(step => step.id === currentStep)) {
+      setCurrentStep(visibleSteps[0].id);
+    }
+  }, [currentStep, visibleSteps]);
 
   const resolveStepFromParam = (stepParam) => {
     if (stepParam === 'data') return 1;
@@ -199,7 +211,10 @@ export default function FormSurveyProductPage() {
           status: (forceStatus && forceStatus !== 'Submit') ? forceStatus : finalStatus,
           data: stepData,
           selected_products: selectedProducts,
-          schedules: stepData.schedules || []
+          schedules: (stepData.schedules || []).map((schedule, index) => ({
+            ...schedule,
+            hari: index + 1
+          }))
         })
       });
 
@@ -309,9 +324,9 @@ export default function FormSurveyProductPage() {
   };
 
   const handleNext = async () => {
-    if (currentStep < visibleSteps.length) {
+    if (!isLastVisibleStep && nextVisibleStep) {
       if (isReadonlyClosed) {
-        setCurrentStep((prev) => prev + 1);
+        setCurrentStep(nextVisibleStep);
         return;
       }
       if (currentStep === 1) {
@@ -340,14 +355,14 @@ export default function FormSurveyProductPage() {
           if (!saved) return;
         }
       }
-      setCurrentStep((prev) => prev + 1);
+      setCurrentStep(nextVisibleStep);
     }
   };
 
   const handlePrev = async () => {
-    if (currentStep > 1) {
+    if (!isFirstVisibleStep && prevVisibleStep) {
       if (isReadonlyClosed) {
-        setCurrentStep((prev) => prev - 1);
+        setCurrentStep(prevVisibleStep);
         return;
       }
       if (currentStep === 1) {
@@ -362,7 +377,7 @@ export default function FormSurveyProductPage() {
         const saved = await saveLapanganDraft();
         if (!saved) return;
       }
-      setCurrentStep((prev) => prev - 1);
+      setCurrentStep(prevVisibleStep);
     }
   };
 
@@ -420,7 +435,7 @@ export default function FormSurveyProductPage() {
 
     switch (currentStep) {
       case 1:
-        return <StepData data={stepData} onChange={setStepData} readOnly={!hasAccessForStep(1)} />;
+        return <StepData data={stepData} persiapanData={persiapanData} onChange={setStepData} readOnly={!hasAccessForStep(1)} />;
       case 2:
         return <StepPersiapan data={persiapanData} onChange={setPersiapanData} readOnly={!hasAccessForStep(2)} />;
       case 3:
@@ -470,11 +485,12 @@ export default function FormSurveyProductPage() {
             {/* Connecting Line Active */}
             <div
               className="absolute left-0 top-1/2 -translate-y-1/2 h-[3px] bg-blue-600 rounded-full transition-all duration-500 ease-in-out"
-              style={{ width: `${((currentStep - 1) / (visibleSteps.length - 1)) * 100}%` }}
+              style={{ width: `${visibleSteps.length > 1 && currentStepIndex >= 0 ? (currentStepIndex / (visibleSteps.length - 1)) * 100 : 0}%` }}
             ></div>
 
             {visibleSteps.map((step) => {
-              const isDone = currentStep > step.id;
+              const stepIndex = visibleSteps.findIndex(item => item.id === step.id);
+              const isDone = currentStepIndex > stepIndex;
               const isActive = currentStep === step.id;
 
               return (
@@ -531,8 +547,8 @@ export default function FormSurveyProductPage() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <button
             onClick={handlePrev}
-            disabled={currentStep === 1}
-            className={`px-6 py-2.5 rounded-lg text-sm font-medium flex items-center transition-colors ${currentStep === 1
+            disabled={isFirstVisibleStep}
+            className={`px-6 py-2.5 rounded-lg text-sm font-medium flex items-center transition-colors ${isFirstVisibleStep
                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                 : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
               }`}
@@ -540,7 +556,7 @@ export default function FormSurveyProductPage() {
             Kembali
           </button>
 
-          {currentStep < visibleSteps.length ? (
+          {!isLastVisibleStep ? (
             <button
               onClick={handleNext}
               disabled={isSavingDraft || isLoadingDraft}

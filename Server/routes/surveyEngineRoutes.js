@@ -22,6 +22,29 @@ export default function (pool) {
       || ['admin', 'superadmin', 'super admin', 'super-admin'].includes(role);
   };
 
+  const generateSurveyProductNo = async (client) => {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Jakarta',
+      month: '2-digit',
+      year: '2-digit'
+    }).formatToParts(new Date());
+    const month = parts.find(part => part.type === 'month')?.value || '01';
+    const year = parts.find(part => part.type === 'year')?.value || '00';
+    const prefix = `SVY-${month}${year}-`;
+
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [prefix]);
+
+    const result = await client.query(
+      `SELECT COALESCE(MAX(RIGHT(no_survey, 5)::int), 0) AS last_no
+       FROM survey_product_data
+       WHERE no_survey LIKE $1
+         AND no_survey ~ '^SVY-[0-9]{4}-[0-9]{5}$'`,
+      [`${prefix}%`]
+    );
+    const nextNo = Number(result.rows[0]?.last_no || 0) + 1;
+    return `${prefix}${String(nextNo).padStart(5, '0')}`;
+  };
+
   // ─── GET /template/:productCode ───────────────────────────────────────────
   // Kembalikan seluruh konfigurasi template yang dibutuhkan frontend:
   // sections, questions, options, checklist items, unit, visibility rule, dll.
@@ -280,7 +303,7 @@ export default function (pool) {
           ]
         );
       } else {
-        surveyNo = surveyNo || `SP-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+        surveyNo = await generateSurveyProductNo(client);
           const inserted = await client.query(
             `INSERT INTO survey_product_data
                (no_survey, nama_client, plant_area, alamat_lokasi, tanggal_mulai,

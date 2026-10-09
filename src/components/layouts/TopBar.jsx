@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Search, Bell, ChevronDown, LayoutDashboard, Wrench, Shield, LogOut, Settings } from 'lucide-react';
+import { Search, Bell, ChevronDown, LayoutDashboard, Wrench, Shield, LogOut, Settings, ClipboardList } from 'lucide-react';
 
 export default function Topbar({ currentModule }) {
   const navigate = useNavigate();
@@ -33,7 +33,8 @@ export default function Topbar({ currentModule }) {
 
   const allModules = [
     { name: 'Daily Activity Sales', icon: <LayoutDashboard className="w-4 h-4 text-blue-600" />, path: marketingPath, hasAccess: hasMarketingAccess },
-    { name: 'Installation Project', icon: <Wrench className="w-4 h-4 text-orange-600" />, path: '/installation-project', hasAccess: hasPermission('install_project_view') }
+    { name: 'Installation Project', icon: <Wrench className="w-4 h-4 text-orange-600" />, path: '/installation-project', hasAccess: hasPermission('install_project_view') },
+    { name: 'Survey Product', icon: <ClipboardList className="w-4 h-4 text-emerald-600" />, path: '/survey-product', hasAccess: hasPermission('survey_product_view') }
   ];
 
   const modules = allModules.filter(mod => mod.hasAccess);

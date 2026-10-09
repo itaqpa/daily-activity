@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ClipboardCheck, FileCheck, CheckCircle2, Circle, Plus, X, Trash2 } from 'lucide-react';
+import { ClipboardCheck, FileCheck, CheckCircle2, Circle, Plus, X, Trash2, Printer, Download, Share2 } from 'lucide-react';
 import CreatableSelect from 'react-select/creatable';
 
 const INITIAL_MASTER_PERSIAPAN = [
@@ -48,6 +48,7 @@ export default function StepPersiapan({ data = createEmptyPersiapanData(), onCha
   const masterData = data.masterData || INITIAL_MASTER_PERSIAPAN;
   const state = data.state || createEmptyPersiapanData().state;
   const selectMenuPortalTarget = typeof document !== 'undefined' ? document.body : undefined;
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
 
   const updateData = (patch) => {
     onChange?.({ ...data, ...patch });
@@ -130,6 +131,127 @@ export default function StepPersiapan({ data = createEmptyPersiapanData(), onCha
     return uniqueCategories.map(cat => ({ value: cat, label: cat }));
   };
 
+  const escapeHtml = (value = '') => String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+
+  const buildChecklistRows = (jenis) => {
+    const items = masterData.filter(item => item.jenis === jenis);
+    return items.map((item, index) => {
+      const itemState = state[item.id] || {};
+      return `
+        <tr>
+          <td>${index + 1}</td>
+          <td>${escapeHtml(item.ket_tambahan || '-')}</td>
+          <td>${escapeHtml(item.label || '-')}</td>
+          <td>${itemState.digunakan ? 'Ya' : 'Tidak'}</td>
+          <td>${itemState.qty || ''}</td>
+          <td class="check"></td>
+          <td class="check"></td>
+          <td class="check"></td>
+        </tr>
+      `;
+    }).join('');
+  };
+
+  const buildChecklistPrintHtml = () => {
+    const sections = ['Checklist Persiapan', 'Dokumen & Izin'];
+    const sectionTables = sections.map((jenis) => `
+      <section>
+        <h2>${escapeHtml(jenis)}</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>No</th>
+              <th>Kategori</th>
+              <th>Item</th>
+              <th class="center">Siap</th>
+              <th class="center">Qty</th>
+              <th class="center">Admin</th>
+              <th class="center">Logistic</th>
+              <th class="center">Surveyor</th>
+            </tr>
+          </thead>
+          <tbody>${buildChecklistRows(jenis)}</tbody>
+        </table>
+      </section>
+    `).join('');
+
+    return `
+      <!doctype html>
+      <html>
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Checklist Persiapan dan Dokumen Izin</title>
+        <style>
+          * { box-sizing: border-box; }
+          body { margin: 0; background: #e5e7eb; font-family: Arial, sans-serif; color: #111827; }
+          .page { width: 210mm; min-height: 297mm; margin: 16px auto; background: #fff; padding: 14mm; }
+          h1 { margin: 0 0 4px; font-size: 20px; }
+          h2 { margin: 22px 0 8px; font-size: 15px; }
+          .meta { margin: 0 0 18px; color: #4b5563; font-size: 12px; }
+          table { width: 100%; border-collapse: collapse; font-size: 11px; }
+          th, td { border: 1px solid #d1d5db; padding: 7px; vertical-align: top; }
+          th { background: #f3f4f6; text-align: left; }
+          .center { text-align: center; }
+          .check { width: 52px; height: 25px; }
+          .signature { margin-top: 24px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; font-size: 12px; text-align: center; }
+          .signature div { border-top: 1px solid #9ca3af; padding-top: 8px; margin-top: 56px; }
+          @media print {
+            body { background: #fff; }
+            .page { width: auto; min-height: auto; margin: 0; padding: 10mm; }
+          }
+        </style>
+      </head>
+      <body>
+        <main class="page">
+          <h1>Checklist Persiapan dan Dokumen Izin</h1>
+          <p class="meta">Form checklist persiapan survey product | Dicetak: ${new Date().toLocaleDateString('id-ID')}</p>
+          ${sectionTables}
+          <section class="signature">
+            <div>Admin</div>
+            <div>Logistic</div>
+            <div>Surveyor</div>
+          </section>
+        </main>
+      </body>
+      </html>
+    `;
+  };
+
+  const printChecklist = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('Popup diblokir oleh browser. Izinkan popup untuk mencetak PDF.');
+      return;
+    }
+    printWindow.document.open();
+    printWindow.document.write(buildChecklistPrintHtml().replace('</body>', '<script>window.onload = () => setTimeout(() => window.print(), 300);</script></body>'));
+    printWindow.document.close();
+  };
+
+  const shareChecklist = async () => {
+    if (!navigator.share) {
+      alert('Fitur bagikan otomatis tidak didukung. Gunakan tombol Download / Print untuk menyimpan PDF lalu bagikan manual.');
+      return;
+    }
+    try {
+      await navigator.share({
+        title: 'Checklist Persiapan dan Dokumen Izin',
+        text: 'Preview checklist persiapan dan dokumen izin survey product',
+        url: window.location.href
+      });
+    } catch (error) {
+      if (error?.name !== 'AbortError') {
+        alert('Gagal membagikan checklist.');
+      }
+    }
+  };
+
   const renderSection = (title, icon, jenis, description, showQty) => {
     const items = masterData.filter(i => i.jenis === jenis);
     
@@ -151,6 +273,7 @@ export default function StepPersiapan({ data = createEmptyPersiapanData(), onCha
               <p className="text-sm text-gray-500">{description}</p>
             </div>
           </div>
+          <div className="flex flex-wrap items-center gap-2">
           {!readOnly && (
             <button 
               onClick={() => markAllReady(jenis)}
@@ -159,13 +282,14 @@ export default function StepPersiapan({ data = createEmptyPersiapanData(), onCha
               <CheckCircle2 className="w-4 h-4 text-green-600" /> Tandai Semua Siap
             </button>
           )}
+          </div>
         </div>
 
         <div className="space-y-6">
           {Object.entries(groupedItems).map(([group, groupItems]) => (
             <div key={group} className="bg-gray-50/50 p-4 rounded-xl border border-gray-100">
               <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">{group}</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {groupItems.map(item => {
                   const isChecked = state[item.id]?.digunakan;
                   return (
@@ -315,6 +439,15 @@ export default function StepPersiapan({ data = createEmptyPersiapanData(), onCha
         </div>
       )}
 
+      <div className="mb-6 flex justify-end">
+        <button
+          onClick={() => setShowPrintPreview(true)}
+          className="flex items-center justify-center gap-1.5 text-sm bg-orange-50 text-orange-700 px-4 py-2 rounded-lg font-semibold hover:bg-orange-100 transition-colors whitespace-nowrap border border-orange-100"
+        >
+          <Printer className="w-4 h-4" /> Print Checklist & Dokumen
+        </button>
+      </div>
+
       {renderSection(
         'Checklist Persiapan', 
         <ClipboardCheck className="w-5 h-5" />, 
@@ -329,6 +462,46 @@ export default function StepPersiapan({ data = createEmptyPersiapanData(), onCha
         'Dokumen & Izin', 
         'Dokumen khusus otomatis mengikuti produk yang direncanakan.',
         false
+      )}
+
+      {showPrintPreview && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-3 md:p-8">
+          <div className="flex h-full w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl md:h-[90vh]">
+            <div className="flex flex-col gap-3 border-b border-gray-200 bg-gray-50 p-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Preview Print Checklist</h3>
+                <p className="text-sm text-gray-500">Checklist Persiapan dan Dokumen & Izin</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={printChecklist}
+                  className="inline-flex items-center gap-2 rounded-lg bg-orange-600 px-4 py-2 text-sm font-bold text-white hover:bg-orange-700"
+                >
+                  <Download className="h-4 w-4" /> Download / Print
+                </button>
+                <button
+                  onClick={shareChecklist}
+                  className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-700"
+                >
+                  <Share2 className="h-4 w-4" /> Bagikan
+                </button>
+                <button
+                  onClick={() => setShowPrintPreview(false)}
+                  className="rounded-lg border border-gray-200 bg-white p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-hidden bg-gray-200">
+              <iframe
+                srcDoc={buildChecklistPrintHtml()}
+                className="h-full w-full border-0"
+                title="Preview Checklist Persiapan"
+              />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
