@@ -20,12 +20,9 @@ export default function Topbar({ currentModule }) {
   
   const marketingPerms = ['dashboard_view', 'aktivitas_view', 'aktivitas_create', 'laporan_marketing_view', 'laporan_marketing_view_all', 'laporan_marketing_view_team', 'riwayat_aktivitas_view'];
   
-  // Jika dia divisi marketing/sales, cek permissions biasa.
-  // Jika dari divisi lain, WAJIB punya bypass eksplisit (dari user_permissions) untuk melihat modul ini.
-  const hasMarketingAccess = isMarketingDivision 
-    ? marketingPerms.some(p => hasPermission(p))
-    : marketingPerms.some(p => user?.explicit_bypass_permissions?.includes(p));
-  const checkPerm = (p) => isMarketingDivision ? hasPermission(p) : user?.explicit_bypass_permissions?.includes(p);
+  // Cukup cek lewat hasPermission karena role (termasuk Super Admin) sudah di-handle di AuthContext
+  const hasMarketingAccess = marketingPerms.some(p => hasPermission(p));
+  const checkPerm = (p) => hasPermission(p);
   const marketingPath = checkPerm('dashboard_view') ? '/marketing/dashboard' : 
                         (checkPerm('aktivitas_view') || checkPerm('riwayat_aktivitas_view')) ? '/marketing/activities' : 
                         checkPerm('aktivitas_create') ? '/marketing/activities/new' : 
@@ -149,6 +146,10 @@ export default function Topbar({ currentModule }) {
                   </div>
                 </div>
                 <div className="border-t border-gray-100 py-1">
+                  <button onClick={() => { setIsProfileOpen(false); navigate('/portal'); }} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors font-medium">
+                    <LayoutDashboard className="w-4 h-4 text-gray-400" />
+                    Portal Modul
+                  </button>
                   <button onClick={() => { setIsProfileOpen(false); /* navigate('/settings') */ }} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors font-medium">
                     <Settings className="w-4 h-4 text-gray-400" />
                     Pengaturan
