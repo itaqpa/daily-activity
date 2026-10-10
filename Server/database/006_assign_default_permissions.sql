@@ -4,6 +4,14 @@
 -- ==========================================
 -- 1. HAK AKSES DIVISI (KUNCI PINTU MASUK)
 -- ==========================================
+
+-- Pastikan tabel divisi_permissions ada (jika 001_hak-akses.sql sudah terlewat di database existing)
+CREATE TABLE IF NOT EXISTS divisi_permissions (
+    divisi_id INTEGER REFERENCES divisis(id) ON DELETE CASCADE,
+    permission_id INTEGER REFERENCES permissions(id) ON DELETE CASCADE,
+    PRIMARY KEY (divisi_id, permission_id)
+);
+
 -- Hapus settingan divisi lama jika ada
 DELETE FROM divisi_permissions;
 
