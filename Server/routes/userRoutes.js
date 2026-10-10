@@ -35,22 +35,21 @@ export default function userRoutes(pool) {
   });
 
   // Helper untuk sinkronisasi permissions
+  // PENTING: Hanya jalankan jika permissionsArray dikirim secara eksplisit (bukan undefined).
+  // Jika frontend tidak mengirim field `permissions`, bypass permission user TIDAK boleh dihapus.
   const syncPermissions = async (client, userId, permissionsArray) => {
-    if (permissionsArray && Array.isArray(permissionsArray)) {
-      await client.query('DELETE FROM user_permissions WHERE user_id = $1', [userId]);
-      for (const perm of permissionsArray) {
-        // Ensure permission exists
-        let permRes = await client.query('SELECT id FROM permissions WHERE nama_permission = $1', [perm]);
-        let permId;
-        if (permRes.rows.length > 0) {
-          permId = permRes.rows[0].id;
-        } else {
-          permRes = await client.query('INSERT INTO permissions (nama_permission) VALUES ($1) RETURNING id', [perm]);
-          permId = permRes.rows[0].id;
-        }
-        // Insert link
+    if (permissionsArray === undefined || permissionsArray === null) return; // Skip jika tidak dikirim
+    if (!Array.isArray(permissionsArray)) return;
+    
+    await client.query('DELETE FROM user_permissions WHERE user_id = $1', [userId]);
+    for (const perm of permissionsArray) {
+      // Cari permission yang sudah ada di master
+      const permRes = await client.query('SELECT id FROM permissions WHERE nama_permission = $1', [perm]);
+      if (permRes.rows.length > 0) {
+        const permId = permRes.rows[0].id;
         await client.query('INSERT INTO user_permissions (user_id, permission_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [userId, permId]);
       }
+      // TIDAK auto-create permission baru jika tidak ditemukan — hindari data sampah
     }
   };
 

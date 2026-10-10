@@ -82,7 +82,7 @@ export default function SidebarMasterData({ isActive, isMarketing, isInstallatio
           )}
 
           {/* SURVEY PRODUCT MASTER DATA */}
-          {isSurveyProduct && (
+          {isSurveyProduct && hasPermission('surveyor_view') && (
             <Link
               to="/survey-product/master-data/surveyor"
               className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${

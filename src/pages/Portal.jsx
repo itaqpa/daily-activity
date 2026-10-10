@@ -28,7 +28,8 @@ export default function Portal() {
   };
 
   // --- HAK AKSES UNTUK DAILY ACTIVITY SALES ---
-  // Memeriksa apakah user memiliki minimal satu akses "View" ke fitur-fitur di modul Daily Activity Sales
+  // Murni permission-based: Divisi+Jabatan sudah mengatur permission default saat login.
+  // User bypass (cross-division) otomatis dapat akses jika diberi permission via user_permissions.
   const hasDailyActivitySalesAccess =
     hasPermission('dashboard_view') ||
     hasPermission('aktivitas_view') ||
