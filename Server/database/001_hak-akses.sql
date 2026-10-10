@@ -23,20 +23,11 @@ CREATE TABLE IF NOT EXISTS jabatan_permissions (
     PRIMARY KEY (jabatan_id, permission_id)
 );
 
--- 3. Tabel penghubung antara divisi dan permissions (Division-based Access Control)
--- Berguna untuk memberikan hak akses modul secara masif ke sebuah divisi (contoh: Semua orang di Divisi Sales bisa akses modul marketing)
-CREATE TABLE IF NOT EXISTS divisi_permissions (
-    divisi_id INTEGER REFERENCES divisis(id) ON DELETE CASCADE,
-    permission_id INTEGER REFERENCES permissions(id) ON DELETE CASCADE,
-    PRIMARY KEY (divisi_id, permission_id)
-);
-
--- 4. Tabel penghubung antara user dan permissions secara spesifik (Direct Access Control)
+-- 3. Tabel penghubung antara user dan permissions secara spesifik (Direct Access Control)
 -- Berguna jika ada user yang butuh akses tertentu (atau pengecualian) di luar jabatan default dan jabatan tambahannya
 CREATE TABLE IF NOT EXISTS user_permissions (
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     permission_id INTEGER REFERENCES permissions(id) ON DELETE CASCADE,
-    is_auto_assigned BOOLEAN DEFAULT FALSE,
     PRIMARY KEY (user_id, permission_id)
 );
 

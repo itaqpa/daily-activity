@@ -50,7 +50,6 @@ CREATE TABLE IF NOT EXISTS users (
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS username VARCHAR(255) UNIQUE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP NULL;
 
 CREATE TABLE IF NOT EXISTS sales_customers (
     sales_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -90,53 +89,65 @@ INSERT INTO divisis (nama_divisi, kode_divisi) VALUES
 ON CONFLICT DO NOTHING;
 
 -- Insert Super Admin User
-INSERT INTO users (name, username, email, password, divisi_id, jabatan_id)
-VALUES (
-    'Super Admin', 
-    'superadmin', 
-    'superadmin@aqpa-indonesia.com', 
-    'aqpa1122@2026!', 
-    (SELECT id FROM divisis WHERE kode_divisi='SLS' LIMIT 1), 
-    (SELECT id FROM jabatans WHERE nama_jabatan='Super Admin' LIMIT 1)
-)
-ON CONFLICT (email) DO UPDATE 
-SET password = EXCLUDED.password, username = EXCLUDED.username;
+DO $$
+BEGIN
+    INSERT INTO users (name, username, email, password, divisi_id, jabatan_id)
+    VALUES (
+        'Super Admin', 
+        'superadmin', 
+        'superadmin@aqpa-indonesia.com', 
+        'aqpa1122@2026!', 
+        (SELECT id FROM divisis WHERE kode_divisi='SLS' LIMIT 1), 
+        (SELECT id FROM jabatans WHERE nama_jabatan='Super Admin' LIMIT 1)
+    )
+    ON CONFLICT (email) DO UPDATE 
+    SET password = EXCLUDED.password, username = EXCLUDED.username;
+EXCEPTION WHEN unique_violation THEN NULL; END $$;
 
 -- Insert Admin User
-INSERT INTO users (name, username, email, password, divisi_id, jabatan_id)
-VALUES (
-    'Admin', 
-    'admin', 
-    'admin@aqpa-indonesia.com', 
-    'aqpa1122@2026!', 
-    (SELECT id FROM divisis WHERE kode_divisi='SLS' LIMIT 1), 
-    (SELECT id FROM jabatans WHERE nama_jabatan='Admin' LIMIT 1)
-)
-ON CONFLICT (email) DO UPDATE 
-SET password = EXCLUDED.password, username = EXCLUDED.username;
+DO $$
+BEGIN
+    INSERT INTO users (name, username, email, password, divisi_id, jabatan_id)
+    VALUES (
+        'Admin', 
+        'admin', 
+        'admin@aqpa-indonesia.com', 
+        'aqpa1122@2026!', 
+        (SELECT id FROM divisis WHERE kode_divisi='SLS' LIMIT 1), 
+        (SELECT id FROM jabatans WHERE nama_jabatan='Admin' LIMIT 1)
+    )
+    ON CONFLICT (email) DO UPDATE 
+    SET password = EXCLUDED.password, username = EXCLUDED.username;
+EXCEPTION WHEN unique_violation THEN NULL; END $$;
 
 -- Insert Sales Spv
-INSERT INTO users (name, username, email, password, divisi_id, jabatan_id)
-VALUES (
-    'Sales Supervisor', 
-    'salesspv', 
-    'salesspv@aqpa-indonesia.com', 
-    'aqpa1122@2026!', 
-    (SELECT id FROM divisis WHERE kode_divisi='SLS' LIMIT 1), 
-    (SELECT id FROM jabatans WHERE nama_jabatan='Spv' LIMIT 1)
-)
-ON CONFLICT (email) DO UPDATE 
-SET password = EXCLUDED.password, username = EXCLUDED.username;
+DO $$
+BEGIN
+    INSERT INTO users (name, username, email, password, divisi_id, jabatan_id)
+    VALUES (
+        'Sales Supervisor', 
+        'salesspv', 
+        'salesspv@aqpa-indonesia.com', 
+        'aqpa1122@2026!', 
+        (SELECT id FROM divisis WHERE kode_divisi='SLS' LIMIT 1), 
+        (SELECT id FROM jabatans WHERE nama_jabatan='Spv' LIMIT 1)
+    )
+    ON CONFLICT (email) DO UPDATE 
+    SET password = EXCLUDED.password, username = EXCLUDED.username;
+EXCEPTION WHEN unique_violation THEN NULL; END $$;
 
 -- Insert Sales Staff
-INSERT INTO users (name, username, email, password, divisi_id, jabatan_id)
-VALUES (
-    'Sales Staff', 
-    'salesstaff', 
-    'salesstaff@aqpa-indonesia.com', 
-    'aqpa1122@2026!', 
-    (SELECT id FROM divisis WHERE kode_divisi='SLS' LIMIT 1), 
-    (SELECT id FROM jabatans WHERE nama_jabatan='Staff' LIMIT 1)
-)
-ON CONFLICT (email) DO UPDATE 
-SET password = EXCLUDED.password, username = EXCLUDED.username;
+DO $$
+BEGIN
+    INSERT INTO users (name, username, email, password, divisi_id, jabatan_id)
+    VALUES (
+        'Sales Staff', 
+        'salesstaff', 
+        'salesstaff@aqpa-indonesia.com', 
+        'aqpa1122@2026!', 
+        (SELECT id FROM divisis WHERE kode_divisi='SLS' LIMIT 1), 
+        (SELECT id FROM jabatans WHERE nama_jabatan='Staff' LIMIT 1)
+    )
+    ON CONFLICT (email) DO UPDATE 
+    SET password = EXCLUDED.password, username = EXCLUDED.username;
+EXCEPTION WHEN unique_violation THEN NULL; END $$;
