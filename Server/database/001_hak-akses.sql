@@ -23,6 +23,13 @@ CREATE TABLE IF NOT EXISTS jabatan_permissions (
     PRIMARY KEY (jabatan_id, permission_id)
 );
 
+-- 2b. Tabel penghubung antara divisi dan permissions (Division-based Access Control)
+CREATE TABLE IF NOT EXISTS divisi_permissions (
+    divisi_id INTEGER REFERENCES divisis(id) ON DELETE CASCADE,
+    permission_id INTEGER REFERENCES permissions(id) ON DELETE CASCADE,
+    PRIMARY KEY (divisi_id, permission_id)
+);
+
 -- 3. Tabel penghubung antara user dan permissions secara spesifik (Direct Access Control)
 -- Berguna jika ada user yang butuh akses tertentu (atau pengecualian) di luar jabatan default dan jabatan tambahannya
 CREATE TABLE IF NOT EXISTS user_permissions (
