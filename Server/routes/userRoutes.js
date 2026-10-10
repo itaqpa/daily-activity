@@ -1,4 +1,5 @@
 import express from 'express';
+import bcrypt from 'bcrypt';
 
 export default function userRoutes(pool) {
   const router = express.Router();
@@ -24,6 +25,7 @@ export default function userRoutes(pool) {
         FROM users u
         LEFT JOIN divisis d ON u.divisi_id = d.id
         LEFT JOIN jabatans j ON u.jabatan_id = j.id
+        WHERE u.deleted_at IS NULL
         ORDER BY u.id ASC
       `);
       res.json(result.rows);
@@ -33,22 +35,21 @@ export default function userRoutes(pool) {
   });
 
   // Helper untuk sinkronisasi permissions
+  // PENTING: Hanya jalankan jika permissionsArray dikirim secara eksplisit (bukan undefined).
+  // Jika frontend tidak mengirim field `permissions`, bypass permission user TIDAK boleh dihapus.
   const syncPermissions = async (client, userId, permissionsArray) => {
-    if (permissionsArray && Array.isArray(permissionsArray)) {
-      await client.query('DELETE FROM user_permissions WHERE user_id = $1', [userId]);
-      for (const perm of permissionsArray) {
-        // Ensure permission exists
-        let permRes = await client.query('SELECT id FROM permissions WHERE nama_permission = $1', [perm]);
-        let permId;
-        if (permRes.rows.length > 0) {
-          permId = permRes.rows[0].id;
-        } else {
-          permRes = await client.query('INSERT INTO permissions (nama_permission) VALUES ($1) RETURNING id', [perm]);
-          permId = permRes.rows[0].id;
-        }
-        // Insert link
+    if (permissionsArray === undefined || permissionsArray === null) return; // Skip jika tidak dikirim
+    if (!Array.isArray(permissionsArray)) return;
+    
+    await client.query('DELETE FROM user_permissions WHERE user_id = $1', [userId]);
+    for (const perm of permissionsArray) {
+      // Cari permission yang sudah ada di master
+      const permRes = await client.query('SELECT id FROM permissions WHERE nama_permission = $1', [perm]);
+      if (permRes.rows.length > 0) {
+        const permId = permRes.rows[0].id;
         await client.query('INSERT INTO user_permissions (user_id, permission_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [userId, permId]);
       }
+      // TIDAK auto-create permission baru jika tidak ditemukan — hindari data sampah
     }
   };
 
@@ -57,10 +58,11 @@ export default function userRoutes(pool) {
     const { name, username, email, password, is_active, divisi_id, jabatan_id, additional_roles, permissions } = req.body;
     const client = await pool.connect();
     try {
+      const hashedPassword = await bcrypt.hash(password, 10);
       await client.query('BEGIN');
       const result = await client.query(
         'INSERT INTO users (name, username, email, password, is_active, divisi_id, jabatan_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
-        [name, username, email, password, is_active !== undefined ? is_active : true, divisi_id || null, jabatan_id || null]
+        [name, username, email, hashedPassword, is_active !== undefined ? is_active : true, divisi_id || null, jabatan_id || null]
       );
       const newUser = result.rows[0];
 
@@ -96,8 +98,9 @@ export default function userRoutes(pool) {
       let values = [name, username, email, is_active, divisi_id || null, jabatan_id || null, id];
 
       if (password) {
+        const hashedPassword = await bcrypt.hash(password, 10);
         queryText = 'UPDATE users SET name=$1, username=$2, email=$3, password=$4, is_active=$5, divisi_id=$6, jabatan_id=$7 WHERE id=$8 RETURNING *';
-        values = [name, username, email, password, is_active, divisi_id || null, jabatan_id || null, id];
+        values = [name, username, email, hashedPassword, is_active, divisi_id || null, jabatan_id || null, id];
       }
       
       const result = await client.query(queryText, values);
@@ -125,12 +128,12 @@ export default function userRoutes(pool) {
     }
   });
 
-  // DELETE /api/users/:id
+  // DELETE /api/users/:id (Soft Delete)
   router.delete('/:id', async (req, res) => {
     const { id } = req.params;
     try {
-      await pool.query('DELETE FROM users WHERE id = $1', [id]);
-      res.json({ message: 'User deleted' });
+      await pool.query('UPDATE users SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1', [id]);
+      res.json({ message: 'User deleted (soft)' });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import MainLayout from '../components/layouts/MainLayout';
+import MainLayout from '../../../components/layouts/MainLayout';
 import { apiUrl } from '../../../api';
-import { Download, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Download, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, Clock } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { useAuth } from '../../../context/AuthContext';
 
 const ACTIVITY_TYPES = [
   { key: "Kunjungan (Promote)", label: "Kunjungan (Promote)", color: "#3b82f6", short: "Kunjungan" },
@@ -16,6 +17,8 @@ const ACTIVITY_TYPES = [
 
 export default function Laporan() {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const { hasPermission } = useAuth();
+  const canExport = hasPermission('laporan_marketing_export');
   const getVisibilityRoles = (jabatan) => {
     if (!jabatan) return [];
     const jName = jabatan.toLowerCase();
@@ -35,8 +38,12 @@ export default function Laporan() {
     return [];
   };
 
-  const roleName = (user.jabatan || '').toLowerCase();
-  const canSeeAll = roleName !== 'staff';
+  const canSeeAll = hasPermission('laporan_marketing_view_all');
+  const canSeeTeam = hasPermission('laporan_marketing_view_team');
+  // User bypass lintas modul: punya dashboard_view tapi bukan divisi sales/marketing
+  const userDivisiLower = (user.divisi || user.nama_divisi || '').toLowerCase();
+  const isCrossModuleViewer = (user.explicit_bypass_permissions?.includes('dashboard_view') || user.explicit_bypass_permissions?.includes('laporan_marketing_view') || user.explicit_bypass_permissions?.includes('laporan_marketing_view_all') || user.explicit_bypass_permissions?.includes('laporan_marketing_view_team')) && !userDivisiLower.includes('sales') && !userDivisiLower.includes('marketing');
+  const showDropdown = canSeeAll || canSeeTeam || isCrossModuleViewer;
   const [activities, setActivities] = useState([]);
   const [salesList, setSalesList] = useState([]);
   const [customersData, setCustomersData] = useState([]);
@@ -55,10 +62,10 @@ export default function Laporan() {
   useEffect(() => {
     fetchActivities();
     fetchCustomersData();
-    if (canSeeAll) {
+    if (showDropdown) {
       fetchSalesList();
     }
-  }, [canSeeAll]);
+  }, [showDropdown]);
 
   const fetchCustomersData = async () => {
     try {
@@ -93,17 +100,17 @@ export default function Laporan() {
       if (response.ok) {
         let data = await response.json();
         const visibleRoles = getVisibilityRoles(user.jabatan).map(r => r.toLowerCase());
-        const isSuperAdminOrAdmin = roleName.includes('super admin') || roleName.includes('admin') || user.role === 'admin';
-
         data = data.filter(act => {
-          if (isSuperAdminOrAdmin) return true;
+          if (canSeeAll) return true;
           if (act.user_id === user.id) return true;
           if (act.user_jabatan) {
             const actRole = act.user_jabatan.toLowerCase();
             const userDiv = (user.divisi || user.nama_divisi || '').toLowerCase();
             const actDiv = (act.user_divisi || '').toLowerCase();
-            const isSameDivisi = !userDiv || !actDiv || userDiv === actDiv;
+            // Jika user lintas modul (bypass), tampilkan semua tanpa filter divisi
+            if (isCrossModuleViewer) return true;
 
+            const isSameDivisi = !userDiv || !actDiv || userDiv === actDiv;
             if (isSameDivisi && visibleRoles.some(vr => actRole.includes(vr))) return true;
           }
           return false;
@@ -415,8 +422,8 @@ export default function Laporan() {
 
   const handleDownloadActivityPdf = () => {
     const doc = new jsPDF();
-    const showSalesCol = canSeeAll && reportScope === 'all';
-    let scopeName = canSeeAll ? (reportScope === 'all' ? "Seluruh Tim Sales" : uniqueSales.find(s => s.id.toString() === reportScope)?.name || "") : user.name;
+    const showSalesCol = showDropdown && reportScope === 'all';
+    let scopeName = showDropdown ? (reportScope === 'all' ? "Seluruh Tim Sales" : uniqueSales.find(s => s.id.toString() === reportScope)?.name || "") : user.name;
     const dateObj = new Date(periodRef + "-01");
     const periodStr = period === 'monthly' ? dateObj.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }) : periodRef;
 
@@ -602,30 +609,30 @@ export default function Laporan() {
         <div>
           <h2 className="text-2xl font-bold text-gray-800">Laporan Aktivitas</h2>
           <p className="text-gray-600 mt-1">
-            {canSeeAll 
+            {showDropdown 
               ? 'Analisis aktivitas seluruh tim atau individu.' 
               : 'Laporan kinerja bulanan Anda.'}
           </p>
         </div>
       </div>
 
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-wrap gap-4 items-center mb-6">
-        <div className="flex flex-col">
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col md:flex-row gap-4 md:items-center mb-6">
+        <div className="flex flex-col w-full md:w-auto">
           <label className="text-sm font-semibold text-gray-600 mb-1">Periode Laporan</label>
-          <div className="flex gap-2">
-            <select className="border border-gray-300 rounded px-3 py-1.5 focus:outline-none focus:border-blue-500" value={period} onChange={handlePeriodChange}>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <select className="border border-gray-300 rounded px-3 py-1.5 focus:outline-none focus:border-blue-500 w-full sm:w-auto" value={period} onChange={handlePeriodChange}>
               <option value="monthly">Bulanan</option>
               <option value="yearly">Tahunan</option>
             </select>
-            {period === 'monthly' && <input type="month" className="border border-gray-300 rounded px-3 py-1.5 focus:outline-none" value={periodRef} onChange={e => setPeriodRef(e.target.value)} />}
-            {period === 'yearly' && <input type="number" min="2000" max="2100" className="border border-gray-300 rounded px-3 py-1.5 focus:outline-none w-24" value={periodRef} onChange={e => setPeriodRef(e.target.value)} />}
+            {period === 'monthly' && <input type="month" className="border border-gray-300 rounded px-3 py-1.5 focus:outline-none w-full sm:w-auto" value={periodRef} onChange={e => setPeriodRef(e.target.value)} />}
+            {period === 'yearly' && <input type="number" min="2000" max="2100" className="border border-gray-300 rounded px-3 py-1.5 focus:outline-none w-full sm:w-24" value={periodRef} onChange={e => setPeriodRef(e.target.value)} />}
           </div>
         </div>
 
-        {canSeeAll && (
-          <div className="flex flex-col border-l border-gray-200 pl-4">
+        {showDropdown && (
+          <div className="flex flex-col md:border-l md:border-gray-200 md:pl-4 pt-4 md:pt-0 border-t md:border-t-0 border-gray-100 w-full md:w-auto mt-2 md:mt-0">
             <label className="text-sm font-semibold text-gray-600 mb-1">Cakupan Sales</label>
-            <select className="border border-gray-300 rounded px-3 py-1.5 focus:outline-none focus:border-blue-500 min-w-[180px]" value={reportScope} onChange={e => setReportScope(e.target.value)}>
+            <select className="border border-gray-300 rounded px-3 py-1.5 focus:outline-none focus:border-blue-500 w-full md:min-w-[180px]" value={reportScope} onChange={e => setReportScope(e.target.value)}>
               <option value="all">Seluruh Tim Sales</option>
               {uniqueSales.map(s => (
                 <option key={s.id} value={s.id}>{s.name}</option>
@@ -653,9 +660,11 @@ export default function Laporan() {
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-6">
         <div className="flex flex-col md:flex-row md:justify-between items-start md:items-center mb-4 gap-4">
           <h3 className="font-bold text-lg text-gray-800">Cakupan Customer — {periodStrUI}</h3>
-          <button onClick={handleDownloadCoveragePdf} className="flex items-center justify-center gap-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-1.5 rounded text-sm font-medium transition-colors shadow-sm whitespace-nowrap w-fit">
-            <Download size={16} /> Unduh PDF
-          </button>
+          {canExport && (
+            <button onClick={handleDownloadCoveragePdf} className="flex items-center justify-center gap-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-1.5 rounded text-sm font-medium transition-colors shadow-sm whitespace-nowrap w-fit">
+              <Download size={16} /> Unduh PDF
+            </button>
+          )}
         </div>
 
         <div className="flex flex-col md:flex-row gap-6 items-center mb-6">
@@ -733,9 +742,11 @@ export default function Laporan() {
             {canSeeAll ? (reportScope === 'all' ? 'Seluruh Tim Sales' : (uniqueSales.find(s => s.id.toString() === reportScope)?.name || '')) : user.name}
           </p>
         </div>
-        <button onClick={handleDownloadActivityPdf} className="flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm whitespace-nowrap w-fit">
-          <Download size={16} /> Unduh PDF
-        </button>
+        {canExport && (
+          <button onClick={handleDownloadActivityPdf} className="flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm whitespace-nowrap w-fit">
+            <Download size={16} /> Unduh PDF
+          </button>
+        )}
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden relative">
@@ -760,7 +771,8 @@ export default function Laporan() {
            <span className="text-xs text-gray-500 font-medium">{filteredActs.length} aktivitas</span>
         </div>
 
-        <div className="overflow-x-auto min-h-[400px]">
+        {/* Table Desktop */}
+        <div className="hidden md:block overflow-x-auto min-h-[400px]">
           <table className="w-full text-left border-collapse relative z-10">
             <thead>
               <tr className="bg-white border-b border-gray-100 text-sm">
@@ -805,6 +817,57 @@ export default function Laporan() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Card Mobile */}
+        <div className="md:hidden flex flex-col gap-3 p-4 bg-gray-50/30">
+          {loading ? (
+             <div className="py-8 text-center text-gray-500 bg-white rounded-xl border border-gray-100 text-sm">Memuat data...</div>
+          ) : filteredActs.length > 0 ? (
+            filteredActs.map(act => (
+              <div key={act.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm flex flex-col gap-2 relative">
+                <div className="flex justify-between items-start gap-2 pr-28">
+                  <div>
+                    <h3 className="font-bold text-gray-900 text-sm leading-tight mb-0.5">{act.nama_customer || '-'}</h3>
+                    {canSeeAll && reportScope === 'all' && (
+                      <p className="text-xs text-blue-600 font-medium mb-1">{act.user_name || '-'}</p>
+                    )}
+                    <p className="text-[11px] text-gray-500 flex items-center gap-1.5">
+                      <Clock size={12} /> {formatDate(act.tanggal)}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="absolute top-4 right-4">
+                  <span className={`px-2.5 py-1 rounded-md text-[10px] font-medium border ${typePillClass(act.jenis_aktivitas)}`}>
+                    {act.jenis_aktivitas}
+                  </span>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3 mt-2 text-xs">
+                  <div>
+                    <span className="text-gray-400 block text-[10px] uppercase font-semibold mb-0.5">Site/Kota</span>
+                    <span className="font-medium text-gray-700">{act.site_kota || '-'}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 block text-[10px] uppercase font-semibold mb-0.5">Ditemui</span>
+                    <span className="font-medium text-gray-700">{getDitemuiText(act) || '-'}</span>
+                  </div>
+                  <div className="col-span-2 bg-gray-50 p-2.5 rounded-lg border border-gray-100">
+                    <span className="text-gray-400 block text-[10px] uppercase font-semibold mb-1">Catatan</span>
+                    <p className="text-gray-700 text-xs italic leading-relaxed">{act.catatan || '-'}</p>
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="py-10 text-center text-gray-500 bg-white rounded-xl border border-gray-100 shadow-sm">
+              <div className="flex flex-col items-center justify-center">
+                <Clock className="w-10 h-10 mb-3 opacity-20" />
+                <p className="text-sm font-medium">Tidak ada aktivitas yang cocok.</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </MainLayout>

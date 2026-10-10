@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import MainLayout from './components/layouts/MainLayout';
+import MainLayout from '../../components/layouts/MainLayout';
 import { Clock, ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import {
   Chart as ChartJS,
@@ -53,7 +53,13 @@ export default function Dashboard() {
   };
 
   const roleName = (user.jabatan || '').toLowerCase();
-  const canSeeAll = roleName !== 'staff';
+  // User bypass: jika user punya permission dashboard_view secara eksplisit (user-level bypass)
+  // dan divisinya bukan Sales/Marketing, berarti dia user lintas modul
+  const userDivisiLower = (user.divisi || user.nama_divisi || '').toLowerCase();
+  const isSalesDivision = userDivisiLower.includes('sales') || userDivisiLower.includes('marketing');
+  const hasExplicitDashboardAccess = user.explicit_bypass_permissions?.includes('dashboard_view');
+  const isCrossModuleViewer = hasExplicitDashboardAccess && !isSalesDivision;
+  const canSeeAll = roleName !== 'staff' || isCrossModuleViewer;
 
   const [activities, setActivities] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -113,8 +119,10 @@ export default function Dashboard() {
             const actRole = act.user_jabatan.toLowerCase();
             const userDiv = (user.divisi || user.nama_divisi || '').toLowerCase();
             const actDiv = (act.user_divisi || '').toLowerCase();
-            const isSameDivisi = !userDiv || !actDiv || userDiv === actDiv;
+            // Jika user lintas modul (bypass), tampilkan semua tanpa filter divisi
+            if (isCrossModuleViewer) return true;
 
+            const isSameDivisi = !userDiv || !actDiv || userDiv === actDiv;
             if (isSameDivisi && visibleRoles.some(vr => actRole.includes(vr))) return true;
           }
           return false;
@@ -430,7 +438,7 @@ export default function Dashboard() {
     <MainLayout>
       <div className="mb-6 flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-gray-800">Dashboard</h2>
+          <h2 className="text-2xl font-bold text-gray-800">Summary</h2>
           <p className="text-gray-600 mt-1">
             {canSeeAll 
               ? 'Melihat ringkasan aktivitas seluruh tim.' 
@@ -441,7 +449,7 @@ export default function Dashboard() {
 
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6 flex flex-col md:flex-row justify-between gap-4 items-start md:items-center">
         {/* Area 1: Tabs */}
-        <div className="flex bg-gray-100 p-1 rounded-lg gap-1 overflow-x-auto w-full md:w-auto hide-scrollbar">
+        <div className="grid grid-cols-4 md:flex bg-gray-100 p-1 rounded-lg gap-1 w-full md:w-auto">
           {[
             { id: 'daily', label: 'Harian' },
             { id: 'weekly', label: 'Mingguan' },
@@ -451,7 +459,7 @@ export default function Dashboard() {
             <button 
               key={opt.id}
               onClick={() => setPeriodType(opt.id)}
-              className={`whitespace-nowrap px-3 py-1.5 text-sm font-semibold rounded-md transition-colors ${periodType === opt.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:bg-gray-200'}`}
+              className={`whitespace-nowrap px-1 sm:px-3 py-1.5 text-[11px] sm:text-sm font-semibold rounded-md transition-colors ${periodType === opt.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:bg-gray-200'}`}
             >
               {opt.label}
             </button>
@@ -459,8 +467,8 @@ export default function Dashboard() {
         </div>
         
         {/* Area 2: Input + Label */}
-        <div className="flex items-center gap-3 w-full md:w-auto mt-2 md:mt-0">
-          <div className="flex-1 md:flex-none md:w-48">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full md:w-auto">
+          <div className="w-full sm:flex-none sm:w-48">
             {periodType === 'daily' && (
                <input type="date" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" value={dailyValue} onChange={e => setDailyValue(e.target.value)} />
             )}
@@ -474,7 +482,9 @@ export default function Dashboard() {
                <input type="number" min="2020" max="2100" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" value={yearlyValue} onChange={e => setYearlyValue(e.target.value)} />
             )}
           </div>
-          <div className="text-sm font-semibold text-gray-500 whitespace-nowrap">{range.label}</div>
+          <div className="text-sm font-semibold text-gray-500 whitespace-nowrap bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100 sm:bg-transparent sm:border-none sm:p-0">
+            {range.label}
+          </div>
         </div>
       </div>
 
@@ -582,7 +592,8 @@ export default function Dashboard() {
         <div className="p-5 border-b border-gray-100">
           <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider">Aktivitas Terbaru</h3>
         </div>
-        <div className="overflow-x-auto min-h-[400px]">
+        {/* Table Desktop */}
+        <div className="hidden md:block overflow-x-auto min-h-[400px]">
           <table className="w-full text-left">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
@@ -629,6 +640,57 @@ export default function Dashboard() {
                )}
             </tbody>
           </table>
+        </div>
+
+        {/* Card Mobile */}
+        <div className="md:hidden flex flex-col gap-3 p-4 bg-gray-50/30">
+          {sortedActivities.length > 0 ? (
+            sortedActivities.map(act => {
+              const typeInfo = ACTIVITY_TYPES.find(t => t.key === act.jenis_aktivitas) || ACTIVITY_TYPES[0];
+              return (
+                <div key={act.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm flex flex-col gap-2 relative">
+                  <div className="flex justify-between items-start gap-2 pr-28">
+                    <div>
+                      <h3 className="font-bold text-gray-900 text-sm leading-tight mb-0.5">{act.nama_customer || '—'}</h3>
+                      {canSeeAll && <p className="text-xs text-blue-600 font-medium mb-1">{act.user_name || '—'}</p>}
+                      <p className="text-[11px] text-gray-500 flex items-center gap-1.5">
+                        <Clock size={12} /> {new Date(act.tanggal).toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'})}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="absolute top-4 right-4">
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold border" style={{backgroundColor: typeInfo.bg, color: typeInfo.color, borderColor: `${typeInfo.color}40`}}>
+                      <span className="w-1.5 h-1.5 rounded-full" style={{backgroundColor: typeInfo.color}}></span>
+                      {typeInfo.short}
+                    </span>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3 mt-2 text-xs">
+                    <div>
+                      <span className="text-gray-400 block text-[10px] uppercase font-semibold mb-0.5">Site/Kota</span>
+                      <span className="font-medium text-gray-700">{act.site_kota || '—'}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400 block text-[10px] uppercase font-semibold mb-0.5">Ditemui</span>
+                      <span className="font-medium text-gray-700">{getDitemuiText(act) || '—'}</span>
+                    </div>
+                    <div className="col-span-2 bg-gray-50 p-2.5 rounded-lg border border-gray-100">
+                      <span className="text-gray-400 block text-[10px] uppercase font-semibold mb-1">Catatan</span>
+                      <p className="text-gray-700 text-xs italic leading-relaxed">{act.catatan || '—'}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="py-10 text-center text-gray-500 bg-white rounded-xl border border-gray-100 shadow-sm">
+              <div className="flex flex-col items-center justify-center">
+                <Clock className="w-10 h-10 mb-3 opacity-20" />
+                <p className="text-sm font-medium">Belum ada aktivitas yang dicatat.</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </MainLayout>

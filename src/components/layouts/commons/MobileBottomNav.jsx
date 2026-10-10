@@ -1,0 +1,138 @@
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Home, PlusCircle, List, FolderKanban, PlusSquare, Coins, X, Plus, PieChart } from 'lucide-react';
+import { useAuth } from '../../../context/AuthContext';
+
+export default function MobileBottomNav({ currentModule, isActive, canAddActivity }) {
+  const { hasPermission } = useAuth();
+  const [showInstallMenu, setShowInstallMenu] = useState(false);
+
+  if (currentModule === 'Installation Project') {
+    return (
+      <>
+        {/* Backdrop for popup menu */}
+        {showInstallMenu && (
+          <div 
+            className="fixed inset-0 bg-black/20 z-30 md:hidden" 
+            onClick={() => setShowInstallMenu(false)}
+          ></div>
+        )}
+
+        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 px-4 py-3 flex justify-between items-center pb-safe">
+          <Link 
+            to="/portal" 
+            className="flex flex-col items-center gap-1 text-gray-500"
+            onClick={() => setShowInstallMenu(false)}
+          >
+            <Home className="w-6 h-6" />
+            <span className="text-[10px] font-medium">Home</span>
+          </Link>
+
+          {hasPermission('pengeluaran_view') && (
+            <Link 
+              to="/data-pengeluaran" 
+              className={`flex flex-col items-center gap-1 ${isActive('/data-pengeluaran') ? 'text-blue-600' : 'text-gray-500'}`}
+              onClick={() => setShowInstallMenu(false)}
+            >
+              <Coins className="w-6 h-6" />
+              <span className="text-[10px] font-medium">Keuangan</span>
+            </Link>
+          )}
+          
+          {/* Center Floating Button */}
+          <div className="relative flex flex-col items-center -mt-8">
+            {/* Popup Menu */}
+            {showInstallMenu && (
+              <div className="absolute bottom-16 flex items-center justify-center gap-4 animate-in slide-in-from-bottom-2 fade-in duration-200 w-max px-4">
+                {hasPermission('install_project_view') && (
+                  <Link 
+                    to="/installation-project/add-activity" 
+                    className="flex flex-col items-center gap-2 bg-white p-3 rounded-2xl shadow-xl border border-gray-100 text-sm font-bold text-gray-700 hover:bg-gray-50 whitespace-nowrap min-w-[130px] transition-transform active:scale-95"
+                    onClick={() => setShowInstallMenu(false)}
+                  >
+                    <div className="bg-blue-50 text-blue-600 p-2.5 rounded-full shadow-sm">
+                      <PlusSquare className="w-6 h-6" />
+                    </div>
+                    Tambah Aktivitas
+                  </Link>
+                )}
+                {(hasPermission('pengeluaran_view') || hasPermission('install_project_view')) && (
+                  <Link 
+                    to="/installation-project/add-cost" 
+                    className="flex flex-col items-center gap-2 bg-white p-3 rounded-2xl shadow-xl border border-gray-100 text-sm font-bold text-gray-700 hover:bg-gray-50 whitespace-nowrap min-w-[130px] transition-transform active:scale-95"
+                    onClick={() => setShowInstallMenu(false)}
+                  >
+                    <div className="bg-green-50 text-green-600 p-2.5 rounded-full shadow-sm">
+                      <PlusCircle className="w-6 h-6" />
+                    </div>
+                    Tambah Biaya
+                  </Link>
+                )}
+              </div>
+            )}
+
+            <button 
+              onClick={() => setShowInstallMenu(!showInstallMenu)}
+              className={`text-white rounded-full p-3 shadow-lg transition-transform duration-200 ${showInstallMenu ? 'bg-red-500 rotate-45' : 'bg-blue-600 hover:bg-blue-700'}`}
+            >
+              <Plus className="w-8 h-8" strokeWidth={2} />
+            </button>
+          </div>
+          
+          {hasPermission('install_project_view') && (
+            <Link 
+              to="/installation-project" 
+              className={`flex flex-col items-center gap-1 ${isActive('/installation-project') && !isActive('/installation-project/reports') ? 'text-blue-600' : 'text-gray-500'}`}
+              onClick={() => setShowInstallMenu(false)}
+            >
+              <FolderKanban className="w-6 h-6" />
+              <span className="text-[10px] font-medium">Project</span>
+            </Link>
+          )}
+
+          {hasPermission('laporan_project_view') && (
+            <Link 
+              to="/installation-project/reports" 
+              className={`flex flex-col items-center gap-1 ${isActive('/installation-project/reports') ? 'text-blue-600' : 'text-gray-500'}`}
+              onClick={() => setShowInstallMenu(false)}
+            >
+              <PieChart className="w-6 h-6" />
+              <span className="text-[10px] font-medium">Laporan</span>
+            </Link>
+          )}
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 px-8 py-3 flex justify-between items-center pb-safe">
+      <Link 
+        to="/marketing/dashboard" 
+        className={`flex flex-col items-center gap-1 ${isActive('/marketing/dashboard') ? 'text-blue-600' : 'text-gray-500'}`}
+      >
+        <Home className="w-6 h-6" />
+        <span className="text-[10px] font-medium">Home</span>
+      </Link>
+      
+      {canAddActivity && (
+        <Link 
+          to="/marketing/activities/new" 
+          className="flex flex-col items-center -mt-8"
+        >
+          <div className="bg-blue-600 text-white rounded-full p-3 shadow-lg hover:bg-blue-700 transition-colors">
+            <PlusCircle className="w-8 h-8" strokeWidth={2} />
+          </div>
+        </Link>
+      )}
+
+      <Link 
+        to="/marketing/activities" 
+        className={`flex flex-col items-center gap-1 ${isActive('/marketing/activities') ? 'text-blue-600' : 'text-gray-500'}`}
+      >
+        <List className="w-6 h-6" />
+        <span className="text-[10px] font-medium">Riwayat</span>
+      </Link>
+    </div>
+  );
+}

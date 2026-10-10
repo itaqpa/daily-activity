@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import MainLayout from '../components/layouts/MainLayout';
+import MainLayout from '../../../components/layouts/MainLayout';
 import { 
   Save, 
   AlertCircle, 
