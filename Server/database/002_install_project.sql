@@ -1,7 +1,4 @@
 
-ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'user';
-ALTER TABLE users ADD COLUMN IF NOT EXISTS semua_project SMALLINT DEFAULT 0;
-
 -- =====================================================================
 --  INSTALLATION PROJECT - AQPA INDONESIA
 --  Struktur database (MySQL 8 / MariaDB 10.4+, InnoDB, utf8mb4)

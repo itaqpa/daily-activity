@@ -31,7 +31,8 @@ CREATE TABLE IF NOT EXISTS survey_product_data (
   kontak_pic VARCHAR(100),
   no_inquiry VARCHAR(100),
   tujuan_survey TEXT,
-  status VARCHAR(20) DEFAULT 'Draft' CHECK (status IN ('Draft', 'Persiapan', 'Lapangan', 'Selesai', 'Batal')),
+  status VARCHAR(20) DEFAULT 'Draft' CHECK (status IN ('Draft', 'Open', 'On Progress', 'Persiapan', 'Lapangan', 'Completed', 'Selesai', 'Closed', 'Batal')),
+  created_by VARCHAR(255),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (surveyor_id) REFERENCES master_surveyor(id) ON DELETE SET NULL

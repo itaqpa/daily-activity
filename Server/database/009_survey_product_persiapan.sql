@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS master_survey_persiapan (
   jenis VARCHAR(100) NOT NULL, -- e.g. 'Checklist Persiapan' or 'Dokumen & Izin'
   label VARCHAR(255) NOT NULL,
   ket_tambahan VARCHAR(255),
+  is_default BOOLEAN DEFAULT true,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
