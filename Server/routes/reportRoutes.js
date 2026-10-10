@@ -382,17 +382,35 @@ export default function reportRoutes(pool) {
   
   router.get('/all-costs', async (req, res) => {
     try {
-      const projRes = await pool.query(`
-        SELECT p.id, p.no_project, p.budget_biaya,
-               TO_CHAR(MIN(dh.tanggal), 'YYYY-MM-DD') as actual_mulai,
-               TO_CHAR(MAX(dh.tanggal), 'YYYY-MM-DD') as actual_selesai
-        FROM projects p
-        LEFT JOIN areas a ON a.project_id = p.id
-        LEFT JOIN units u ON u.area_id = a.id
-        LEFT JOIN daily_hours dh ON dh.unit_id = u.id
-        GROUP BY p.id, p.no_project
-        ORDER BY p.id DESC
-      `);
+      const userId = req.user ? req.user.id : null;
+      let projRes;
+      if (userId) {
+        projRes = await pool.query(`
+          SELECT p.id, p.no_project, p.budget_biaya,
+                 TO_CHAR(MIN(dh.tanggal), 'YYYY-MM-DD') as actual_mulai,
+                 TO_CHAR(MAX(dh.tanggal), 'YYYY-MM-DD') as actual_selesai
+          FROM projects p
+          JOIN v_akses_project v ON v.project_id = p.id
+          LEFT JOIN areas a ON a.project_id = p.id
+          LEFT JOIN units u ON u.area_id = a.id
+          LEFT JOIN daily_hours dh ON dh.unit_id = u.id
+          WHERE v.user_id = $1
+          GROUP BY p.id, p.no_project
+          ORDER BY p.id DESC
+        `, [userId]);
+      } else {
+        projRes = await pool.query(`
+          SELECT p.id, p.no_project, p.budget_biaya,
+                 TO_CHAR(MIN(dh.tanggal), 'YYYY-MM-DD') as actual_mulai,
+                 TO_CHAR(MAX(dh.tanggal), 'YYYY-MM-DD') as actual_selesai
+          FROM projects p
+          LEFT JOIN areas a ON a.project_id = p.id
+          LEFT JOIN units u ON u.area_id = a.id
+          LEFT JOIN daily_hours dh ON dh.unit_id = u.id
+          GROUP BY p.id, p.no_project
+          ORDER BY p.id DESC
+        `);
+      }
       const projects = projRes.rows;
 
       const result = [];

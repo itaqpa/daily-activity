@@ -67,6 +67,7 @@ INSERT INTO permissions (nama_permission, deskripsi) VALUES
 ('install_project_edit', 'Mengubah Installation Project'),
 ('install_project_delete', 'Menghapus Installation Project'),
 ('install_project_export', 'Export Installation Project'),
+('install_project_progress', 'Mengubah Status/Progress Project (Mulai & Close)'),
 
 -- 12. Modul Daily Progress (Installation)
 ('daily_progress_view', 'Melihat Daily Progress'),

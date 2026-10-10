@@ -18,7 +18,19 @@ const router = express.Router();
 // GET all projects
 router.get('/', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM projects ORDER BY id DESC');
+    const userId = req.user ? req.user.id : null;
+    let result;
+    if (userId) {
+      result = await pool.query(`
+        SELECT p.* 
+        FROM projects p
+        JOIN v_akses_project v ON v.project_id = p.id
+        WHERE v.user_id = $1
+        ORDER BY p.id DESC
+      `, [userId]);
+    } else {
+      result = await pool.query('SELECT * FROM projects ORDER BY id DESC');
+    }
     res.json(result.rows);
   } catch (err) {
     console.error(err);
@@ -344,6 +356,29 @@ router.put('/:id', async (req, res) => {
     res.status(500).json({ error: 'Server error: ' + err.message });
   } finally {
     client.release();
+  }
+});
+
+// PATCH Update project status
+router.patch('/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    
+    if (!status) {
+      return res.status(400).json({ error: 'Status is required' });
+    }
+
+    const result = await pool.query(
+      'UPDATE projects SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING id',
+      [status, id]
+    );
+
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
+    res.json({ message: 'Project status updated successfully', status });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 

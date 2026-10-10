@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Home, PlusCircle, List, FolderKanban, PlusSquare, Coins, X, Plus, PieChart } from 'lucide-react';
+import { useAuth } from '../../../context/AuthContext';
 
 export default function MobileBottomNav({ currentModule, isActive, canAddActivity }) {
+  const { hasPermission } = useAuth();
   const [showInstallMenu, setShowInstallMenu] = useState(false);
 
   if (currentModule === 'Installation Project') {
@@ -26,40 +28,46 @@ export default function MobileBottomNav({ currentModule, isActive, canAddActivit
             <span className="text-[10px] font-medium">Home</span>
           </Link>
 
-          <Link 
-            to="/installation-project" 
-            className={`flex flex-col items-center gap-1 ${isActive('/installation-project') && !isActive('/installation-project/reports') ? 'text-blue-600' : 'text-gray-500'}`}
-            onClick={() => setShowInstallMenu(false)}
-          >
-            <FolderKanban className="w-6 h-6" />
-            <span className="text-[10px] font-medium">Project</span>
-          </Link>
+          {hasPermission('pengeluaran_view') && (
+            <Link 
+              to="/data-pengeluaran" 
+              className={`flex flex-col items-center gap-1 ${isActive('/data-pengeluaran') ? 'text-blue-600' : 'text-gray-500'}`}
+              onClick={() => setShowInstallMenu(false)}
+            >
+              <Coins className="w-6 h-6" />
+              <span className="text-[10px] font-medium">Keuangan</span>
+            </Link>
+          )}
           
           {/* Center Floating Button */}
           <div className="relative flex flex-col items-center -mt-8">
             {/* Popup Menu */}
             {showInstallMenu && (
               <div className="absolute bottom-16 flex items-center justify-center gap-4 animate-in slide-in-from-bottom-2 fade-in duration-200 w-max px-4">
-                <Link 
-                  to="/installation-project/add-activity" 
-                  className="flex flex-col items-center gap-2 bg-white p-3 rounded-2xl shadow-xl border border-gray-100 text-sm font-bold text-gray-700 hover:bg-gray-50 whitespace-nowrap min-w-[130px] transition-transform active:scale-95"
-                  onClick={() => setShowInstallMenu(false)}
-                >
-                  <div className="bg-blue-50 text-blue-600 p-2.5 rounded-full shadow-sm">
-                    <PlusSquare className="w-6 h-6" />
-                  </div>
-                  Tambah Aktivitas
-                </Link>
-                <Link 
-                  to="/installation-project/add-cost" 
-                  className="flex flex-col items-center gap-2 bg-white p-3 rounded-2xl shadow-xl border border-gray-100 text-sm font-bold text-gray-700 hover:bg-gray-50 whitespace-nowrap min-w-[130px] transition-transform active:scale-95"
-                  onClick={() => setShowInstallMenu(false)}
-                >
-                  <div className="bg-green-50 text-green-600 p-2.5 rounded-full shadow-sm">
-                    <PlusCircle className="w-6 h-6" />
-                  </div>
-                  Tambah Biaya
-                </Link>
+                {hasPermission('install_project_view') && (
+                  <Link 
+                    to="/installation-project/add-activity" 
+                    className="flex flex-col items-center gap-2 bg-white p-3 rounded-2xl shadow-xl border border-gray-100 text-sm font-bold text-gray-700 hover:bg-gray-50 whitespace-nowrap min-w-[130px] transition-transform active:scale-95"
+                    onClick={() => setShowInstallMenu(false)}
+                  >
+                    <div className="bg-blue-50 text-blue-600 p-2.5 rounded-full shadow-sm">
+                      <PlusSquare className="w-6 h-6" />
+                    </div>
+                    Tambah Aktivitas
+                  </Link>
+                )}
+                {(hasPermission('pengeluaran_view') || hasPermission('install_project_view')) && (
+                  <Link 
+                    to="/installation-project/add-cost" 
+                    className="flex flex-col items-center gap-2 bg-white p-3 rounded-2xl shadow-xl border border-gray-100 text-sm font-bold text-gray-700 hover:bg-gray-50 whitespace-nowrap min-w-[130px] transition-transform active:scale-95"
+                    onClick={() => setShowInstallMenu(false)}
+                  >
+                    <div className="bg-green-50 text-green-600 p-2.5 rounded-full shadow-sm">
+                      <PlusCircle className="w-6 h-6" />
+                    </div>
+                    Tambah Biaya
+                  </Link>
+                )}
               </div>
             )}
 
@@ -71,23 +79,27 @@ export default function MobileBottomNav({ currentModule, isActive, canAddActivit
             </button>
           </div>
           
-          <Link 
-            to="/data-pengeluaran" 
-            className={`flex flex-col items-center gap-1 ${isActive('/data-pengeluaran') ? 'text-blue-600' : 'text-gray-500'}`}
-            onClick={() => setShowInstallMenu(false)}
-          >
-            <Coins className="w-6 h-6" />
-            <span className="text-[10px] font-medium">Keuangan</span>
-          </Link>
+          {hasPermission('install_project_view') && (
+            <Link 
+              to="/installation-project" 
+              className={`flex flex-col items-center gap-1 ${isActive('/installation-project') && !isActive('/installation-project/reports') ? 'text-blue-600' : 'text-gray-500'}`}
+              onClick={() => setShowInstallMenu(false)}
+            >
+              <FolderKanban className="w-6 h-6" />
+              <span className="text-[10px] font-medium">Project</span>
+            </Link>
+          )}
 
-          <Link 
-            to="/installation-project/reports" 
-            className={`flex flex-col items-center gap-1 ${isActive('/installation-project/reports') ? 'text-blue-600' : 'text-gray-500'}`}
-            onClick={() => setShowInstallMenu(false)}
-          >
-            <PieChart className="w-6 h-6" />
-            <span className="text-[10px] font-medium">Laporan</span>
-          </Link>
+          {hasPermission('laporan_project_view') && (
+            <Link 
+              to="/installation-project/reports" 
+              className={`flex flex-col items-center gap-1 ${isActive('/installation-project/reports') ? 'text-blue-600' : 'text-gray-500'}`}
+              onClick={() => setShowInstallMenu(false)}
+            >
+              <PieChart className="w-6 h-6" />
+              <span className="text-[10px] font-medium">Laporan</span>
+            </Link>
+          )}
         </div>
       </>
     );

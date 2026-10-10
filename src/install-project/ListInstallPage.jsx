@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Plus, Edit, Trash2, Eye, MoreVertical, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, Eye, MoreVertical, ChevronLeft, ChevronRight, Loader2, Play, CheckCircle } from 'lucide-react';
 import { apiUrl } from '../api';
 import MainLayout from '../components/layouts/MainLayout';
 import WizardModal from './components/WizardModal';
@@ -16,7 +16,7 @@ export default function ListInstallPage() {
   const [itemsPerPage, setItemsPerPage] = useState(15);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [editId, setEditId] = useState(null);
-  const { hasPermission } = useAuth();
+  const { user, hasPermission } = useAuth();
   
   // Handle clicking outside dropdown
   useEffect(() => {
@@ -35,7 +35,13 @@ export default function ListInstallPage() {
       setIsLoading(true);
       const res = await fetch(apiUrl('/install-projects'));
       if (res.ok) {
-        const data = await res.json();
+        let data = await res.json();
+        
+        // Filter projects: Super Admin (1) & Admin (27) sees all, others only see their own projects
+        if (user && user.jabatan_id !== 1 && user.jabatan_id !== 27) {
+          data = data.filter(p => p.leader === user.name);
+        }
+        
         setProjects(data);
       } else {
         console.error("Gagal mengambil data project");
@@ -48,8 +54,10 @@ export default function ListInstallPage() {
   };
 
   useEffect(() => {
-    fetchProjects();
-  }, []);
+    if (user) {
+      fetchProjects();
+    }
+  }, [user?.id, user?.jabatan_id]);
 
   // Helper untuk hitung target selesai dari tgl_mulai dan durasi
   const calculateTargetSelesai = (tgl, durasi) => {
@@ -119,6 +127,30 @@ export default function ListInstallPage() {
         }
       } catch (err) {
         console.error(err);
+      }
+    }
+  };
+
+  const handleUpdateStatus = async (id, status) => {
+    const actionText = status === 'running' ? 'memulai' : 'menutup (close)';
+    if (window.confirm(`Apakah Anda yakin ingin ${actionText} project ini?`)) {
+      try {
+        const res = await fetch(apiUrl(`/install-projects/${id}/status`), {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ status })
+        });
+        
+        if (res.ok) {
+          fetchProjects();
+        } else {
+          alert(`Gagal ${actionText} project`);
+        }
+      } catch (err) {
+        console.error(err);
+        alert(`Terjadi kesalahan saat ${actionText} project`);
       }
     }
   };
@@ -195,7 +227,7 @@ export default function ListInstallPage() {
           ) : (
             <>
               {/* Desktop View: Table */}
-              <div className="hidden md:block overflow-x-auto">
+              <div className="hidden md:block overflow-x-auto min-h-[350px] pb-4">
                 <table className="w-full text-sm text-left">
                   <thead className="text-xs text-gray-600 uppercase bg-gray-50 border-b border-gray-200">
                     <tr>
@@ -246,7 +278,7 @@ export default function ListInstallPage() {
                             {row.status}
                           </span>
                         </td>
-                        <td className="px-4 py-3.5 relative text-center sticky right-0 bg-white border-l border-gray-100 group-hover:bg-blue-50/30 action-dropdown-container">
+                        <td className={`px-4 py-3.5 relative text-center sticky right-0 bg-white border-l border-gray-100 group-hover:bg-blue-50/30 action-dropdown-container ${activeDropdown === row.id ? 'z-50' : 'z-10'}`}>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -260,7 +292,7 @@ export default function ListInstallPage() {
                           {/* Dropdown Menu - Desktop */}
                           {activeDropdown === row.id && (
                             <div 
-                              className="absolute right-12 top-10 w-40 bg-white rounded-xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.15)] border border-gray-200 py-2 z-[9999]"
+                              className={`absolute right-12 w-40 bg-white rounded-xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.15)] border border-gray-200 py-2 z-[9999] ${index >= 3 && index >= currentItems.length - 3 ? 'bottom-10' : 'top-10'}`}
                             >
                               {hasPermission('install_project_view') && (
                                 <button 
@@ -272,10 +304,27 @@ export default function ListInstallPage() {
                               )}
                               {hasPermission('install_project_edit') && (
                                 <button 
-                                  onClick={() => { setActiveDropdown(null); handleEdit(row.id); }}
-                                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-amber-50 hover:text-amber-600 transition-colors text-left font-medium"
+                                  onClick={() => { if(row.status.toLowerCase() !== 'running') { setActiveDropdown(null); handleEdit(row.id); } }}
+                                  disabled={row.status.toLowerCase() === 'running'}
+                                  className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left font-medium transition-colors ${row.status.toLowerCase() === 'running' ? 'text-gray-400 cursor-not-allowed bg-gray-50/50' : 'text-gray-700 hover:bg-amber-50 hover:text-amber-600'}`}
                                 >
                                   <Edit className="w-[18px] h-[18px]" /> Edit
+                                </button>
+                              )}
+                              {hasPermission('install_project_progress') && row.status.toLowerCase() === 'registered' && (
+                                <button 
+                                  onClick={() => { setActiveDropdown(null); handleUpdateStatus(row.id, 'running'); }}
+                                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-emerald-700 hover:bg-emerald-50 transition-colors text-left font-medium"
+                                >
+                                  <Play className="w-[18px] h-[18px]" /> Mulai Project
+                                </button>
+                              )}
+                              {hasPermission('install_project_progress') && row.status.toLowerCase() === 'running' && (
+                                <button 
+                                  onClick={() => { setActiveDropdown(null); handleUpdateStatus(row.id, 'closed'); }}
+                                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 transition-colors text-left font-medium"
+                                >
+                                  <CheckCircle className="w-[18px] h-[18px]" /> Close Project
                                 </button>
                               )}
                               {hasPermission('install_project_delete') && (
@@ -310,7 +359,7 @@ export default function ListInstallPage() {
               {/* Mobile View: Cards */}
               <div className="md:hidden flex flex-col gap-4 p-4 bg-slate-50 border-t border-gray-100">
                 {currentItems.map((row) => (
-                  <div key={row.id} className="p-4 flex flex-col gap-3 relative bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-all">
+                  <div key={row.id} className={`p-4 flex flex-col gap-3 relative bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-all ${activeDropdown === row.id ? 'z-50' : 'z-10'}`}>
                     <div className="flex justify-between items-start gap-2">
                       <div>
                         <div 
@@ -362,10 +411,27 @@ export default function ListInstallPage() {
                             )}
                             {hasPermission('install_project_edit') && (
                               <button 
-                                onClick={() => { setActiveDropdown(null); handleEdit(row.id); }}
-                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-amber-50 hover:text-amber-600 transition-colors text-left font-medium"
+                                onClick={() => { if(row.status.toLowerCase() !== 'running') { setActiveDropdown(null); handleEdit(row.id); } }}
+                                disabled={row.status.toLowerCase() === 'running'}
+                                className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left font-medium transition-colors ${row.status.toLowerCase() === 'running' ? 'text-gray-400 cursor-not-allowed bg-gray-50/50' : 'text-gray-700 hover:bg-amber-50 hover:text-amber-600'}`}
                               >
                                 <Edit className="w-[18px] h-[18px]" /> Edit
+                              </button>
+                            )}
+                            {hasPermission('install_project_progress') && row.status.toLowerCase() === 'registered' && (
+                              <button 
+                                onClick={() => { setActiveDropdown(null); handleUpdateStatus(row.id, 'running'); }}
+                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-emerald-700 hover:bg-emerald-50 transition-colors text-left font-medium"
+                              >
+                                <Play className="w-[18px] h-[18px]" /> Mulai Project
+                              </button>
+                            )}
+                            {hasPermission('install_project_progress') && row.status.toLowerCase() === 'running' && (
+                              <button 
+                                onClick={() => { setActiveDropdown(null); handleUpdateStatus(row.id, 'closed'); }}
+                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 transition-colors text-left font-medium"
+                              >
+                                <CheckCircle className="w-[18px] h-[18px]" /> Close Project
                               </button>
                             )}
                             {hasPermission('install_project_delete') && (

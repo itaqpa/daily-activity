@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, ArrowLeft, Save, Loader2 } from 'lucide-react';
 import { apiUrl } from '../../../api';
+import { useAuth } from '../../../context/AuthContext';
 
 export default function FormDailyInput({ onBack, project }) {
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     tanggal: '',
     area: '',
@@ -41,8 +43,16 @@ export default function FormDailyInput({ onBack, project }) {
   const availableUnits = React.useMemo(() => {
     if (!project || !project.areas || !formData.area) return [];
     const selectedArea = project.areas.find(a => a.id.toString() === formData.area);
-    return selectedArea ? (selectedArea.units || []) : [];
-  }, [project, formData.area]);
+    let units = selectedArea ? (selectedArea.units || []) : [];
+    
+    if (user?.role !== 'admin' && user?.semua_project !== 1) {
+      units = units.filter(u => 
+        u.selected_users && u.selected_users.some(su => su.name === user?.name)
+      );
+    }
+    
+    return units;
+  }, [project, formData.area, user]);
 
   // State untuk form scope tambahan
   const [tambahan, setTambahan] = useState({

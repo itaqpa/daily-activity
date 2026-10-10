@@ -16,13 +16,13 @@ SELECT 1, id FROM permissions WHERE nama_permission IN (
 -- Divisi 4: Management
 INSERT INTO divisi_permissions (divisi_id, permission_id)
 SELECT 4, id FROM permissions WHERE nama_permission IN (
-    'dashboard_view', 'laporan_marketing_view', 'laporan_marketing_view_team', 'laporan_marketing_view_all', 'laporan_project_view', 'history_view', 'pengeluaran_view'
+    'dashboard_view', 'laporan_marketing_view', 'laporan_marketing_view_team', 'laporan_marketing_view_all', 'laporan_project_view', 'history_view', 'pengeluaran_view', 'install_project_view', 'install_project_progress'
 );
 
 -- Divisi 9: Engineering
 INSERT INTO divisi_permissions (divisi_id, permission_id)
 SELECT 9, id FROM permissions WHERE nama_permission IN (
-    'install_project_view', 'daily_progress_view'
+    'install_project_view', 'install_project_progress', 'daily_progress_view', 'pengeluaran_view'
 );
 
 -- ==========================================
@@ -56,7 +56,8 @@ SELECT 4, id FROM permissions WHERE nama_permission IN (
     'customer_view', 'customer_create', 'customer_edit', 'customer_approve',
     'aktivitas_view', 'aktivitas_create',
     'riwayat_aktivitas_view', 'history_view',
-    'laporan_marketing_view', 'laporan_marketing_view_team'
+    'laporan_marketing_view', 'laporan_marketing_view_team',
+    'pengeluaran_view', 'pengeluaran_create', 'pengeluaran_edit', 'pengeluaran_delete', 'pengeluaran_export'
 );
 
 -- Jabatan 3: Spv (Sales SPV)

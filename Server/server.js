@@ -106,11 +106,49 @@ app.post('/api/global-logs/page-view', async (req, res) => {
 
 app.get('/api/global-logs', async (req, res) => {
   try {
-    const result = await pool.query(`
-      SELECT * FROM log_activity_all 
-      ORDER BY created_at DESC, id DESC
-      LIMIT 1000
-    `);
+    const user = req.user; // populated by authLogMiddleware
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    let query = `
+      SELECT l.*, j.level as user_level, u.divisi_id
+      FROM log_activity_all l
+      LEFT JOIN users u ON u.id = l.user_id
+      LEFT JOIN jabatans j ON j.id = u.jabatan_id
+    `;
+    const params = [];
+
+    // Jika Admin (27) atau Super Admin (1), bisa lihat semua
+    if (user.jabatan_id === 1 || user.jabatan_id === 27 || user.role === 'admin') {
+      query += ` ORDER BY l.created_at DESC, l.id DESC LIMIT 1000`;
+    } else {
+      // Jika user biasa, filter berdasarkan divisi dan level jabatan
+      // - Staff (level 1): hanya dirinya sendiri
+      // - Leader (level 2): dirinya dan staff (level 1) di divisinya
+      // - SPV (level 3): dirinya, leader, staff di divisinya
+      // - Manager (level 4): dirinya, SPV, leader, staff di divisinya
+      query += ` 
+        WHERE l.user_id = $1 
+           OR (u.divisi_id = $2 AND j.level < $3)
+        ORDER BY l.created_at DESC, l.id DESC 
+        LIMIT 1000
+      `;
+      // We need user.level. Since req.user might not have level, let's fetch it if not available?
+      // Actually, we can fetch user's level and divisi from DB directly to be safe.
+      const userRes = await pool.query(
+        'SELECT u.divisi_id, j.level FROM users u LEFT JOIN jabatans j ON j.id = u.jabatan_id WHERE u.id = $1',
+        [user.id]
+      );
+      
+      const divisiId = userRes.rows[0]?.divisi_id;
+      const userLevel = userRes.rows[0]?.level || 1;
+      
+      params.push(user.id, divisiId, userLevel);
+    }
+
+    const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (err) {
     console.error(err);
@@ -604,6 +642,7 @@ app.get('/api/permissions', async (req, res) => {
 });
 
 // 2. Divisi Permissions (GET & POST)
+app.get('/api/debug-user/:email', async (req, res) => { const result = await pool.query('SELECT u.email, u.divisi_id, u.jabatan_id, j.nama_jabatan, d.nama_divisi, (SELECT json_agg(p.nama_permission) FROM (SELECT permission_id FROM divisi_permissions WHERE divisi_id = u.divisi_id UNION SELECT permission_id FROM jabatan_permissions WHERE jabatan_id = u.jabatan_id UNION SELECT jp.permission_id FROM user_additional_roles uar JOIN jabatan_permissions jp ON jp.jabatan_id = uar.jabatan_id WHERE uar.user_id = u.id UNION SELECT permission_id FROM user_permissions WHERE user_id = u.id) all_perms JOIN permissions p ON p.id = all_perms.permission_id) as perms FROM users u LEFT JOIN jabatans j ON u.jabatan_id = j.id LEFT JOIN divisis d ON u.divisi_id = d.id WHERE u.email = ', [req.params.email]); res.json(result.rows[0]); }); 
 app.get('/api/permissions/divisi/:id', async (req, res) => {
   try {
     const { id } = req.params;

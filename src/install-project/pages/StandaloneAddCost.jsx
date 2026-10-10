@@ -5,9 +5,11 @@ import Select from 'react-select';
 import { apiUrl } from '../../api';
 import MainLayout from '../../components/layouts/MainLayout';
 import FormCostProject from '../components/CostProject/FormCostProject';
+import { useAuth } from '../../context/AuthContext';
 
 export default function StandaloneAddCost() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [projects, setProjects] = useState([]);
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [project, setProject] = useState(null);
@@ -19,9 +21,13 @@ export default function StandaloneAddCost() {
       try {
         const res = await fetch(apiUrl('/install-projects'));
         if (res.ok) {
-          const data = await res.json();
+          let data = await res.json();
           // Filter out closed projects
-          const activeProjects = data.filter(p => p.status?.toLowerCase() !== 'close' && p.status?.toLowerCase() !== 'closed' && p.status?.toLowerCase() !== 'done');
+          let activeProjects = data.filter(p => p.status?.toLowerCase() !== 'close' && p.status?.toLowerCase() !== 'closed' && p.status?.toLowerCase() !== 'done');
+          
+          if (user && user.jabatan_id !== 1 && user.jabatan_id !== 27 && user.role !== 'admin') {
+            activeProjects = activeProjects.filter(p => p.leader === user.name);
+          }
           
           setProjects(activeProjects);
         }

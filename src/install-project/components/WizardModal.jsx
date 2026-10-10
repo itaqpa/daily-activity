@@ -32,6 +32,7 @@ export default function WizardModal({ isOpen, onClose, onSuccess, editId }) {
               nilai_kontrak: data.nilai_kontrak || '',
               budget_biaya: data.budget_biaya || '',
               catatan: data.catatan || '',
+              status: data.status || 'draft',
               areas: data.areas || [],
               work_groups: data.work_groups || []
             });
@@ -129,8 +130,12 @@ export default function WizardModal({ isOpen, onClose, onSuccess, editId }) {
 
   const handleNext = async () => {
     if (currentStep < totalSteps) {
-      // Auto-save sebagai draft setiap klik Next
-      const isSaved = await submitToApi('draft');
+      // Auto-save: don't downgrade status if it's already registered
+      let currentStatus = projectData.status === 'registered' || projectData.status === 'running' ? projectData.status : 'draft';
+      if (countValidScopes(projectData) === 0 && currentStatus === 'registered') {
+        currentStatus = 'draft';
+      }
+      const isSaved = await submitToApi(currentStatus);
       if (isSaved) {
         setCurrentStep(currentStep + 1);
       }
@@ -142,7 +147,11 @@ export default function WizardModal({ isOpen, onClose, onSuccess, editId }) {
   };
 
   const handleSaveDraft = async () => {
-    const isSaved = await submitToApi('draft');
+    let currentStatus = projectData.status === 'registered' || projectData.status === 'running' ? projectData.status : 'draft';
+    if (countValidScopes(projectData) === 0 && currentStatus === 'registered') {
+      currentStatus = 'draft';
+    }
+    const isSaved = await submitToApi(currentStatus);
     if (isSaved) {
       alert("Project berhasil disimpan sebagai draft!");
       if (onSuccess) onSuccess();

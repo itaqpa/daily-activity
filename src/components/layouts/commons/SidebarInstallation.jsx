@@ -75,7 +75,7 @@ export default function SidebarInstallation({ isActive }) {
             </Link>
           )}
 
-          {hasPermission('pengeluaran_view') && (
+          {(hasPermission('pengeluaran_view') || hasPermission('install_project_view')) && (
             <Link
               to="/installation-project/add-cost"
               className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm ${

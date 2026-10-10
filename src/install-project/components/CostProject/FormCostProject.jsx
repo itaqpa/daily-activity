@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { X, Save, ArrowLeft, Loader2, Calendar } from "lucide-react";
+import { useAuth } from "../../../context/AuthContext";
 
 export default function FormCostProject({ project, onClose, onSuccess, isMobile = false, inline = false }) {
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     tanggal: new Date().toISOString().split('T')[0],
     kategori: "",
@@ -16,15 +18,22 @@ export default function FormCostProject({ project, onClose, onSuccess, isMobile 
   useEffect(() => {
     // Gather all units from all areas in the project for the dropdown
     if (project && project.areas) {
-      const allUnits = project.areas.flatMap(a => 
+      let allUnits = project.areas.flatMap(a => 
         (a.units || []).map(u => ({
           ...u,
           areaNama: a.nama
         }))
       );
+      
+      if (user?.role !== 'admin' && user?.semua_project !== 1) {
+        allUnits = allUnits.filter(u => 
+          u.selected_users && u.selected_users.some(su => su.name === user?.name)
+        );
+      }
+      
       setUnits(allUnits);
     }
-  }, [project]);
+  }, [project, user]);
 
   // Handle Input format currency
   const handleJumlahChange = (e) => {
