@@ -66,6 +66,7 @@ function ProtectedRoute() {
 }
 
 import { AuthProvider } from './context/AuthContext';
+import ModuleGuard from './components/layouts/commons/ModuleGuard';
 
 function App() {
   return (
@@ -80,47 +81,56 @@ function App() {
           </Route>
 
           <Route path="/marketing" element={<ProtectedRoute />}>
-            <Route index element={<Navigate to="dashboard" replace />} />
-            <Route path="dashboard" element={<Dashboard />} />
-            
-            {/* Master Data */}
-            <Route path="master-data/sales" element={<DataSales />} />
-            <Route path="master-data/customer" element={<DataCustomer />} />
-            <Route path="master-data/manpower" element={<DataManpower />} />
-
-            
-            {/* Activities & Reports */}
-            <Route path="activities/new" element={<CatatAktivitas />} />
-            <Route path="activities" element={<RiwayatAktivitas />} />
-            <Route path="reports" element={<Laporan />} />
-            <Route path="settings" element={<Settings />} />
+            <Route element={<ModuleGuard requiredPermissions={['dashboard_view', 'aktivitas_view', 'riwayat_aktivitas_view', 'laporan_marketing_view', 'customer_view', 'sales_view']} />}>
+              <Route index element={<Navigate to="dashboard" replace />} />
+              <Route path="dashboard" element={<Dashboard />} />
+              
+              {/* Master Data */}
+              <Route path="master-data/sales" element={<DataSales />} />
+              <Route path="master-data/customer" element={<DataCustomer />} />
+              <Route path="master-data/manpower" element={<DataManpower />} />
+              
+              {/* Activities & Reports */}
+              <Route path="activities/new" element={<CatatAktivitas />} />
+              <Route path="activities" element={<RiwayatAktivitas />} />
+              <Route path="reports" element={<Laporan />} />
+              <Route path="settings" element={<Settings />} />
+            </Route>
           </Route>
 
           <Route path="/installation-project" element={<ProtectedRoute />}>
-            <Route index element={<ListInstallPage />} />
-            <Route path="reports" element={<LaporanProjectPage />} />
-            <Route path="add-activity" element={<StandaloneAddActivity />} />
-            <Route path="add-cost" element={<StandaloneAddCost />} />
-            <Route path=":id" element={<ShowInstallPage />} />
-            <Route path=":id/daily-progress/new" element={<FormDailyInputPage />} />
+            <Route element={<ModuleGuard requiredPermissions={['install_project_view', 'daily_progress_view', 'laporan_project_view', 'pengeluaran_view', 'manpower_view']} />}>
+              <Route index element={<ListInstallPage />} />
+              <Route path="reports" element={<LaporanProjectPage />} />
+              <Route path="add-activity" element={<StandaloneAddActivity />} />
+              <Route path="add-cost" element={<StandaloneAddCost />} />
+              <Route path=":id" element={<ShowInstallPage />} />
+              <Route path=":id/daily-progress/new" element={<FormDailyInputPage />} />
+            </Route>
           </Route>
 
           <Route path="/data-pengeluaran" element={<ProtectedRoute />}>
-            <Route index element={<ListCostMPPage />} />
+            <Route element={<ModuleGuard requiredPermissions={['pengeluaran_view']} />}>
+              <Route index element={<ListCostMPPage />} />
+            </Route>
           </Route>
 
           <Route path="/master-admin" element={<ProtectedRoute />}>
-            <Route path="manajemen-akses" element={<ManajemenAkses />} />
-            <Route path="history-log" element={<HistorynLogPage />} />
-            <Route path="users" element={<UserManagement />} />
+            <Route element={<ModuleGuard requiredPermissions={['user_view', 'akses_view', 'history_view']} />}>
+              <Route path="manajemen-akses" element={<ManajemenAkses />} />
+              <Route path="history-log" element={<HistorynLogPage />} />
+              <Route path="users" element={<UserManagement />} />
+            </Route>
           </Route>
 
           <Route path="/survey-product" element={<ProtectedRoute />}>
-            <Route index element={<SurveyProductList />} />
-            <Route path="create" element={<FormSurveyProductPage />} />
-            <Route path="reports" element={<div>Laporan Coming Soon...</div>} />
-            <Route path="master-data/surveyor" element={<DataSurveyor />} />
-            <Route path=":id" element={<SurveyProductShow />} />
+            <Route element={<ModuleGuard requiredPermissions={['survey_product_view', 'surveyor_view']} />}>
+              <Route index element={<SurveyProductList />} />
+              <Route path="create" element={<FormSurveyProductPage />} />
+              <Route path="reports" element={<div>Laporan Coming Soon...</div>} />
+              <Route path="master-data/surveyor" element={<DataSurveyor />} />
+              <Route path=":id" element={<SurveyProductShow />} />
+            </Route>
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

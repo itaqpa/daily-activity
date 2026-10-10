@@ -293,6 +293,65 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
+// Endpoint untuk mengambil profil dan permissions terbaru user yang sedang login
+app.get('/api/me', async (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+  
+  try {
+    const queryText = `
+        SELECT u.*, d.kode_divisi, d.nama_divisi as divisi, j.nama_jabatan as jabatan,
+               COALESCE(
+                 (SELECT json_agg(json_build_object('id', aj.id, 'nama_jabatan', aj.nama_jabatan))
+                  FROM user_additional_roles uar
+                  JOIN jabatans aj ON uar.jabatan_id = aj.id
+                  WHERE uar.user_id = u.id), '[]'::json
+               ) as additional_roles_data,
+               COALESCE(
+                 (SELECT json_agg(DISTINCT p.nama_permission)
+                  FROM (
+                    SELECT permission_id FROM divisi_permissions WHERE divisi_id = u.divisi_id
+                    UNION
+                    SELECT permission_id FROM jabatan_permissions WHERE jabatan_id = u.jabatan_id
+                    UNION
+                    SELECT jp.permission_id FROM user_additional_roles uar 
+                      JOIN jabatan_permissions jp ON jp.jabatan_id = uar.jabatan_id 
+                      WHERE uar.user_id = u.id
+                    UNION
+                    SELECT permission_id FROM user_permissions WHERE user_id = u.id
+                  ) all_perms
+                  JOIN permissions p ON p.id = all_perms.permission_id
+                 ), '[]'::json
+               ) as permissions,
+               COALESCE(
+                 (SELECT json_agg(DISTINCT p.nama_permission)
+                  FROM user_permissions up
+                  JOIN permissions p ON p.id = up.permission_id
+                  WHERE up.user_id = u.id
+                 ), '[]'::json
+               ) as explicit_bypass_permissions
+        FROM users u
+        LEFT JOIN divisis d ON u.divisi_id = d.id
+        LEFT JOIN jabatans j ON u.jabatan_id = j.id
+        WHERE u.id = $1
+    `;
+    const result = await pool.query(queryText, [req.user.id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'User tidak ditemukan' });
+    }
+    
+    const user = result.rows[0];
+    const { password: _, ...userData } = user;
+    
+    res.json({ user: userData });
+  } catch (error) {
+    console.error('Fetch me error:', error);
+    res.status(500).json({ message: 'Terjadi kesalahan pada server' });
+  }
+});
+
 app.get('/api/divisis', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM divisis ORDER BY id ASC');

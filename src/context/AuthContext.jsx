@@ -1,16 +1,39 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { apiUrl } from '../api';
 
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-
-  // Initial load
-  useEffect(() => {
+  const [user, setUser] = useState(() => {
     const userString = localStorage.getItem('user');
-    if (userString) {
-      setUser(JSON.parse(userString));
-    }
+    return userString ? JSON.parse(userString) : null;
+  });
+
+  // Initial load / background refresh
+  useEffect(() => {
+    // Background fetch profil dan permission terbaru
+    const fetchLatestProfile = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      
+      try {
+        const response = await fetch(apiUrl('/me'));
+        if (response.ok) {
+          const data = await response.json();
+          setUser(data.user);
+          localStorage.setItem('user', JSON.stringify(data.user)); // update cache
+        } else if (response.status === 401) {
+          // Token expired atau invalid
+          setUser(null);
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+        }
+      } catch (err) {
+        console.error('Failed to refresh user session', err);
+      }
+    };
+    
+    fetchLatestProfile();
   }, []);
 
   // Update user in state and localStorage
