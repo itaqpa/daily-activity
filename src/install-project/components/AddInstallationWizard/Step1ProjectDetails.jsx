@@ -65,7 +65,31 @@ export default function Step1ProjectDetails({ data, updateData }) {
   };
 
   // Convert users to options for react-select
-  const userOptions = users.map(u => ({ value: u.name, label: u.name }));
+  const userOptions = users.map(u => ({
+    value: u.id,
+    label: u.name,
+    name: u.name,
+    username: u.username
+  }));
+
+  // Match selected leaders for react-select isMulti
+  const getSelectedLeaderOptions = () => {
+    if (Array.isArray(data.leaders) && data.leaders.length > 0) {
+      return userOptions.filter(opt =>
+        data.leaders.some(l =>
+          Number(l?.value || l?.id) === Number(opt.value) ||
+          (l?.name && l.name.toLowerCase() === opt.name.toLowerCase()) ||
+          (l?.label && l.label.toLowerCase() === opt.label.toLowerCase()) ||
+          (typeof l === 'string' && l.toLowerCase() === opt.name.toLowerCase())
+        )
+      );
+    }
+    if (data.leader) {
+      const leaderNames = String(data.leader).split(',').map(s => s.trim().toLowerCase());
+      return userOptions.filter(opt => leaderNames.includes(opt.name.toLowerCase()));
+    }
+    return [];
+  };
 
   const customStyles = {
     control: (base, state) => ({
@@ -141,13 +165,19 @@ export default function Step1ProjectDetails({ data, updateData }) {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Project Leader</label>
             <Select
+              isMulti
               options={userOptions}
               styles={customStyles}
               placeholder="Ketik atau pilih leader..."
               isSearchable={true}
-              value={userOptions.find(opt => opt.value === data.leader) || null}
-              onChange={(selectedOption) => {
-                handleChange('leader', selectedOption ? selectedOption.value : '');
+              value={getSelectedLeaderOptions()}
+              onChange={(selectedOptions) => {
+                const arr = selectedOptions || [];
+                updateData((prev) => ({
+                  ...prev,
+                  leaders: arr,
+                  leader: arr.map(opt => opt.label || opt.name).join(', ')
+                }));
               }}
             />
           </div>

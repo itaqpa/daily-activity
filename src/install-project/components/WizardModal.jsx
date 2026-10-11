@@ -27,6 +27,7 @@ export default function WizardModal({ isOpen, onClose, onSuccess, editId }) {
               customer: data.customer || '',
               lokasi: data.lokasi || '',
               leader: data.leader || '',
+              leaders: Array.isArray(data.leaders) ? data.leaders : [],
               tgl_mulai: data.tgl_mulai || '',
               durasi_hari: data.durasi_hari || '',
               nilai_kontrak: data.nilai_kontrak || '',
