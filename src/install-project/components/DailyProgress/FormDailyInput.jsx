@@ -45,9 +45,27 @@ export default function FormDailyInput({ onBack, project }) {
     const selectedArea = project.areas.find(a => a.id.toString() === formData.area);
     let units = selectedArea ? (selectedArea.units || []) : [];
     
-    if (user?.role !== 'admin' && user?.semua_project !== 1) {
+    const isSuperAdminOrAdmin = 
+      Number(user?.jabatan_id) === 1 || 
+      Number(user?.jabatan_id) === 27 || 
+      user?.role?.toLowerCase() === 'admin' ||
+      user?.role?.toLowerCase() === 'superadmin' ||
+      user?.jabatan?.toLowerCase()?.includes('super admin') ||
+      user?.jabatan?.toLowerCase()?.includes('admin') ||
+      user?.jabatan_name?.toLowerCase()?.includes('super admin') ||
+      user?.jabatan_name?.toLowerCase()?.includes('admin') ||
+      user?.semua_project === 1;
+
+    const isProjectLeader = 
+      (project?.leader && user?.name && project.leader.trim().toLowerCase() === user.name.trim().toLowerCase()) ||
+      (project?.leader && user?.username && project.leader.trim().toLowerCase() === user.username.trim().toLowerCase()) ||
+      Number(project?.created_by) === Number(user?.id);
+
+    // Jika bukan Admin dan bukan Project Leader, filter berdasarkan manpower yang ditugaskan ke unit
+    if (user && !isSuperAdminOrAdmin && !isProjectLeader) {
+      const uName = (user?.name || '').trim().toLowerCase();
       units = units.filter(u => 
-        u.selected_users && u.selected_users.some(su => su.name === user?.name)
+        u.selected_users && u.selected_users.some(su => (su.name || '').trim().toLowerCase() === uName)
       );
     }
     
