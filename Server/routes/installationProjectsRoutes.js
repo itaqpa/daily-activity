@@ -19,8 +19,15 @@ const router = express.Router();
 router.get('/', async (req, res) => {
   try {
     const userId = req.user ? req.user.id : null;
+    const isSuperAdminOrAdmin = req.user && (
+      req.user.jabatan_id === 1 || 
+      req.user.jabatan_id === 27 || 
+      req.user.role === 'admin' ||
+      req.user.role === 'superadmin'
+    );
+
     let result;
-    if (userId) {
+    if (userId && !isSuperAdminOrAdmin) {
       result = await pool.query(`
         SELECT p.* 
         FROM projects p
