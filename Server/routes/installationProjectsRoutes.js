@@ -28,13 +28,16 @@ router.get('/', async (req, res) => {
 
     let result;
     if (userId && !isSuperAdminOrAdmin) {
+      const userName = req.user.name || '';
       result = await pool.query(`
-        SELECT p.* 
+        SELECT DISTINCT p.* 
         FROM projects p
-        JOIN v_akses_project v ON v.project_id = p.id
-        WHERE v.user_id = $1
+        LEFT JOIN v_akses_project v ON v.project_id = p.id AND v.user_id = $1
+        WHERE v.user_id = $1 
+           OR LOWER(TRIM(p.leader)) = LOWER(TRIM($2))
+           OR p.created_by = $1
         ORDER BY p.id DESC
-      `, [userId]);
+      `, [userId, userName]);
     } else {
       result = await pool.query('SELECT * FROM projects ORDER BY id DESC');
     }

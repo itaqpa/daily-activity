@@ -53,7 +53,12 @@ export default function ListInstallPage() {
 
         // Jika bukan Super Admin / Admin, hanya tampilkan project yang dipimpinnya
         if (user && !isSuperAdminOrAdmin) {
-          data = data.filter(p => p.leader === user.name);
+          const uName = (user.name || '').trim().toLowerCase();
+          const uUsername = (user.username || '').trim().toLowerCase();
+          data = data.filter(p => {
+            const pLeader = (p.leader || '').trim().toLowerCase();
+            return pLeader === uName || pLeader === uUsername || Number(p.created_by) === Number(user.id);
+          });
         }
         
         setProjects(data);
