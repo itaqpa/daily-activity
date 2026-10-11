@@ -19,25 +19,22 @@ const router = express.Router();
 router.get('/', async (req, res) => {
   try {
     const userId = req.user ? req.user.id : null;
-    const isSuperAdminOrAdmin = req.user && (
-      req.user.jabatan_id === 1 || 
-      req.user.jabatan_id === 27 || 
-      req.user.role === 'admin' ||
-      req.user.role === 'superadmin'
+    const isSuperAdmin = req.user && (
+      Number(req.user.jabatan_id) === 1 || 
+      req.user.role === 'superadmin' ||
+      (req.user.role === 'admin' && Number(req.user.jabatan_id) === 1)
     );
 
     let result;
-    if (userId && !isSuperAdminOrAdmin) {
+    if (userId && !isSuperAdmin) {
       const userName = req.user.name || '';
       result = await pool.query(`
         SELECT DISTINCT p.* 
         FROM projects p
-        LEFT JOIN v_akses_project v ON v.project_id = p.id AND v.user_id = $1
-        WHERE v.user_id = $1 
-           OR LOWER(TRIM(p.leader)) = LOWER(TRIM($2))
-           OR p.created_by = $1
+        WHERE LOWER(TRIM(p.leader)) = LOWER(TRIM($1))
+           OR p.created_by = $2
         ORDER BY p.id DESC
-      `, [userId, userName]);
+      `, [userName, userId]);
     } else {
       result = await pool.query('SELECT * FROM projects ORDER BY id DESC');
     }

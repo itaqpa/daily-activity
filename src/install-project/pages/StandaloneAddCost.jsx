@@ -25,13 +25,16 @@ export default function StandaloneAddCost() {
           // Filter out closed projects
           let activeProjects = data.filter(p => p.status?.toLowerCase() !== 'close' && p.status?.toLowerCase() !== 'closed' && p.status?.toLowerCase() !== 'done');
           
-          const isSuperAdminOrAdmin = 
+          // Hanya Super Admin yang melihat semua project
+          const isSuperAdmin = 
             Number(user?.jabatan_id) === 1 || 
-            Number(user?.jabatan_id) === 27 || 
-            user?.role === 'admin' ||
-            user?.role === 'superadmin';
+            user?.role?.toLowerCase() === 'superadmin' ||
+            user?.jabatan?.toLowerCase() === 'super admin' ||
+            user?.jabatan_name?.toLowerCase() === 'super admin' ||
+            user?.additional_roles_data?.some(r => Number(r.id) === 1);
 
-          if (user && !isSuperAdminOrAdmin) {
+          // Selain Super Admin, hanya tampilkan project yang dipimpinnya sendiri
+          if (user && !isSuperAdmin) {
             const uName = (user.name || '').trim().toLowerCase();
             const uUsername = (user.username || '').trim().toLowerCase();
             activeProjects = activeProjects.filter(p => {
