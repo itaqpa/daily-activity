@@ -35,6 +35,7 @@ import DataSales from './marketing/pages/master-data/DataSales';
 import DataCustomer from './marketing/pages/master-data/DataCustomer';
 import DataManpower from './master-admin/DataManpower';
 import UserManagement from './master-admin/user-management/UserManagement';
+import SurveyQuestionPage from './master-admin/survey-question/SurveyQuestionPage';
 
 
 import CatatAktivitas from './marketing/pages/activities/CatatAktivitas';
@@ -116,10 +117,11 @@ function App() {
           </Route>
 
           <Route path="/master-admin" element={<ProtectedRoute />}>
-            <Route element={<ModuleGuard requiredPermissions={['user_view', 'akses_view', 'history_view']} />}>
+            <Route element={<ModuleGuard requiredPermissions={['user_view', 'akses_view', 'history_view', 'survey_question_view']} />}>
               <Route path="manajemen-akses" element={<ManajemenAkses />} />
               <Route path="history-log" element={<HistorynLogPage />} />
               <Route path="users" element={<UserManagement />} />
+              <Route path="survey-question" element={<SurveyQuestionPage />} />
             </Route>
           </Route>
 

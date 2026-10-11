@@ -112,6 +112,10 @@ export default function (pool) {
         WHERE p.code  = $1
           AND st.code = 'GTE_PRODUCT_SURVEY'
           AND v.status = 'published'
+          AND COALESCE(tq.is_active, true) = true
+          AND COALESCE(tpq.is_active, true) = true
+          AND tq.deleted_at IS NULL
+          AND tpq.deleted_at IS NULL
         ORDER BY tq.sort_order, tq.id;
       `;
 
@@ -1195,5 +1199,543 @@ export default function (pool) {
     }
   });
 
+  // ─── ADMIN: SURVEY QUESTIONS MANAGEMENT ─────────────────────────────────────
+  // 1. GET /admin/products - List all active survey products
+  router.get('/admin/products', async (req, res) => {
+    try {
+      const result = await pool.query(`
+        SELECT id, code, name, is_active
+        FROM survey_engine.products
+        WHERE is_active = true
+        ORDER BY code ASC
+      `);
+      res.json(result.rows);
+    } catch (error) {
+      console.error('Error fetching admin products:', error);
+      res.status(500).json({ error: 'Gagal mengambil daftar produk' });
+    }
+  });
+
+  // 2. GET /admin/sections - List all distinct sections grouped by name (optionally filtered by product_code)
+  router.get('/admin/sections', async (req, res) => {
+    try {
+      const { product_code } = req.query;
+      let query = `
+        SELECT
+          MIN(COALESCE(s.code, tq.section_code_snapshot, 'general')) AS code,
+          COALESCE(tq.section_label_snapshot, s.name, 'General') AS name,
+          COUNT(tq.id)::int AS total_questions
+        FROM survey_engine.template_questions tq
+        LEFT JOIN survey_engine.sections s ON s.id = tq.section_id
+        WHERE tq.deleted_at IS NULL
+      `;
+      const params = [];
+      if (product_code && product_code !== 'ALL') {
+        query += `
+          AND EXISTS (
+            SELECT 1 FROM survey_engine.template_product_questions tpq
+            JOIN survey_engine.template_products tp ON tp.id = tpq.template_product_id
+            JOIN survey_engine.products p ON p.id = tp.product_id
+            WHERE tpq.template_question_id = tq.id
+              AND p.code = $1
+              AND tpq.deleted_at IS NULL
+          )
+        `;
+        params.push(product_code);
+      }
+      query += `
+        GROUP BY COALESCE(tq.section_label_snapshot, s.name, 'General')
+        ORDER BY name ASC
+      `;
+      const result = await pool.query(query, params);
+      res.json(result.rows);
+    } catch (error) {
+      console.error('Error fetching admin sections:', error);
+      res.status(500).json({ error: 'Gagal mengambil daftar section' });
+    }
+  });
+
+  // 3. GET /admin/questions - List dynamic questions with filter & search
+  router.get('/admin/questions', async (req, res) => {
+    try {
+      const { product_code, section, section_code, search, is_active } = req.query;
+      const targetSection = section || section_code;
+
+      let query = `
+        SELECT
+          tq.id,
+          tq.question_id,
+          tq.question_key,
+          tq.question_no,
+          tq.label_snapshot              AS label,
+          tq.input_type,
+          tq.unit_snapshot               AS unit,
+          tq.section_code_snapshot       AS section_code,
+          tq.section_label_snapshot      AS section_name,
+          tq.is_required,
+          COALESCE(tq.is_active, true)   AS is_active,
+          tq.sort_order,
+          tq.helper_instruction,
+          (
+            SELECT json_agg(
+              json_build_object(
+                'id', tqo.id,
+                'key', tqo.option_key,
+                'label', tqo.option_label,
+                'value', tqo.option_value,
+                'sort_order', tqo.sort_order
+              ) ORDER BY tqo.sort_order, tqo.id
+            )
+            FROM survey_engine.template_question_options tqo
+            WHERE tqo.template_question_id = tq.id
+          ) AS options,
+          (
+            SELECT json_agg(
+              json_build_object(
+                'id', tp.id,
+                'code', p.code,
+                'name', p.name,
+                'is_required_override', tpq.is_required_override,
+                'is_active', COALESCE(tpq.is_active, true)
+              ) ORDER BY p.code
+            )
+            FROM survey_engine.template_product_questions tpq
+            JOIN survey_engine.template_products tp ON tp.id = tpq.template_product_id
+            JOIN survey_engine.products p ON p.id = tp.product_id
+            WHERE tpq.template_question_id = tq.id
+              AND tpq.deleted_at IS NULL
+          ) AS products
+        FROM survey_engine.template_questions tq
+        JOIN survey_engine.survey_template_versions v ON v.id = tq.version_id
+        JOIN survey_engine.survey_templates st ON st.id = v.template_id
+        WHERE st.code = 'GTE_PRODUCT_SURVEY'
+          AND v.status = 'published'
+          AND tq.deleted_at IS NULL
+      `;
+
+      const params = [];
+      let paramIndex = 1;
+
+      if (product_code && product_code !== 'ALL') {
+        query += `
+          AND EXISTS (
+            SELECT 1 FROM survey_engine.template_product_questions tpq2
+            JOIN survey_engine.template_products tp2 ON tp2.id = tpq2.template_product_id
+            JOIN survey_engine.products p2 ON p2.id = tp2.product_id
+            WHERE tpq2.template_question_id = tq.id
+              AND p2.code = $${paramIndex}
+              AND tpq2.deleted_at IS NULL
+          )
+        `;
+        params.push(product_code);
+        paramIndex++;
+      }
+
+      if (targetSection && targetSection !== 'ALL') {
+        query += ` AND (
+          tq.section_label_snapshot = $${paramIndex}
+          OR tq.section_code_snapshot = $${paramIndex}
+          OR tq.section_code_snapshot ILIKE '%' || $${paramIndex} || '%'
+          OR tq.section_label_snapshot ILIKE '%' || $${paramIndex} || '%'
+        )`;
+        params.push(targetSection);
+        paramIndex++;
+      }
+
+      if (search && search.trim()) {
+        query += ` AND (tq.label_snapshot ILIKE $${paramIndex} OR tq.question_key ILIKE $${paramIndex})`;
+        params.push(`%${search.trim()}%`);
+        paramIndex++;
+      }
+
+      if (is_active !== undefined && is_active !== 'ALL') {
+        const activeBool = String(is_active) === 'true';
+        query += ` AND COALESCE(tq.is_active, true) = $${paramIndex}`;
+        params.push(activeBool);
+        paramIndex++;
+      }
+
+      query += ` ORDER BY tq.sort_order ASC, tq.id ASC`;
+
+      const result = await pool.query(query, params);
+      res.json(result.rows);
+    } catch (error) {
+      console.error('Error fetching admin questions:', error);
+      res.status(500).json({ error: 'Gagal mengambil data pertanyaan' });
+    }
+  });
+
+  // 4. POST /admin/questions - Tambah pertanyaan dinamis baru
+  router.post('/admin/questions', async (req, res) => {
+    const client = await pool.connect();
+    try {
+      const {
+        label,
+        question_key,
+        section_code,
+        section_name,
+        input_type = 'text',
+        unit = '',
+        helper_instruction = '',
+        is_required = false,
+        is_active = true,
+        sort_order = 100,
+        product_codes = [],
+        options = []
+      } = req.body;
+
+      if (!label || !label.trim()) {
+        return res.status(400).json({ error: 'Label pertanyaan wajib diisi' });
+      }
+
+      await client.query('BEGIN');
+      await client.query("SET LOCAL survey_engine.allow_admin_override = 'on'");
+
+      // Dapatkan active published version
+      const verRes = await client.query(`
+        SELECT v.id AS version_id
+        FROM survey_engine.survey_template_versions v
+        JOIN survey_engine.survey_templates st ON st.id = v.template_id
+        WHERE st.code = 'GTE_PRODUCT_SURVEY' AND v.status = 'published'
+        LIMIT 1
+      `);
+      if (verRes.rows.length === 0) {
+        throw new Error('Template versi published tidak ditemukan');
+      }
+      const versionId = verRes.rows[0].version_id;
+
+      // Generate key unik
+      const cleanSlug = label.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 30);
+      const generatedKey = question_key && question_key.trim()
+        ? question_key.trim()
+        : `custom_${cleanSlug}_${Date.now().toString(36)}`;
+
+      // Dapatkan atau buat section
+      let sectionId = null;
+      const sCode = section_code || 'gte.custom.general';
+      const sName = section_name || 'General';
+      const secRes = await client.query(`
+        INSERT INTO survey_engine.sections (code, name, is_active)
+        VALUES ($1, $2, true)
+        ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name
+        RETURNING id
+      `, [sCode, sName]);
+      sectionId = secRes.rows[0].id;
+
+      // Simpan di questions catalog
+      const qCatalogCode = `custom.${generatedKey}`;
+      const qRes = await client.query(`
+        INSERT INTO survey_engine.questions (code, default_label, default_input_type, is_active)
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT (code) DO UPDATE SET default_label = EXCLUDED.default_label
+        RETURNING id
+      `, [qCatalogCode, label.trim(), input_type, is_active]);
+      const catalogQuestionId = qRes.rows[0].id;
+
+      // Hitung sort order jika tidak diisi
+      let finalSort = Number(sort_order);
+      if (isNaN(finalSort) || finalSort <= 0) {
+        const maxSort = await client.query(`
+          SELECT COALESCE(MAX(sort_order), 0) + 10 as next_sort
+          FROM survey_engine.template_questions
+          WHERE version_id = $1
+        `, [versionId]);
+        finalSort = maxSort.rows[0].next_sort;
+      }
+
+      // Simpan di template_questions
+      const tqRes = await client.query(`
+        INSERT INTO survey_engine.template_questions (
+          version_id, question_id, section_id,
+          section_code_snapshot, section_label_snapshot,
+          question_no, question_key, label_snapshot,
+          input_type, unit_snapshot, is_required,
+          is_visible_default, helper_instruction,
+          sort_order, is_active
+        ) VALUES (
+          $1, $2, $3,
+          $4, $5,
+          $6, $7, $8,
+          $9, $10, $11,
+          true, $12,
+          $13, $14
+        )
+        RETURNING id
+      `, [
+        versionId, catalogQuestionId, sectionId,
+        sCode, sName,
+        'custom', generatedKey, label.trim(),
+        input_type, unit ? unit.trim() : null, !!is_required,
+        helper_instruction || null,
+        finalSort, !!is_active
+      ]);
+      const templateQuestionId = tqRes.rows[0].id;
+
+      // Relasikan ke template_products
+      const isAllProducts = !product_codes || product_codes.length === 0 || product_codes.includes('ALL');
+      const tpQuery = isAllProducts
+        ? `SELECT tp.id FROM survey_engine.template_products tp WHERE tp.version_id = $1`
+        : `SELECT tp.id FROM survey_engine.template_products tp JOIN survey_engine.products p ON p.id = tp.product_id WHERE tp.version_id = $1 AND p.code = ANY($2)`;
+      const tpParams = isAllProducts ? [versionId] : [versionId, product_codes];
+      const tpRows = await client.query(tpQuery, tpParams);
+
+      for (const tp of tpRows.rows) {
+        await client.query(`
+          INSERT INTO survey_engine.template_product_questions (
+            template_product_id, template_question_id, is_active
+          ) VALUES ($1, $2, $3)
+          ON CONFLICT (template_product_id, template_question_id)
+          DO UPDATE SET is_active = $3, deleted_at = NULL
+        `, [tp.id, templateQuestionId, !!is_active]);
+      }
+
+      // Tambahkan opsi jika ada
+      if (['select', 'radio', 'multi_select'].includes(input_type) && Array.isArray(options)) {
+        for (let i = 0; i < options.length; i++) {
+          const opt = options[i];
+          if (!opt || !opt.label) continue;
+          const optKey = opt.key || `opt_${i + 1}`;
+          const optLabel = opt.label;
+          const optVal = JSON.stringify(opt.value || optLabel);
+          await client.query(`
+            INSERT INTO survey_engine.template_question_options (
+              template_question_id, option_key, option_label, option_value, sort_order
+            ) VALUES ($1, $2, $3, $4, $5)
+            ON CONFLICT (template_question_id, option_key) DO UPDATE
+            SET option_label = EXCLUDED.option_label, option_value = EXCLUDED.option_value
+          `, [templateQuestionId, optKey, optLabel, optVal, i + 1]);
+        }
+      }
+
+      await client.query('COMMIT');
+      res.status(201).json({
+        message: 'Pertanyaan berhasil dibuat',
+        id: templateQuestionId,
+        question_key: generatedKey
+      });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('Error creating question:', error);
+      res.status(500).json({ error: error.message || 'Gagal membuat pertanyaan' });
+    } finally {
+      client.release();
+    }
+  });
+
+  // 5. PUT /admin/questions/:id - Update pertanyaan
+  router.put('/admin/questions/:id', async (req, res) => {
+    const client = await pool.connect();
+    try {
+      const { id } = req.params;
+      const {
+        label,
+        section_code,
+        section_name,
+        input_type = 'text',
+        unit = '',
+        helper_instruction = '',
+        is_required = false,
+        is_active = true,
+        sort_order = 100,
+        product_codes = [],
+        options = []
+      } = req.body;
+
+      if (!label || !label.trim()) {
+        return res.status(400).json({ error: 'Label pertanyaan wajib diisi' });
+      }
+
+      await client.query('BEGIN');
+      await client.query("SET LOCAL survey_engine.allow_admin_override = 'on'");
+
+      // Update template_questions
+      await client.query(`
+        UPDATE survey_engine.template_questions
+        SET
+          label_snapshot = $1,
+          input_type = $2,
+          unit_snapshot = $3,
+          section_code_snapshot = COALESCE($4, section_code_snapshot),
+          section_label_snapshot = COALESCE($5, section_label_snapshot),
+          is_required = $6,
+          is_active = $7,
+          helper_instruction = $8,
+          sort_order = $9
+        WHERE id = $10
+      `, [
+        label.trim(),
+        input_type,
+        unit ? unit.trim() : null,
+        section_code || null,
+        section_name || null,
+        !!is_required,
+        !!is_active,
+        helper_instruction || null,
+        Number(sort_order) || 100,
+        id
+      ]);
+
+      // Ambil version_id
+      const vRes = await client.query('SELECT version_id FROM survey_engine.template_questions WHERE id = $1', [id]);
+      if (vRes.rows.length === 0) {
+        throw new Error('Pertanyaan tidak ditemukan');
+      }
+      const versionId = vRes.rows[0].version_id;
+
+      // Update produk relasi
+      const isAllProducts = !product_codes || product_codes.length === 0 || product_codes.includes('ALL');
+      const allTpRows = await client.query(`
+        SELECT tp.id, p.code
+        FROM survey_engine.template_products tp
+        JOIN survey_engine.products p ON p.id = tp.product_id
+        WHERE tp.version_id = $1
+      `, [versionId]);
+
+      for (const tp of allTpRows.rows) {
+        const shouldEnable = isAllProducts || product_codes.includes(tp.code);
+        await client.query(`
+          INSERT INTO survey_engine.template_product_questions (
+            template_product_id, template_question_id, is_active
+          ) VALUES ($1, $2, $3)
+          ON CONFLICT (template_product_id, template_question_id)
+          DO UPDATE SET is_active = $3, deleted_at = CASE WHEN $3 = true THEN NULL ELSE template_product_questions.deleted_at END
+        `, [tp.id, id, shouldEnable && !!is_active]);
+      }
+
+      // Update opsi jika input_type mendukung opsi
+      if (['select', 'radio', 'multi_select'].includes(input_type)) {
+        await client.query('DELETE FROM survey_engine.template_question_options WHERE template_question_id = $1', [id]);
+        if (Array.isArray(options)) {
+          for (let i = 0; i < options.length; i++) {
+            const opt = options[i];
+            if (!opt || !opt.label) continue;
+            const optKey = opt.key || `opt_${i + 1}`;
+            const optLabel = opt.label;
+            const optVal = JSON.stringify(opt.value || optLabel);
+            await client.query(`
+              INSERT INTO survey_engine.template_question_options (
+                template_question_id, option_key, option_label, option_value, sort_order
+              ) VALUES ($1, $2, $3, $4, $5)
+            `, [id, optKey, optLabel, optVal, i + 1]);
+          }
+        }
+      }
+
+      await client.query('COMMIT');
+      res.json({ message: 'Pertanyaan berhasil diperbarui' });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('Error updating question:', error);
+      res.status(500).json({ error: error.message || 'Gagal memperbarui pertanyaan' });
+    } finally {
+      client.release();
+    }
+  });
+
+  // 6. PATCH /admin/questions/:id/toggle-active - Toggle status aktif
+  router.patch('/admin/questions/:id/toggle-active', async (req, res) => {
+    const client = await pool.connect();
+    try {
+      const { id } = req.params;
+      await client.query('BEGIN');
+      await client.query("SET LOCAL survey_engine.allow_admin_override = 'on'");
+
+      const updateRes = await client.query(`
+        UPDATE survey_engine.template_questions
+        SET is_active = NOT COALESCE(is_active, true)
+        WHERE id = $1
+        RETURNING id, is_active
+      `, [id]);
+
+      if (updateRes.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Pertanyaan tidak ditemukan' });
+      }
+
+      const newStatus = updateRes.rows[0].is_active;
+
+      // Update juga di template_product_questions
+      await client.query(`
+        UPDATE survey_engine.template_product_questions
+        SET is_active = $1
+        WHERE template_question_id = $2
+      `, [newStatus, id]);
+
+      await client.query('COMMIT');
+      res.json({ success: true, is_active: newStatus });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('Error toggling active:', error);
+      res.status(500).json({ error: 'Gagal mengubah status aktif' });
+    } finally {
+      client.release();
+    }
+  });
+
+  // 7. PATCH /admin/questions/:id/toggle-required - Toggle status required
+  router.patch('/admin/questions/:id/toggle-required', async (req, res) => {
+    const client = await pool.connect();
+    try {
+      const { id } = req.params;
+      await client.query('BEGIN');
+      await client.query("SET LOCAL survey_engine.allow_admin_override = 'on'");
+
+      const updateRes = await client.query(`
+        UPDATE survey_engine.template_questions
+        SET is_required = NOT COALESCE(is_required, false)
+        WHERE id = $1
+        RETURNING id, is_required
+      `, [id]);
+
+      if (updateRes.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Pertanyaan tidak ditemukan' });
+      }
+
+      const newRequired = updateRes.rows[0].is_required;
+
+      await client.query('COMMIT');
+      res.json({ success: true, is_required: newRequired });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('Error toggling required:', error);
+      res.status(500).json({ error: 'Gagal mengubah status required' });
+    } finally {
+      client.release();
+    }
+  });
+
+  // 8. DELETE /admin/questions/:id - Soft delete pertanyaan
+  router.delete('/admin/questions/:id', async (req, res) => {
+    const client = await pool.connect();
+    try {
+      const { id } = req.params;
+      await client.query('BEGIN');
+      await client.query("SET LOCAL survey_engine.allow_admin_override = 'on'");
+
+      await client.query(`
+        UPDATE survey_engine.template_questions
+        SET is_active = false, deleted_at = NOW()
+        WHERE id = $1
+      `, [id]);
+
+      await client.query(`
+        UPDATE survey_engine.template_product_questions
+        SET is_active = false, deleted_at = NOW()
+        WHERE template_question_id = $1
+      `, [id]);
+
+      await client.query('COMMIT');
+      res.json({ message: 'Pertanyaan berhasil dihapus' });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('Error deleting question:', error);
+      res.status(500).json({ error: 'Gagal menghapus pertanyaan' });
+    } finally {
+      client.release();
+    }
+  });
+
   return router;
 }
+
