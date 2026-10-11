@@ -5,7 +5,7 @@ import TableDetailCostMP from './components/CostProject/TableDetailCostMP';
 import CostDashboard from './components/DataPengeluaran/CostDashboard';
 import { currentMonthRange } from './components/DataPengeluaran/costSummary';
 
-const API_BASE = 'http://localhost:8400';
+import { apiUrl } from '../api';
 
 export default function ListCostMPPage() {
     const [data, setData] = useState([]);
@@ -71,7 +71,7 @@ export default function ListCostMPPage() {
             setLoading(true);
             setError(null);
 
-            const res = await fetch(`${API_BASE}/api/report/all-costs`);
+            const res = await fetch(apiUrl('/report/all-costs'));
 
             if (!res.ok) {
                 throw new Error(`HTTP error! status: ${res.status}`);

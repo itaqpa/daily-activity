@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronDown, ChevronUp, Loader2, Calendar } from 'lucide-react';
 import RekapManpowerBiaya from '../CostProject/RekapManpowerBiaya';
+import { apiUrl } from '../../../api';
 
 export default function ReportTab({ project }) {
   const [data, setData] = useState({
@@ -15,7 +16,7 @@ export default function ReportTab({ project }) {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`http://localhost:8400/api/report/manpower?project_id=${project.id}`);
+        const res = await fetch(apiUrl(`/report/manpower?project_id=${project.id}`));
         if (res.ok) {
           const json = await res.json();
           setData(json);
