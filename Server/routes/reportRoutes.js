@@ -383,8 +383,15 @@ export default function reportRoutes(pool) {
   router.get('/all-costs', async (req, res) => {
     try {
       const userId = req.user ? req.user.id : null;
+      const isSuperAdminOrAdmin = req.user && (
+        req.user.jabatan_id === 1 || 
+        req.user.jabatan_id === 27 || 
+        req.user.role === 'admin' ||
+        req.user.role === 'superadmin'
+      );
+
       let projRes;
-      if (userId) {
+      if (userId && !isSuperAdminOrAdmin) {
         projRes = await pool.query(`
           SELECT p.id, p.no_project, p.budget_biaya,
                  TO_CHAR(MIN(dh.tanggal), 'YYYY-MM-DD') as actual_mulai,
