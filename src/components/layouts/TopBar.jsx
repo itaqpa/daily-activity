@@ -123,24 +123,61 @@ export default function Topbar({ currentModule }) {
                       onClick={(e) => { e.stopPropagation(); setIsRoleOpen(!isRoleOpen); }}
                       className="w-full flex items-center justify-between text-xs font-bold text-gray-400 uppercase tracking-wider py-1.5 hover:text-gray-600 transition-colors"
                     >
-                      <span>Role Akses Tambahan</span>
+                      <span>Role & Akses Akun</span>
                       <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isRoleOpen ? 'rotate-180' : ''}`} />
                     </button>
                     
                     {isRoleOpen && (
                       <div className="mt-2 mb-1">
-                        {user?.additional_roles_data && user.additional_roles_data.length > 0 ? (
-                          <div className="flex flex-col gap-2 max-h-32 overflow-y-auto pr-1 custom-scrollbar">
-                            {user.additional_roles_data.map((role) => (
-                              <div key={role.id} className="flex items-center gap-2 text-sm text-gray-700 bg-gray-50 p-2 rounded-lg border border-gray-100">
-                                <Shield className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                                <span className="font-medium truncate text-xs">{role.nama_jabatan}</span>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-xs text-gray-500 italic px-1">Tidak ada role tambahan</p>
-                        )}
+                        {(() => {
+                          const rolesList = [];
+                          if (user?.jabatan) {
+                            rolesList.push({ id: user.jabatan_id, nama_jabatan: user.jabatan, isDefault: true });
+                          }
+                          if (user?.additional_roles_data && Array.isArray(user.additional_roles_data)) {
+                            user.additional_roles_data.forEach(r => {
+                              if (!rolesList.some(item => Number(item.id) === Number(r.id))) {
+                                rolesList.push({ id: r.id, nama_jabatan: r.nama_jabatan, isDefault: false });
+                              }
+                            });
+                          }
+                          const activeRoleName = user?.active_jabatan || user?.jabatan;
+
+                          return (
+                            <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
+                              {rolesList.map((role) => {
+                                const isCurrentActive = activeRoleName === role.nama_jabatan;
+                                return (
+                                  <button
+                                    key={role.id}
+                                    type="button"
+                                    onClick={() => {
+                                      const updatedUser = { ...user, active_jabatan_id: role.id, active_jabatan: role.nama_jabatan };
+                                      localStorage.setItem("user", JSON.stringify(updatedUser));
+                                      window.location.reload();
+                                    }}
+                                    className={`w-full flex items-center justify-between p-2 rounded-lg text-left transition-all border ${
+                                      isCurrentActive 
+                                        ? 'bg-blue-50/80 border-blue-200 text-blue-700 font-semibold' 
+                                        : 'bg-gray-50 border-gray-100 text-gray-700 hover:bg-gray-100'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2 truncate">
+                                      <Shield className={`w-3.5 h-3.5 shrink-0 ${isCurrentActive ? 'text-blue-600' : 'text-gray-400'}`} />
+                                      <span className="truncate text-xs">{role.nama_jabatan}</span>
+                                      {role.isDefault && (
+                                        <span className="text-[9px] bg-gray-200 text-gray-600 px-1 py-0.2 rounded font-normal shrink-0">Utama</span>
+                                      )}
+                                    </div>
+                                    {isCurrentActive && (
+                                      <span className="text-blue-600 text-xs font-bold shrink-0 ml-1">✓</span>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>

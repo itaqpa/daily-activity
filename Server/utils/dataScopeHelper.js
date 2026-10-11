@@ -69,7 +69,7 @@ export async function getUserPermissionScope(pool, user, permissionName) {
       return { scope: jabatanRes.rows[0].resolved_scope, userId: user.id, divisiId, isSuperAdmin: false };
     }
 
-    // 3. Fallback jika user punya akses menu via divisi_permissions
+    // 3. Fallback jika user punya akses menu via divisi_permissions (lingkup Divisinya sendiri)
     const divisiPermRes = await pool.query(
       `SELECT 1 FROM divisi_permissions dp
        JOIN permissions p ON p.id = dp.permission_id
@@ -79,7 +79,7 @@ export async function getUserPermissionScope(pool, user, permissionName) {
     );
 
     if (divisiPermRes.rows.length > 0) {
-      return { scope: 'ALL', userId: user.id, divisiId, isSuperAdmin: false };
+      return { scope: 'DIVISION', userId: user.id, divisiId, isSuperAdmin: false };
     }
 
     return { scope: 'OWN', userId: user.id, divisiId, isSuperAdmin: false };

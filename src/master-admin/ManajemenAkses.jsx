@@ -56,8 +56,10 @@ export default function ManajemenAkses() {
     try {
       const res = await fetch(apiUrl(`/permissions/divisi/${id}`));
       const data = await res.json();
-      setDivisiPerms(data || []);
-    } catch(e) {} finally { setIsLoading(false); }
+      setDivisiPerms(Array.isArray(data) ? data : []);
+    } catch(e) {
+      setDivisiPerms([]);
+    } finally { setIsLoading(false); }
   }
 
   const fetchJabatanPerms = async (id) => {
@@ -116,13 +118,14 @@ export default function ManajemenAkses() {
         setUserScopes(directScopes);
 
         // Inherited dari divisi
-        const divIds = (data.inherited_divisi || []).map(item => item.permission_id);
+        const divIds = Array.isArray(data.inherited_divisi) ? data.inherited_divisi.map(item => item.permission_id) : [];
         setInheritedDivisiPerms(divIds);
 
         // Inherited dari jabatan
-        const jabIds = (data.inherited_jabatan || []).map(item => item.permission_id);
+        const jabList = Array.isArray(data.inherited_jabatan) ? data.inherited_jabatan : [];
+        const jabIds = jabList.map(item => item.permission_id);
         const jabScopes = {};
-        (data.inherited_jabatan || []).forEach(item => {
+        jabList.forEach(item => {
           jabScopes[item.permission_id] = item.data_scope || 'ALL';
         });
         setInheritedJabatanPerms(jabIds);
@@ -142,9 +145,22 @@ export default function ManajemenAkses() {
         setInheritedJabatanPerms([]);
         setInheritedJabatanScopes({});
         setSelectedUserInfo(null);
+      } else {
+        setUserPerms([]);
+        setUserScopes({});
+        setInheritedDivisiPerms([]);
+        setInheritedJabatanPerms([]);
+        setInheritedJabatanScopes({});
+        setSelectedUserInfo(null);
       }
     } catch(e) {
       console.error(e);
+      setUserPerms([]);
+      setUserScopes({});
+      setInheritedDivisiPerms([]);
+      setInheritedJabatanPerms([]);
+      setInheritedJabatanScopes({});
+      setSelectedUserInfo(null);
     } finally { setIsLoading(false); }
   }
 
@@ -352,9 +368,16 @@ export default function ManajemenAkses() {
                   <span className="font-bold">Info Matrix:</span>
                   <span>• Centang utama (warna biru) akan disimpan ke <b>Divisi</b> (Membuka akses menu).</span>
                   <span>• Centang CRUD di bawahnya (warna abu/hijau) akan disimpan ke <b>Jabatan</b> (Kewenangan).</span>
+                  <span>• Role <b>Admin</b> dapat diatur cakupan datanya (ALL / DIVISION / OWN). Role <b>Super Admin</b> bersifat permanen (ALL).</span>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {(() => {
+                  const currentJabatanObj = jabatans.find(j => Number(j.id) === Number(selectedJabatan));
+                  const isSuperAdminJabatan = Number(selectedJabatan) === 1 || 
+                    (currentJabatanObj?.nama_jabatan || '').toLowerCase().trim() === 'super admin';
+
+                  return (
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                   {Object.keys(grouped).map(groupName => {
                     const perms = grouped[groupName];
                     const viewPerm = perms.find(p => p.nama_permission.endsWith('_view'));
@@ -385,8 +408,8 @@ export default function ManajemenAkses() {
                     }
 
                     if (viewPerm) {
-                      const isViewChecked = divisiPerms.includes(viewPerm.id);
-                      const isJabatanViewChecked = jabatanPerms.includes(viewPerm.id);
+                      const isViewChecked = Array.isArray(divisiPerms) && divisiPerms.includes(viewPerm.id);
+                      const isJabatanViewChecked = Array.isArray(jabatanPerms) && jabatanPerms.includes(viewPerm.id);
                       const currentScope = jabatanScopes[viewPerm.id] || 'ALL';
 
                       return (
@@ -431,20 +454,27 @@ export default function ManajemenAkses() {
                               </div>
                               <div className="flex items-center gap-2">
                                 <span className="text-[11px] text-gray-500">Cakupan Data:</span>
-                                <select 
-                                  disabled={!selectedJabatan}
-                                  value={currentScope}
-                                  onChange={(e) => {
-                                    const newScope = e.target.value;
-                                    setJabatanPerms(prev => prev.includes(viewPerm.id) ? prev : [...prev, viewPerm.id]);
-                                    setJabatanScopes(prev => ({ ...prev, [viewPerm.id]: newScope }));
-                                  }}
-                                  className="text-xs py-1.5 px-2 border border-gray-200 rounded-md bg-gray-50 focus:bg-white focus:ring-1 focus:ring-blue-500 outline-none font-medium flex-1 disabled:opacity-50"
-                                >
-                                  <option value="ALL">Semua Data (ALL)</option>
-                                  <option value="DIVISION">Satu Divisi (DIVISION)</option>
-                                  <option value="OWN">Data Diri Sendiri (OWN)</option>
-                                </select>
+                                {isSuperAdminJabatan ? (
+                                  <div className="text-xs py-1.5 px-2 border border-emerald-200 bg-emerald-50 rounded-md text-emerald-800 font-bold flex-1 flex items-center justify-between">
+                                    <span>Semua Data (ALL)</span>
+                                    <span className="text-[10px] text-emerald-600 font-normal">Permanen Super Admin</span>
+                                  </div>
+                                ) : (
+                                  <select 
+                                    disabled={!selectedJabatan}
+                                    value={currentScope}
+                                    onChange={(e) => {
+                                      const newScope = e.target.value;
+                                      setJabatanPerms(prev => prev.includes(viewPerm.id) ? prev : [...prev, viewPerm.id]);
+                                      setJabatanScopes(prev => ({ ...prev, [viewPerm.id]: newScope }));
+                                    }}
+                                    className="text-xs py-1.5 px-2 border border-gray-200 rounded-md bg-gray-50 focus:bg-white focus:ring-1 focus:ring-blue-500 outline-none font-medium flex-1 disabled:opacity-50"
+                                  >
+                                    <option value="ALL">Semua Data (ALL)</option>
+                                    <option value="DIVISION">Satu Divisi (DIVISION)</option>
+                                    <option value="OWN">Data Diri Sendiri (OWN)</option>
+                                  </select>
+                                )}
                               </div>
                             </div>
 
@@ -457,7 +487,8 @@ export default function ManajemenAkses() {
                                   crudPerms.map(p => {
                                     const action = p.nama_permission.split('_').pop();
                                     let colorClass = "text-gray-600 bg-white border-gray-200";
-                                    if (jabatanPerms.includes(p.id)) {
+                                    const isJabPermChecked = Array.isArray(jabatanPerms) && jabatanPerms.includes(p.id);
+                                    if (isJabPermChecked) {
                                       if (action === 'create' || action === 'import') colorClass = "text-green-700 bg-green-100 border-green-300 font-bold";
                                       else if (action === 'edit') colorClass = "text-yellow-700 bg-yellow-100 border-yellow-300 font-bold";
                                       else if (action === 'delete') colorClass = "text-red-700 bg-red-100 border-red-300 font-bold";
@@ -473,7 +504,7 @@ export default function ManajemenAkses() {
                                         <input 
                                           type="checkbox" 
                                           disabled={!selectedJabatan}
-                                          checked={jabatanPerms.includes(p.id)}
+                                          checked={isJabPermChecked}
                                           onChange={() => toggleJabatanPerm(p.id)}
                                           className="hidden"
                                         />
@@ -491,6 +522,8 @@ export default function ManajemenAkses() {
                     return null;
                   })}
                 </div>
+                  );
+                })()}
               </div>
             )}
           </>
@@ -553,8 +586,8 @@ export default function ManajemenAkses() {
                         </div>
                         <div className="p-4 flex flex-wrap gap-3">
                           {crudPerms.map(p => {
-                            const isInherited = inheritedJabatanPerms.includes(p.id);
-                            const isDirect = userPerms.includes(p.id);
+                            const isInherited = Array.isArray(inheritedJabatanPerms) && inheritedJabatanPerms.includes(p.id);
+                            const isDirect = Array.isArray(userPerms) && userPerms.includes(p.id);
                             const isEffectiveChecked = isInherited || isDirect;
 
                             return (
@@ -579,10 +612,10 @@ export default function ManajemenAkses() {
 
                   if (viewPerm) {
                     // Cek apakah permission view diwarisi dari divisi atau jabatan
-                    const isDivisiInherited = inheritedDivisiPerms.includes(viewPerm.id);
-                    const isJabatanInherited = inheritedJabatanPerms.includes(viewPerm.id);
+                    const isDivisiInherited = Array.isArray(inheritedDivisiPerms) && inheritedDivisiPerms.includes(viewPerm.id);
+                    const isJabatanInherited = Array.isArray(inheritedJabatanPerms) && inheritedJabatanPerms.includes(viewPerm.id);
                     const isInherited = isDivisiInherited || isJabatanInherited;
-                    const isDirect = userPerms.includes(viewPerm.id);
+                    const isDirect = Array.isArray(userPerms) && userPerms.includes(viewPerm.id);
                     const isEffectiveViewChecked = isInherited || isDirect;
 
                     // Hitung scope efektif: Prioritaskan user override jika ada, jika tidak pakai scope bawaan jabatan
@@ -661,8 +694,8 @@ export default function ManajemenAkses() {
                               ) : (
                                 crudPerms.map(p => {
                                   const action = p.nama_permission.split('_').pop();
-                                  const isJabatanAct = inheritedJabatanPerms.includes(p.id);
-                                  const isDirectAct = userPerms.includes(p.id);
+                                  const isJabatanAct = Array.isArray(inheritedJabatanPerms) && inheritedJabatanPerms.includes(p.id);
+                                  const isDirectAct = Array.isArray(userPerms) && userPerms.includes(p.id);
                                   const isActChecked = isJabatanAct || isDirectAct;
 
                                   let colorClass = "text-gray-600 bg-white border-gray-200";

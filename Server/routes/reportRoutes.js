@@ -1,4 +1,5 @@
 import express from 'express';
+import { getUserPermissionScope } from '../utils/dataScopeHelper.js';
 
 export default function reportRoutes(pool) {
   const router = express.Router();
@@ -382,30 +383,19 @@ export default function reportRoutes(pool) {
   
   router.get('/all-costs', async (req, res) => {
     try {
-      const userId = req.user ? req.user.id : null;
-      const isSuperAdminOrAdmin = req.user && (
-        req.user.jabatan_id === 1 || 
-        req.user.jabatan_id === 27 || 
-        req.user.role === 'admin' ||
-        req.user.role === 'superadmin'
-      );
+      // Dapatkan scope akses data (cek pengeluaran_view atau install_project_view)
+      let scopeResult = await getUserPermissionScope(pool, req.user, 'pengeluaran_view');
+      if (scopeResult.scope === 'OWN' && (!req.user || !req.user.permissions?.includes('pengeluaran_view'))) {
+        const altScope = await getUserPermissionScope(pool, req.user, 'install_project_view');
+        if (altScope.scope === 'ALL' || altScope.scope === 'DIVISION') {
+          scopeResult = altScope;
+        }
+      }
+
+      const { scope, userId, divisiId, isSuperAdmin } = scopeResult;
 
       let projRes;
-      if (userId && !isSuperAdminOrAdmin) {
-        projRes = await pool.query(`
-          SELECT p.id, p.no_project, p.budget_biaya,
-                 TO_CHAR(MIN(dh.tanggal), 'YYYY-MM-DD') as actual_mulai,
-                 TO_CHAR(MAX(dh.tanggal), 'YYYY-MM-DD') as actual_selesai
-          FROM projects p
-          JOIN v_akses_project v ON v.project_id = p.id
-          LEFT JOIN areas a ON a.project_id = p.id
-          LEFT JOIN units u ON u.area_id = a.id
-          LEFT JOIN daily_hours dh ON dh.unit_id = u.id
-          WHERE v.user_id = $1
-          GROUP BY p.id, p.no_project
-          ORDER BY p.id DESC
-        `, [userId]);
-      } else {
+      if (isSuperAdmin || scope === 'ALL') {
         projRes = await pool.query(`
           SELECT p.id, p.no_project, p.budget_biaya,
                  TO_CHAR(MIN(dh.tanggal), 'YYYY-MM-DD') as actual_mulai,
@@ -417,6 +407,57 @@ export default function reportRoutes(pool) {
           GROUP BY p.id, p.no_project
           ORDER BY p.id DESC
         `);
+      } else if (scope === 'DIVISION') {
+        projRes = await pool.query(`
+          SELECT p.id, p.no_project, p.budget_biaya,
+                 TO_CHAR(MIN(dh.tanggal), 'YYYY-MM-DD') as actual_mulai,
+                 TO_CHAR(MAX(dh.tanggal), 'YYYY-MM-DD') as actual_selesai
+          FROM projects p
+          LEFT JOIN users creator ON p.created_by = creator.id
+          LEFT JOIN areas a ON a.project_id = p.id
+          LEFT JOIN units u ON u.area_id = a.id
+          LEFT JOIN daily_hours dh ON dh.unit_id = u.id
+          WHERE creator.divisi_id = $1
+             OR LOWER(TRIM(COALESCE(p.leader, ''))) = LOWER(TRIM($2))
+             OR (p.leaders IS NOT NULL AND p.leaders::jsonb @> $3::jsonb)
+             OR (p.leaders IS NOT NULL AND p.leaders::jsonb @> $4::jsonb)
+             OR (p.leaders IS NOT NULL AND p.leaders::jsonb @> $5::jsonb)
+             OR p.created_by = $6
+          GROUP BY p.id, p.no_project
+          ORDER BY p.id DESC
+        `, [
+          divisiId || 0,
+          req.user?.name || '',
+          JSON.stringify([{ value: userId }]),
+          JSON.stringify([{ id: userId }]),
+          JSON.stringify([{ name: req.user?.name || '' }]),
+          userId
+        ]);
+      } else {
+        // Scope === 'OWN'
+        const userName = req.user?.name || '';
+        projRes = await pool.query(`
+          SELECT p.id, p.no_project, p.budget_biaya,
+                 TO_CHAR(MIN(dh.tanggal), 'YYYY-MM-DD') as actual_mulai,
+                 TO_CHAR(MAX(dh.tanggal), 'YYYY-MM-DD') as actual_selesai
+          FROM projects p
+          LEFT JOIN areas a ON a.project_id = p.id
+          LEFT JOIN units u ON u.area_id = a.id
+          LEFT JOIN daily_hours dh ON dh.unit_id = u.id
+          WHERE LOWER(TRIM(COALESCE(p.leader, ''))) = LOWER(TRIM($1))
+             OR (p.leaders IS NOT NULL AND p.leaders::jsonb @> $2::jsonb)
+             OR (p.leaders IS NOT NULL AND p.leaders::jsonb @> $3::jsonb)
+             OR (p.leaders IS NOT NULL AND p.leaders::jsonb @> $4::jsonb)
+             OR p.created_by = $5
+          GROUP BY p.id, p.no_project
+          ORDER BY p.id DESC
+        `, [
+          userName,
+          JSON.stringify([{ value: userId }]),
+          JSON.stringify([{ id: userId }]),
+          JSON.stringify([{ name: userName }]),
+          userId
+        ]);
       }
       const projects = projRes.rows;
 

@@ -5,17 +5,14 @@ import { apiUrl } from '../../../api';
 import { useAuth } from '../../../context/AuthContext';
 
 export default function RiwayatAktivitas() {
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const { hasPermission, getPermissionScope } = useAuth();
+  const { user: authUser, hasPermission, getPermissionScope } = useAuth();
+  const user = authUser || JSON.parse(localStorage.getItem('user') || '{}');
   
-  const roleName = (user.jabatan || '').toLowerCase();
-  const isSuperAdmin = roleName === 'super admin' || user.username === 'admin' || user.role === 'superadmin';
-  const isAdmin = roleName.includes('admin') || isSuperAdmin;
+  const isSuperAdmin = Number(user.jabatan_id) === 1 || (user.jabatan || '').toLowerCase() === 'super admin' || (user.role || '').toLowerCase() === 'superadmin';
   
   // Ambil scope dari DB / context (ALL / DIVISION / OWN)
   const actScope = getPermissionScope('riwayat_aktivitas_view') || getPermissionScope('aktivitas_view') || 'ALL';
 
-  const userDivisiLower = (user.divisi || user.nama_divisi || '').toLowerCase();
   const canSeeAll = actScope === 'ALL' || isSuperAdmin;
   const canAction = hasPermission('aktivitas_delete');
 
@@ -28,7 +25,7 @@ export default function RiwayatAktivitas() {
 
   useEffect(() => {
     fetchActivities();
-  }, [actScope]);
+  }, [actScope, user?.id, user?.divisi_id]);
 
   const fetchActivities = async () => {
     try {
@@ -36,18 +33,22 @@ export default function RiwayatAktivitas() {
       if (response.ok) {
         let data = await response.json();
         
-        // Filter frontend yang konsisten dengan scope yang dikonfigurasi di Manajemen Akses
+        // Backend sudah menerapkan scope filtering (WHERE u.divisi_id = $1 atau WHERE a.user_id = $1).
+        // Kita juga pastikan frontend filter konsisten bila token belum ter-refresh
         data = data.filter(act => {
           if (isSuperAdmin || actScope === 'ALL') return true;
           if (actScope === 'OWN') return Number(act.user_id) === Number(user.id);
           if (actScope === 'DIVISION') {
             const userDivId = Number(user.divisi_id || 0);
-            const actDivId = Number(act.divisi_id || act.user_divisi_id || 0);
-            const userDiv = (user.divisi || user.nama_divisi || '').toLowerCase();
-            const actDiv = (act.user_divisi || '').toLowerCase();
-            return (userDivId && actDivId && userDivId === actDivId) ||
-                   (userDiv && actDiv && userDiv === actDiv) || 
-                   Number(act.user_id) === Number(user.id);
+            const actDivId = Number(act.user_divisi_id || act.divisi_id || 0);
+            const userDiv = (user.divisi || user.nama_divisi || '').trim().toLowerCase();
+            const actDiv = (act.user_divisi || '').trim().toLowerCase();
+            
+            // Seluruh hierarki di divisi yang sama (Staff, SPV, Manager, dsb)
+            if (userDivId && actDivId && userDivId === actDivId) return true;
+            if (userDiv && actDiv && userDiv === actDiv) return true;
+            if (Number(act.user_id) === Number(user.id)) return true;
+            return false;
           }
           return false;
         });

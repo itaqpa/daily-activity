@@ -220,8 +220,8 @@ app.post('/api/login', async (req, res) => {
                               FROM jabatan_permissions jp
                               WHERE (jp.jabatan_id = u.jabatan_id OR jp.jabatan_id IN (SELECT jabatan_id FROM user_additional_roles WHERE user_id = u.id))
                                 AND jp.permission_id = all_p.permission_id),
-                             -- Prioritas 3: Default ALL jika dari divisi_permissions
-                             'ALL'
+                             -- Prioritas 3: Default DIVISION jika dari divisi_permissions
+                             'DIVISION'
                            ) as max_scope
                     FROM (
                       SELECT permission_id FROM divisi_permissions WHERE divisi_id = u.divisi_id
@@ -292,8 +292,8 @@ app.post('/api/login', async (req, res) => {
                               FROM jabatan_permissions jp
                               WHERE (jp.jabatan_id = u.jabatan_id OR jp.jabatan_id IN (SELECT jabatan_id FROM user_additional_roles WHERE user_id = u.id))
                                 AND jp.permission_id = all_p.permission_id),
-                             -- Prioritas 3: Default ALL jika dari divisi_permissions
-                             'ALL'
+                             -- Prioritas 3: Default DIVISION jika dari divisi_permissions
+                             'DIVISION'
                            ) as max_scope
                     FROM (
                       SELECT permission_id FROM divisi_permissions WHERE divisi_id = u.divisi_id
@@ -421,8 +421,8 @@ app.get('/api/me', async (req, res) => {
                               FROM jabatan_permissions jp
                               WHERE (jp.jabatan_id = u.jabatan_id OR jp.jabatan_id IN (SELECT jabatan_id FROM user_additional_roles WHERE user_id = u.id))
                                 AND jp.permission_id = all_p.permission_id),
-                             -- Prioritas 3: Default ALL jika dari divisi_permissions
-                             'ALL'
+                             -- Prioritas 3: Default DIVISION jika dari divisi_permissions
+                             'DIVISION'
                            ) as max_scope
                     FROM (
                       SELECT permission_id FROM divisi_permissions WHERE divisi_id = u.divisi_id
@@ -761,6 +761,7 @@ app.get('/api/activities', async (req, res) => {
         a.*,
         c.nama_customer,
         u.name as user_name,
+        u.divisi_id as user_divisi_id,
         j.nama_jabatan as user_jabatan,
         d.nama_divisi as user_divisi
       FROM daily_activity_sales a
