@@ -59,8 +59,10 @@ export default function UserManagement() {
     const csvContent = 
 `# CATATAN PENTING:
 # 1. Baris yang berawalan # akan diabaikan oleh sistem.
-# 2. Format mulai baris ke-4 ke bawah adalah contoh, silakan timpa dengan data asli Anda.
-Nama Lengkap,Username,Email,Password,Status Aktif (1/0),ID Divisi (1:Sales, 4:Management, 9:Engineering),ID Jabatan (1:Super Admin, 2:Manager, 3:Spv, 4:Leader, 5:Staff, 27:Admin)
+# 2. Referensi ID Divisi: ${divisis.map(d => `${d.id}:${d.nama_divisi}`).join(', ')}
+# 3. Referensi ID Jabatan: ${jabatans.map(j => `${j.id}:${j.nama_jabatan}`).join(', ')}
+# 4. Format mulai baris berikutnya adalah contoh, silakan timpa dengan data Anda.
+Nama Lengkap,Username,Email,Password,Status Aktif (1/0),ID Divisi,ID Jabatan
 Yudo,yudo,yudo@example.com,password123,1,1,5`;
 
     const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -267,13 +269,14 @@ Yudo,yudo,yudo@example.com,password123,1,1,5`;
                         </span>
                       )}
                       {/* Additional Roles Badges */}
-                      {u.additional_roles && u.additional_roles.map(roleId => {
+                      {Array.isArray(u.additional_roles) && u.additional_roles.map(roleId => {
                         const role = jabatans.find(j => j.id === roleId);
-                        if (!role) return null;
+                        if (!role || !role.nama_jabatan) return null;
+                        const roleNameLower = (role.nama_jabatan || '').toLowerCase();
                         return (
                           <span key={roleId} className={`inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-medium ${
-                            role.nama_jabatan.toLowerCase().includes('admin') ? 'bg-red-50 text-red-700' :
-                            role.nama_jabatan.toLowerCase().includes('spv') ? 'bg-purple-50 text-purple-700' :
+                            roleNameLower.includes('admin') ? 'bg-red-50 text-red-700' :
+                            roleNameLower.includes('spv') ? 'bg-purple-50 text-purple-700' :
                             'bg-blue-50 text-blue-700'
                           }`}>
                             {role.nama_jabatan}
@@ -447,8 +450,8 @@ Yudo,yudo,yudo@example.com,password123,1,1,5`;
                               username: row['Username'] || '',
                               email: row['Email'] || '',
                               password: row['Password'] || 'password123',
-                              divisi_id: row['ID Divisi (1:Sales, 4:Management, 9:Engineering)'] || null,
-                              jabatan_id: row['ID Jabatan (1:Super Admin, 2:Manager, 3:Spv, 4:Leader, 5:Staff, 27:Admin)'] || null,
+                              divisi_id: row['ID Divisi'] || row['ID Divisi (1:Sales, 4:Management, 9:Engineering)'] || null,
+                              jabatan_id: row['ID Jabatan'] || row['ID Jabatan (1:Super Admin, 2:Manager, 3:Spv, 4:Leader, 5:Staff, 27:Admin)'] || null,
                               additional_roles: [],
                               is_active: row['Status Aktif (1/0)'] === '1' || row['Status Aktif (1/0)'] === 1
                             };

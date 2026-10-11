@@ -6,8 +6,11 @@ import CostDashboard from './components/DataPengeluaran/CostDashboard';
 import { currentMonthRange } from './components/DataPengeluaran/costSummary';
 
 import { apiUrl } from '../api';
+import { useAuth } from '../context/AuthContext';
 
 export default function ListCostMPPage() {
+    const { user: authUser, getPermissionScope } = useAuth();
+    const user = authUser || JSON.parse(localStorage.getItem('user') || '{}');
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -15,6 +18,14 @@ export default function ListCostMPPage() {
     const [projectId, setProjectId] = useState('all');
     const [pageSize, setPageSize] = useState(15);
     const [page, setPage] = useState(1);
+
+    const costScope = getPermissionScope('pengeluaran_view') || getPermissionScope('install_project_view') || 'ALL';
+    const isSuperAdmin = 
+      Number(user?.jabatan_id) === 1 || 
+      user?.role?.toLowerCase() === 'superadmin' ||
+      user?.jabatan?.toLowerCase() === 'super admin' ||
+      user?.jabatan_name?.toLowerCase() === 'super admin' ||
+      user?.additional_roles_data?.some(r => Number(r.id) === 1);
 
     const filtered = useMemo(
         () => (projectId === 'all' ? data : data.filter((p) => String(p.id) === projectId)),
@@ -89,7 +100,7 @@ export default function ListCostMPPage() {
 
     useEffect(() => {
         fetchAllCosts();
-    }, []);
+    }, [costScope, user?.id, user?.divisi_id]);
 
     return (
     <MainLayout>

@@ -174,21 +174,58 @@ export default function Portal() {
 
               <div className="py-2 sm:py-3">
                 <div className="px-4 sm:px-5">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 sm:mb-3">Role Akses Tambahan</p>
-                  {user?.additional_roles_data && user.additional_roles_data.length > 0 ? (
-                    <div className="flex flex-col gap-2">
-                      {user.additional_roles_data.map((role) => (
-                        <div key={role.id} className="flex items-center gap-2 text-sm text-slate-700 bg-white p-2 rounded-xl border border-slate-100 shadow-sm">
-                          <div className="p-1.5 bg-blue-50 text-blue-600 rounded-lg shrink-0">
-                            <Shield className="w-3.5 h-3.5" />
-                          </div>
-                          <span className="font-semibold text-xs truncate">{role.nama_jabatan}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-slate-400 italic bg-slate-50 p-2 sm:p-2.5 rounded-xl text-center">Tidak ada role tambahan</p>
-                  )}
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 sm:mb-3">Role & Akses Akun</p>
+                  {(() => {
+                    const rolesList = [];
+                    if (user?.jabatan) {
+                      rolesList.push({ id: user.jabatan_id, nama_jabatan: user.jabatan, isDefault: true });
+                    }
+                    if (user?.additional_roles_data && Array.isArray(user.additional_roles_data)) {
+                      user.additional_roles_data.forEach(r => {
+                        if (!rolesList.some(item => Number(item.id) === Number(r.id))) {
+                          rolesList.push({ id: r.id, nama_jabatan: r.nama_jabatan, isDefault: false });
+                        }
+                      });
+                    }
+                    const activeRoleName = user?.active_jabatan || user?.jabatan;
+
+                    return (
+                      <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto pr-1">
+                        {rolesList.map((role) => {
+                          const isCurrentActive = activeRoleName === role.nama_jabatan;
+                          return (
+                            <button
+                              key={role.id}
+                              type="button"
+                              onClick={() => {
+                                const updatedUser = { ...user, active_jabatan_id: role.id, active_jabatan: role.nama_jabatan };
+                                localStorage.setItem("user", JSON.stringify(updatedUser));
+                                window.location.reload();
+                              }}
+                              className={`w-full flex items-center justify-between p-2 rounded-xl text-left transition-all border ${
+                                isCurrentActive 
+                                  ? 'bg-blue-50/80 border-blue-200 text-blue-700 font-semibold shadow-sm' 
+                                  : 'bg-white border-slate-100 text-slate-700 hover:bg-slate-50'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 truncate">
+                                <div className={`p-1 rounded-lg shrink-0 ${isCurrentActive ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>
+                                  <Shield className="w-3.5 h-3.5" />
+                                </div>
+                                <span className="font-semibold text-xs truncate">{role.nama_jabatan}</span>
+                                {role.isDefault && (
+                                  <span className="text-[9px] bg-slate-100 text-slate-500 px-1 py-0.2 rounded font-normal shrink-0">Utama</span>
+                                )}
+                              </div>
+                              {isCurrentActive && (
+                                <span className="text-blue-600 text-xs font-bold shrink-0 ml-1">✓</span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 

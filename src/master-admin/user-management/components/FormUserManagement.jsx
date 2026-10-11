@@ -267,8 +267,8 @@ export default function FormUserManagement({
                             className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 flex-shrink-0"
                           />
                           <span className={`text-xs font-semibold px-2.5 py-1 rounded-lg ${
-                            j.nama_jabatan.toLowerCase().includes('admin') ? 'bg-red-50 text-red-700' :
-                            j.nama_jabatan.toLowerCase().includes('spv') ? 'bg-purple-50 text-purple-700' :
+                            (j.nama_jabatan || '').toLowerCase().includes('admin') ? 'bg-red-50 text-red-700' :
+                            (j.nama_jabatan || '').toLowerCase().includes('spv') ? 'bg-purple-50 text-purple-700' :
                             'bg-blue-50 text-blue-700'
                           }`}>
                             {j.nama_jabatan}
@@ -288,14 +288,18 @@ export default function FormUserManagement({
                   
                   <div className="flex flex-col items-center justify-center py-12 px-4 text-center bg-gray-50 border border-dashed border-gray-200 rounded-xl">
                     <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-4">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-                      </svg>
+                      <Shield className="w-8 h-8" />
                     </div>
-                    <h5 className="text-lg font-bold text-gray-800 mb-2">Coming Soon</h5>
-                    <p className="text-sm text-gray-500 max-w-sm mx-auto">
-                      Fitur Hak Akses Spesifik (Permissions) sedang dalam pengembangan. Saat ini seluruh akses diatur secara otomatis berdasarkan Jabatan / Role user.
+                    <h5 className="text-base font-bold text-gray-800 mb-2">Terintegrasi dengan Manajemen Akses</h5>
+                    <p className="text-xs text-gray-600 max-w-md mx-auto mb-5 leading-relaxed">
+                      Hak akses spesifik per user (<b>user_permissions</b>) maupun per jabatan (<b>jabatan_permissions</b>) beserta cakupan datanya (ALL / DIVISION / OWN) diatur secara terpusat melalui modul <b>Manajemen Akses</b>.
                     </p>
+                    <a 
+                      href="/master-admin/manajemen-akses" 
+                      className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm transition-colors"
+                    >
+                      Buka Modul Manajemen Akses &rarr;
+                    </a>
                   </div>
                 </div>
               )}
