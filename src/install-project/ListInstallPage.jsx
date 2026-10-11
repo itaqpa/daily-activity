@@ -16,7 +16,7 @@ export default function ListInstallPage() {
   const [itemsPerPage, setItemsPerPage] = useState(15);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [editId, setEditId] = useState(null);
-  const { user, hasPermission } = useAuth();
+  const { user, hasPermission, getPermissionScope } = useAuth();
   
   // Handle clicking outside dropdown
   useEffect(() => {
@@ -45,12 +45,19 @@ export default function ListInstallPage() {
           user?.jabatan_name?.toLowerCase() === 'super admin' ||
           user?.additional_roles_data?.some(r => Number(r.id) === 1);
 
-        // Selain Super Admin, hanya tampilkan project yang dipimpinnya sendiri
-        if (user && !isSuperAdmin) {
+        const projectScope = getPermissionScope('install_project_view') || 'ALL';
+
+        // Jika scope !== 'ALL' dan bukan Super Admin, filter data sesuai scope
+        if (user && !isSuperAdmin && projectScope !== 'ALL') {
           const uId = Number(user.id);
           const uName = (user.name || '').trim().toLowerCase();
           const uUsername = (user.username || '').trim().toLowerCase();
           data = data.filter(p => {
+            if (projectScope === 'DIVISION') {
+              const userDiv = (user.divisi || user.nama_divisi || '').toLowerCase();
+              const creatorDiv = (p.creator_divisi || p.divisi || '').toLowerCase();
+              if (userDiv && creatorDiv && userDiv === creatorDiv) return true;
+            }
             if (Number(p.created_by) === uId) return true;
             // Check leaders array (JSONB)
             if (Array.isArray(p.leaders) && p.leaders.length > 0) {

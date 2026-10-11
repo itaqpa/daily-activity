@@ -6,28 +6,17 @@ import { useAuth } from '../../../context/AuthContext';
 
 export default function RiwayatAktivitas() {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const { hasPermission } = useAuth();
+  const { hasPermission, getPermissionScope } = useAuth();
   
   const roleName = (user.jabatan || '').toLowerCase();
-  
   const isSuperAdmin = roleName === 'super admin' || user.username === 'admin' || user.role === 'superadmin';
   const isAdmin = roleName.includes('admin') || isSuperAdmin;
-  const isManager = roleName.includes('manager');
-  const isSpv = roleName.includes('spv') || roleName.includes('supervisor');
-  const isLeader = roleName === 'leader';
   
-  const getVisibilityRoles = () => {
-    if (isAdmin) return ['all'];
-    if (isManager) return ['manager', 'spv', 'supervisor', 'leader', 'staff', 'sales'];
-    if (isSpv) return ['spv', 'supervisor', 'leader', 'staff', 'sales'];
-    if (isLeader) return ['leader', 'staff', 'sales'];
-    return ['staff', 'sales'];
-  };
+  // Ambil scope dari DB / context (ALL / DIVISION / OWN)
+  const actScope = getPermissionScope('riwayat_aktivitas_view') || getPermissionScope('aktivitas_view') || 'ALL';
 
   const userDivisiLower = (user.divisi || user.nama_divisi || '').toLowerCase();
-  const isSalesDivision = userDivisiLower.includes('sales') || userDivisiLower.includes('marketing');
-  const isCrossModuleViewer = (user.explicit_bypass_permissions?.includes('dashboard_view') || user.explicit_bypass_permissions?.includes('aktivitas_view') || user.explicit_bypass_permissions?.includes('riwayat_aktivitas_view')) && !isSalesDivision;
-  const canSeeAll = roleName !== 'staff' || isCrossModuleViewer;
+  const canSeeAll = actScope === 'ALL' || isSuperAdmin;
   const canAction = hasPermission('aktivitas_delete');
 
   const [activities, setActivities] = useState([]);
@@ -39,7 +28,7 @@ export default function RiwayatAktivitas() {
 
   useEffect(() => {
     fetchActivities();
-  }, []);
+  }, [actScope]);
 
   const fetchActivities = async () => {
     try {
@@ -47,27 +36,19 @@ export default function RiwayatAktivitas() {
       if (response.ok) {
         let data = await response.json();
         
-        const visibleRoles = getVisibilityRoles();
-
+        // Filter frontend yang konsisten dengan scope yang dikonfigurasi di Manajemen Akses
         data = data.filter(act => {
-          // Super Admin/Admin/View All bisa melihat semuanya
-          if (isAdmin || visibleRoles.includes('all')) return true;
-          // Selalu bisa melihat catatannya sendiri
-          if (act.user_id === user.id) return true;
-          // Atau sesuai rule visibilitas role-nya DAN berada di divisi yang sama
-          if (act.user_jabatan) {
-            const actRole = act.user_jabatan.toLowerCase();
-            
-            // Cek divisi (lapisan ke-2)
+          if (isSuperAdmin || actScope === 'ALL') return true;
+          if (actScope === 'OWN') return Number(act.user_id) === Number(user.id);
+          if (actScope === 'DIVISION') {
+            const userDivId = Number(user.divisi_id || 0);
+            const actDivId = Number(act.divisi_id || act.user_divisi_id || 0);
             const userDiv = (user.divisi || user.nama_divisi || '').toLowerCase();
             const actDiv = (act.user_divisi || '').toLowerCase();
-            // Jika user lintas modul (bypass), tampilkan semua tanpa filter divisi
-            if (isCrossModuleViewer) return true;
-
-            const isSameDivisi = !userDiv || !actDiv || userDiv === actDiv;
-            if (isSameDivisi && visibleRoles.some(vr => actRole.includes(vr))) return true;
+            return (userDivId && actDivId && userDivId === actDivId) ||
+                   (userDiv && actDiv && userDiv === actDiv) || 
+                   Number(act.user_id) === Number(user.id);
           }
-          
           return false;
         });
 

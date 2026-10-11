@@ -9,31 +9,36 @@ export function AuthProvider({ children }) {
     return userString ? JSON.parse(userString) : null;
   });
 
+  // Background refresh user profile
+  const refreshUser = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return null;
+    
+    try {
+      const response = await fetch(apiUrl('/me'), {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setUser(data.user);
+        localStorage.setItem('user', JSON.stringify(data.user)); // update cache
+        return data.user;
+      } else if (response.status === 401) {
+        setUser(null);
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      }
+    } catch (err) {
+      console.error('Failed to refresh user session', err);
+    }
+    return null;
+  };
+
   // Initial load / background refresh
   useEffect(() => {
-    // Background fetch profil dan permission terbaru
-    const fetchLatestProfile = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-      
-      try {
-        const response = await fetch(apiUrl('/me'));
-        if (response.ok) {
-          const data = await response.json();
-          setUser(data.user);
-          localStorage.setItem('user', JSON.stringify(data.user)); // update cache
-        } else if (response.status === 401) {
-          // Token expired atau invalid
-          setUser(null);
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-        }
-      } catch (err) {
-        console.error('Failed to refresh user session', err);
-      }
-    };
-    
-    fetchLatestProfile();
+    refreshUser();
   }, []);
 
   // Update user in state and localStorage
@@ -56,13 +61,20 @@ export function AuthProvider({ children }) {
     return !!(inRole || inBypass);
   };
 
+  // Helper function to get data scope for a permission ('ALL' | 'DIVISION' | 'OWN' | null)
+  const getPermissionScope = (permissionName) => {
+    if (!user) return null;
+    if (!hasPermission(permissionName)) return null;
+    return user.permission_scopes?.[permissionName] || 'ALL';
+  };
+
   // Alias hasMarketingPerm to hasPermission to support existing components without division hardcoding
   const hasMarketingPerm = (permissionName) => {
     return hasPermission(permissionName);
   };
 
   return (
-    <AuthContext.Provider value={{ user, updateUser, logout, hasPermission, hasMarketingPerm }}>
+    <AuthContext.Provider value={{ user, updateUser, refreshUser, logout, hasPermission, getPermissionScope, hasMarketingPerm }}>
       {children}
     </AuthContext.Provider>
   );
