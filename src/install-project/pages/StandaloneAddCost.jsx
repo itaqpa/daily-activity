@@ -25,8 +25,19 @@ export default function StandaloneAddCost() {
           // Filter out closed projects
           let activeProjects = data.filter(p => p.status?.toLowerCase() !== 'close' && p.status?.toLowerCase() !== 'closed' && p.status?.toLowerCase() !== 'done');
           
-          if (user && user.jabatan_id !== 1 && user.jabatan_id !== 27 && user.role !== 'admin') {
-            activeProjects = activeProjects.filter(p => p.leader === user.name);
+          const isSuperAdminOrAdmin = 
+            Number(user?.jabatan_id) === 1 || 
+            Number(user?.jabatan_id) === 27 || 
+            user?.role === 'admin' ||
+            user?.role === 'superadmin';
+
+          if (user && !isSuperAdminOrAdmin) {
+            const uName = (user.name || '').trim().toLowerCase();
+            const uUsername = (user.username || '').trim().toLowerCase();
+            activeProjects = activeProjects.filter(p => {
+              const pLeader = (p.leader || '').trim().toLowerCase();
+              return pLeader === uName || pLeader === uUsername || Number(p.created_by) === Number(user.id);
+            });
           }
           
           setProjects(activeProjects);
