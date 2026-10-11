@@ -1389,6 +1389,7 @@ export default function (pool) {
       }
 
       await client.query('BEGIN');
+      await client.query('SET search_path TO survey_engine, public');
       await client.query("SET LOCAL survey_engine.allow_admin_override = 'on'");
 
       // Dapatkan active published version
@@ -1546,6 +1547,7 @@ export default function (pool) {
       }
 
       await client.query('BEGIN');
+      await client.query('SET search_path TO survey_engine, public');
       await client.query("SET LOCAL survey_engine.allow_admin_override = 'on'");
 
       // Update template_questions
