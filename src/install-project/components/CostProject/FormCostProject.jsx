@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { X, Save, ArrowLeft, Loader2, Calendar } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
+import { apiUrl } from "../../../api";
 
 export default function FormCostProject({ project, onClose, onSuccess, isMobile = false, inline = false }) {
   const { user } = useAuth();
@@ -61,7 +62,7 @@ export default function FormCostProject({ project, onClose, onSuccess, isMobile 
         dibebankan_ke: formData.dibebankan_ke === "prorata" ? null : (formData.dibebankan_ke || null)
       };
 
-      const res = await fetch('http://localhost:8400/api/cost-project', {
+      const res = await fetch(apiUrl('/cost-project'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

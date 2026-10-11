@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { DollarSign, ChevronDown, ChevronUp, Plus, Loader2, Info } from 'lucide-react';
 import FormCostProject from '../CostProject/FormCostProject';
+import { apiUrl } from '../../../api';
 
-const API = 'http://localhost:8400';
 const fmtRp = n => 'Rp ' + Math.round(Number(n) || 0).toLocaleString('id-ID');
 const fmtNum = (n, d = 0) => (Number(n) || 0).toLocaleString('id-ID', { minimumFractionDigits: d, maximumFractionDigits: d });
 
@@ -132,7 +132,7 @@ export default function BiayaProyekTab({ project }) {
   const fetchCost = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API}/api/report/cost?project_id=${project.id}`);
+      const res = await fetch(apiUrl(`/report/cost?project_id=${project.id}`));
       if (res.ok) setCostData(await res.json());
     } catch (err) {
       console.error(err);

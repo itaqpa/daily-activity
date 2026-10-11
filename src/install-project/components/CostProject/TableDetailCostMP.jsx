@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronDown, ChevronUp, DollarSign } from 'lucide-react';
+import { apiUrl } from '../../../api';
 
 const fmtRp = (n) =>
     'Rp ' + Math.round(Number(n) || 0).toLocaleString('id-ID');
@@ -318,7 +319,7 @@ export default function TableDetailCostMP({ proj, index, isMobile }) {
     useEffect(() => {
         if (open && !hasFetched) {
             setLoadingManpower(true);
-            fetch(`http://localhost:8400/api/report/manpower?project_id=${proj.id}`)
+            fetch(apiUrl(`/report/manpower?project_id=${proj.id}`))
                 .then(res => res.json())
                 .then(data => {
                     setManpowerData(data);
