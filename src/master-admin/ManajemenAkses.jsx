@@ -15,8 +15,14 @@ export default function ManajemenAkses() {
   const [selectedUser, setSelectedUser] = useState('');
 
   const [divisiPerms, setDivisiPerms] = useState([]);
-  const [jabatanPerms, setJabatanPerms] = useState([]);
-  const [userPerms, setUserPerms] = useState([]);
+  const [jabatanPerms, setJabatanPerms] = useState([]); // array of permission_id
+  const [jabatanScopes, setJabatanScopes] = useState({}); // { [permId]: 'ALL' | 'DIVISION' | 'OWN' }
+  const [userPerms, setUserPerms] = useState([]); // array of permission_id (direct bypass)
+  const [userScopes, setUserScopes] = useState({}); // { [permId]: 'ALL' | 'DIVISION' | 'OWN' }
+  const [inheritedDivisiPerms, setInheritedDivisiPerms] = useState([]); // array of permission_id
+  const [inheritedJabatanPerms, setInheritedJabatanPerms] = useState([]); // array of permission_id
+  const [inheritedJabatanScopes, setInheritedJabatanScopes] = useState({}); // { [permId]: scope }
+  const [selectedUserInfo, setSelectedUserInfo] = useState(null);
   
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -55,23 +61,91 @@ export default function ManajemenAkses() {
   }
 
   const fetchJabatanPerms = async (id) => {
-    if(!id) return setJabatanPerms([]);
+    if(!id) {
+      setJabatanPerms([]);
+      setJabatanScopes({});
+      return;
+    }
     setIsLoading(true);
     try {
       const res = await fetch(apiUrl(`/permissions/jabatan/${id}`));
       const data = await res.json();
-      setJabatanPerms(data || []);
+      if (Array.isArray(data)) {
+        const ids = data.map(item => (typeof item === 'object' ? item.permission_id : item));
+        const scopes = {};
+        data.forEach(item => {
+          if (typeof item === 'object') {
+            scopes[item.permission_id] = item.data_scope || 'ALL';
+          }
+        });
+        setJabatanPerms(ids);
+        setJabatanScopes(scopes);
+      } else {
+        setJabatanPerms([]);
+        setJabatanScopes({});
+      }
     } catch(e) {} finally { setIsLoading(false); }
   }
 
   const fetchUserPerms = async (id) => {
-    if(!id) return setUserPerms([]);
+    if(!id) {
+      setUserPerms([]);
+      setUserScopes({});
+      setInheritedDivisiPerms([]);
+      setInheritedJabatanPerms([]);
+      setInheritedJabatanScopes({});
+      setSelectedUserInfo(null);
+      return;
+    }
     setIsLoading(true);
     try {
       const res = await fetch(apiUrl(`/permissions/user/${id}`));
       const data = await res.json();
-      setUserPerms(data || []);
-    } catch(e) {} finally { setIsLoading(false); }
+      
+      // Jika data berupa object response baru
+      if (data && data.direct) {
+        setSelectedUserInfo(data.user || null);
+        
+        // Direct bypass
+        const directIds = (data.direct || []).map(item => item.permission_id);
+        const directScopes = {};
+        (data.direct || []).forEach(item => {
+          directScopes[item.permission_id] = item.data_scope || 'ALL';
+        });
+        setUserPerms(directIds);
+        setUserScopes(directScopes);
+
+        // Inherited dari divisi
+        const divIds = (data.inherited_divisi || []).map(item => item.permission_id);
+        setInheritedDivisiPerms(divIds);
+
+        // Inherited dari jabatan
+        const jabIds = (data.inherited_jabatan || []).map(item => item.permission_id);
+        const jabScopes = {};
+        (data.inherited_jabatan || []).forEach(item => {
+          jabScopes[item.permission_id] = item.data_scope || 'ALL';
+        });
+        setInheritedJabatanPerms(jabIds);
+        setInheritedJabatanScopes(jabScopes);
+      } else if (Array.isArray(data)) {
+        // Fallback backward compatibility
+        const ids = data.map(item => (typeof item === 'object' ? item.permission_id : item));
+        const scopes = {};
+        data.forEach(item => {
+          if (typeof item === 'object') {
+            scopes[item.permission_id] = item.data_scope || 'ALL';
+          }
+        });
+        setUserPerms(ids);
+        setUserScopes(scopes);
+        setInheritedDivisiPerms([]);
+        setInheritedJabatanPerms([]);
+        setInheritedJabatanScopes({});
+        setSelectedUserInfo(null);
+      }
+    } catch(e) {
+      console.error(e);
+    } finally { setIsLoading(false); }
   }
 
   useEffect(() => { fetchDivisiPerms(selectedDivisi); }, [selectedDivisi]);
@@ -79,8 +153,34 @@ export default function ManajemenAkses() {
   useEffect(() => { fetchUserPerms(selectedUser); }, [selectedUser]);
 
   const toggleDivisiPerm = (id) => setDivisiPerms(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]);
-  const toggleJabatanPerm = (id) => setJabatanPerms(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]);
-  const toggleUserPerm = (id) => setUserPerms(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]);
+  
+  const toggleJabatanPerm = (id) => {
+    setJabatanPerms(prev => {
+      const next = prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id];
+      if (!prev.includes(id) && !jabatanScopes[id]) {
+        setJabatanScopes(s => ({ ...s, [id]: 'ALL' }));
+      }
+      return next;
+    });
+  };
+
+  const changeJabatanScope = (id, scope) => {
+    setJabatanScopes(prev => ({ ...prev, [id]: scope }));
+  };
+
+  const toggleUserPerm = (id) => {
+    setUserPerms(prev => {
+      const next = prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id];
+      if (!prev.includes(id) && !userScopes[id]) {
+        setUserScopes(s => ({ ...s, [id]: 'ALL' }));
+      }
+      return next;
+    });
+  };
+
+  const changeUserScope = (id, scope) => {
+    setUserScopes(prev => ({ ...prev, [id]: scope }));
+  };
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -94,16 +194,24 @@ export default function ManajemenAkses() {
           }));
         }
         if (selectedJabatan) {
+          const items = jabatanPerms.map(id => ({
+            permission_id: id,
+            data_scope: jabatanScopes[id] || 'ALL'
+          }));
           promises.push(fetch(apiUrl(`/permissions/jabatan/${selectedJabatan}`), {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ permissions: jabatanPerms })
+            body: JSON.stringify({ items, permissions: jabatanPerms })
           }));
         }
       } else {
         if (selectedUser) {
+          const items = userPerms.map(id => ({
+            permission_id: id,
+            data_scope: userScopes[id] || 'ALL'
+          }));
           promises.push(fetch(apiUrl(`/permissions/user/${selectedUser}`), {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ permissions: userPerms })
+            body: JSON.stringify({ items, permissions: userPerms })
           }));
         }
       }
@@ -278,6 +386,9 @@ export default function ManajemenAkses() {
 
                     if (viewPerm) {
                       const isViewChecked = divisiPerms.includes(viewPerm.id);
+                      const isJabatanViewChecked = jabatanPerms.includes(viewPerm.id);
+                      const currentScope = jabatanScopes[viewPerm.id] || 'ALL';
+
                       return (
                         <div key={groupName} className={`border rounded-xl overflow-hidden transition-all ${isViewChecked ? 'border-blue-400 shadow-sm bg-blue-50/30' : 'border-gray-200 bg-gray-50 opacity-75 hover:opacity-100'}`}>
                           <label className={`cursor-pointer px-4 py-3 border-b flex justify-between items-center transition-colors ${isViewChecked ? 'bg-blue-100 border-blue-200' : 'bg-gray-100 border-gray-200 hover:bg-gray-200'}`}>
@@ -294,40 +405,84 @@ export default function ManajemenAkses() {
                             {selectedDivisi && <span className="text-[10px] bg-blue-200 text-blue-800 px-2 py-0.5 rounded-full font-bold">DIVISI</span>}
                           </label>
 
-                          <div className="p-4">
-                            <p className="text-xs text-gray-500 mb-3 font-semibold">Kewenangan Jabatan (CRUDEI):</p>
-                            <div className="flex flex-wrap gap-2">
-                              {crudPerms.length === 0 ? (
-                                <span className="text-xs text-gray-400 italic">Tidak ada aksi spesifik.</span>
-                              ) : (
-                                crudPerms.map(p => {
-                                  const action = p.nama_permission.split('_').pop();
-                                  let colorClass = "text-gray-600 bg-white border-gray-200";
-                                  if (jabatanPerms.includes(p.id)) {
-                                    if (action === 'create' || action === 'import') colorClass = "text-green-700 bg-green-100 border-green-300 font-bold";
-                                    else if (action === 'edit') colorClass = "text-yellow-700 bg-yellow-100 border-yellow-300 font-bold";
-                                    else if (action === 'delete') colorClass = "text-red-700 bg-red-100 border-red-300 font-bold";
-                                    else if (action === 'export') colorClass = "text-purple-700 bg-purple-100 border-purple-300 font-bold";
-                                    else colorClass = "text-blue-700 bg-blue-100 border-blue-300 font-bold";
-                                  }
+                          <div className="p-4 space-y-4">
+                            {/* Scope Data Jabatan */}
+                            <div className="bg-white p-3 rounded-lg border border-gray-200 shadow-xs">
+                              <div className="flex items-center justify-between mb-2">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                  <input 
+                                    type="checkbox"
+                                    disabled={!selectedJabatan}
+                                    checked={isJabatanViewChecked}
+                                    onChange={() => toggleJabatanPerm(viewPerm.id)}
+                                    className="rounded text-blue-600"
+                                  />
+                                  <span className="text-xs font-bold text-gray-700">Akses View Jabatan</span>
+                                </label>
+                                {selectedJabatan && (
+                                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
+                                    currentScope === 'ALL' ? 'bg-emerald-100 text-emerald-700' :
+                                    currentScope === 'DIVISION' ? 'bg-indigo-100 text-indigo-700' :
+                                    'bg-amber-100 text-amber-700'
+                                  }`}>
+                                    {currentScope}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[11px] text-gray-500">Cakupan Data:</span>
+                                <select 
+                                  disabled={!selectedJabatan}
+                                  value={currentScope}
+                                  onChange={(e) => {
+                                    const newScope = e.target.value;
+                                    setJabatanPerms(prev => prev.includes(viewPerm.id) ? prev : [...prev, viewPerm.id]);
+                                    setJabatanScopes(prev => ({ ...prev, [viewPerm.id]: newScope }));
+                                  }}
+                                  className="text-xs py-1.5 px-2 border border-gray-200 rounded-md bg-gray-50 focus:bg-white focus:ring-1 focus:ring-blue-500 outline-none font-medium flex-1 disabled:opacity-50"
+                                >
+                                  <option value="ALL">Semua Data (ALL)</option>
+                                  <option value="DIVISION">Satu Divisi (DIVISION)</option>
+                                  <option value="OWN">Data Diri Sendiri (OWN)</option>
+                                </select>
+                              </div>
+                            </div>
 
-                                  return (
-                                    <label 
-                                      key={p.id} 
-                                      className={`flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border transition-all hover:shadow-sm ${colorClass} ${(!isViewChecked) ? 'opacity-50' : ''}`}
-                                    >
-                                      <input 
-                                        type="checkbox" 
-                                        disabled={!selectedJabatan}
-                                        checked={jabatanPerms.includes(p.id)}
-                                        onChange={() => toggleJabatanPerm(p.id)}
-                                        className="hidden"
-                                      />
-                                      <span className="text-xs">{action.toUpperCase()}</span>
-                                    </label>
-                                  )
-                                })
-                              )}
+                            <div>
+                              <p className="text-xs text-gray-500 mb-2 font-semibold">Kewenangan Aksi (CRUD):</p>
+                              <div className="flex flex-wrap gap-2">
+                                {crudPerms.length === 0 ? (
+                                  <span className="text-xs text-gray-400 italic">Tidak ada aksi spesifik.</span>
+                                ) : (
+                                  crudPerms.map(p => {
+                                    const action = p.nama_permission.split('_').pop();
+                                    let colorClass = "text-gray-600 bg-white border-gray-200";
+                                    if (jabatanPerms.includes(p.id)) {
+                                      if (action === 'create' || action === 'import') colorClass = "text-green-700 bg-green-100 border-green-300 font-bold";
+                                      else if (action === 'edit') colorClass = "text-yellow-700 bg-yellow-100 border-yellow-300 font-bold";
+                                      else if (action === 'delete') colorClass = "text-red-700 bg-red-100 border-red-300 font-bold";
+                                      else if (action === 'export') colorClass = "text-purple-700 bg-purple-100 border-purple-300 font-bold";
+                                      else colorClass = "text-blue-700 bg-blue-100 border-blue-300 font-bold";
+                                    }
+
+                                    return (
+                                      <label 
+                                        key={p.id} 
+                                        className={`flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border transition-all hover:shadow-sm ${colorClass} ${(!isViewChecked) ? 'opacity-50' : ''}`}
+                                      >
+                                        <input 
+                                          type="checkbox" 
+                                          disabled={!selectedJabatan}
+                                          checked={jabatanPerms.includes(p.id)}
+                                          onChange={() => toggleJabatanPerm(p.id)}
+                                          className="hidden"
+                                        />
+                                        <span className="text-xs">{action.toUpperCase()}</span>
+                                      </label>
+                                    );
+                                  })
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -362,30 +517,194 @@ export default function ManajemenAkses() {
               </button>
             </div>
             
+            {selectedUserInfo && (
+              <div className="mb-6 p-4 rounded-xl bg-blue-50/60 border border-blue-200 flex flex-wrap items-center justify-between gap-4 text-sm">
+                <div>
+                  <span className="text-gray-500">Profil User:</span>{' '}
+                  <strong className="text-gray-800">{selectedUserInfo.name}</strong> ({selectedUserInfo.email})
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="px-2.5 py-1 bg-blue-100 text-blue-800 rounded-lg font-bold text-xs">
+                    Divisi: {selectedUserInfo.nama_divisi || 'Tanpa Divisi'}
+                  </span>
+                  <span className="px-2.5 py-1 bg-purple-100 text-purple-800 rounded-lg font-bold text-xs">
+                    Jabatan: {selectedUserInfo.nama_jabatan || 'Tanpa Jabatan'}
+                  </span>
+                </div>
+              </div>
+            )}
+
             {(!selectedUser) ? (
               <div className="py-10 text-center text-gray-500">Silakan pilih User.</div>
             ) : isLoading ? (
               <div className="py-10 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-blue-500" /></div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {Object.keys(grouped).map(groupName => (
-                  <div key={groupName} className="border border-gray-200 rounded-xl p-4">
-                    <h3 className="font-bold border-b pb-2 mb-3">{groupName}</h3>
-                    <div className="space-y-2">
-                      {grouped[groupName].map(p => (
-                        <label key={p.id} className="flex items-center gap-2 cursor-pointer">
-                          <input 
-                            type="checkbox" 
-                            checked={userPerms.includes(p.id)}
-                            onChange={() => toggleUserPerm(p.id)}
-                            className="rounded text-blue-600"
-                          />
-                          <span className="text-sm">{p.nama_permission}</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {Object.keys(grouped).map(groupName => {
+                  const perms = grouped[groupName];
+                  const viewPerm = perms.find(p => p.nama_permission.endsWith('_view'));
+                  const crudPerms = perms.filter(p => !p.nama_permission.endsWith('_view'));
+
+                  if (!viewPerm && crudPerms.length > 0) {
+                    return (
+                      <div key={groupName} className="border border-gray-200 rounded-xl overflow-hidden bg-gray-50">
+                        <div className="bg-gray-200 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+                          <span className="font-bold text-gray-700">Fitur Spesifik: {groupName}</span>
+                        </div>
+                        <div className="p-4 flex flex-wrap gap-3">
+                          {crudPerms.map(p => {
+                            const isInherited = inheritedJabatanPerms.includes(p.id);
+                            const isDirect = userPerms.includes(p.id);
+                            const isEffectiveChecked = isInherited || isDirect;
+
+                            return (
+                              <label key={p.id} className="flex items-center gap-2 cursor-pointer bg-white px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50">
+                                <input 
+                                  type="checkbox" 
+                                  checked={isEffectiveChecked}
+                                  onChange={() => toggleUserPerm(p.id)}
+                                  className="text-green-600 rounded"
+                                />
+                                <span className="text-sm">{p.nama_permission.split('_').pop().toUpperCase()}</span>
+                                {isInherited && (
+                                  <span className="text-[10px] bg-gray-100 text-gray-600 px-1 py-0.5 rounded font-bold">Role</span>
+                                )}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  if (viewPerm) {
+                    // Cek apakah permission view diwarisi dari divisi atau jabatan
+                    const isDivisiInherited = inheritedDivisiPerms.includes(viewPerm.id);
+                    const isJabatanInherited = inheritedJabatanPerms.includes(viewPerm.id);
+                    const isInherited = isDivisiInherited || isJabatanInherited;
+                    const isDirect = userPerms.includes(viewPerm.id);
+                    const isEffectiveViewChecked = isInherited || isDirect;
+
+                    // Hitung scope efektif: Prioritaskan user override jika ada, jika tidak pakai scope bawaan jabatan
+                    const inheritedScope = inheritedJabatanScopes[viewPerm.id] || 'ALL';
+                    const effectiveScope = isDirect ? (userScopes[viewPerm.id] || 'ALL') : (isJabatanInherited ? inheritedScope : 'ALL');
+
+                    return (
+                      <div key={groupName} className={`border rounded-xl overflow-hidden transition-all ${isEffectiveViewChecked ? 'border-blue-400 shadow-sm bg-blue-50/30' : 'border-gray-200 bg-gray-50 opacity-75 hover:opacity-100'}`}>
+                        {/* Header Modul / Menu View */}
+                        <label className={`cursor-pointer px-4 py-3 border-b flex justify-between items-center transition-colors ${isEffectiveViewChecked ? 'bg-blue-100 border-blue-200' : 'bg-gray-100 border-gray-200 hover:bg-gray-200'}`}>
+                          <div className="flex items-center gap-3">
+                            <input 
+                              type="checkbox" 
+                              checked={isEffectiveViewChecked}
+                              onChange={() => toggleUserPerm(viewPerm.id)}
+                              className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 cursor-pointer"
+                            />
+                            <span className={`font-extrabold ${isEffectiveViewChecked ? 'text-blue-900' : 'text-gray-600'}`}>{groupName}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            {isInherited && (
+                              <span className="text-[10px] bg-blue-200 text-blue-800 px-2 py-0.5 rounded-full font-bold">
+                                {isDivisiInherited && isJabatanInherited ? 'DIVISI & JABATAN' : isDivisiInherited ? 'DIVISI' : 'JABATAN'}
+                              </span>
+                            )}
+                            {isDirect && (
+                              <span className="text-[10px] bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full font-bold">
+                                BYPASS
+                              </span>
+                            )}
+                          </div>
                         </label>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+
+                        <div className="p-4 space-y-4">
+                          {/* Scope Selector Box */}
+                          <div className={`p-3 rounded-lg border transition-all ${isEffectiveViewChecked ? 'bg-white border-blue-200 shadow-xs' : 'bg-gray-100 border-gray-200 opacity-60'}`}>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-xs font-bold text-gray-700">Cakupan Data (Scope)</span>
+                              <div className="flex items-center gap-1">
+                                {isInherited && !isDirect && (
+                                  <span className="text-[10px] text-gray-500 font-medium">(Bawaan Role)</span>
+                                )}
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
+                                  effectiveScope === 'ALL' ? 'bg-emerald-100 text-emerald-700' :
+                                  effectiveScope === 'DIVISION' ? 'bg-indigo-100 text-indigo-700' :
+                                  'bg-amber-100 text-amber-700'
+                                }`}>
+                                  {effectiveScope}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <select 
+                                disabled={!isEffectiveViewChecked}
+                                value={effectiveScope}
+                                onChange={(e) => {
+                                  const newScope = e.target.value;
+                                  setUserPerms(prev => prev.includes(viewPerm.id) ? prev : [...prev, viewPerm.id]);
+                                  setUserScopes(prev => ({ ...prev, [viewPerm.id]: newScope }));
+                                }}
+                                className="text-xs py-1.5 px-2.5 border border-gray-200 rounded-md bg-gray-50 focus:bg-white focus:ring-1 focus:ring-blue-500 outline-none font-medium flex-1 disabled:opacity-50"
+                              >
+                                <option value="ALL">Semua Data (ALL)</option>
+                                <option value="DIVISION">Satu Divisi (DIVISION)</option>
+                                <option value="OWN">Data Diri Sendiri (OWN)</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          {/* Action Badges (CRUD) */}
+                          <div>
+                            <p className="text-xs text-gray-500 mb-2 font-semibold">Kewenangan Aksi (CRUD):</p>
+                            <div className="flex flex-wrap gap-2">
+                              {crudPerms.length === 0 ? (
+                                <span className="text-xs text-gray-400 italic">Tidak ada aksi spesifik.</span>
+                              ) : (
+                                crudPerms.map(p => {
+                                  const action = p.nama_permission.split('_').pop();
+                                  const isJabatanAct = inheritedJabatanPerms.includes(p.id);
+                                  const isDirectAct = userPerms.includes(p.id);
+                                  const isActChecked = isJabatanAct || isDirectAct;
+
+                                  let colorClass = "text-gray-600 bg-white border-gray-200";
+                                  if (isActChecked) {
+                                    if (action === 'create' || action === 'import') colorClass = "text-green-700 bg-green-100 border-green-300 font-bold";
+                                    else if (action === 'edit') colorClass = "text-yellow-700 bg-yellow-100 border-yellow-300 font-bold";
+                                    else if (action === 'delete') colorClass = "text-red-700 bg-red-100 border-red-300 font-bold";
+                                    else if (action === 'export') colorClass = "text-purple-700 bg-purple-100 border-purple-300 font-bold";
+                                    else colorClass = "text-blue-700 bg-blue-100 border-blue-300 font-bold";
+                                  }
+
+                                  return (
+                                    <label 
+                                      key={p.id} 
+                                      title={isJabatanAct ? 'Bawaan dari Jabatan' : isDirectAct ? 'Bypass Khusus User' : ''}
+                                      className={`flex items-center gap-1.5 cursor-pointer px-3 py-1.5 rounded-lg border transition-all hover:shadow-sm ${colorClass} ${(!isEffectiveViewChecked) ? 'opacity-50' : ''}`}
+                                    >
+                                      <input 
+                                        type="checkbox" 
+                                        checked={isActChecked}
+                                        onChange={() => toggleUserPerm(p.id)}
+                                        className="hidden"
+                                      />
+                                      <span className="text-xs">{action.toUpperCase()}</span>
+                                      {isJabatanAct && !isDirectAct && (
+                                        <span className="text-[9px] bg-black/10 px-1 py-0.2 rounded font-normal">🔒</span>
+                                      )}
+                                      {isDirectAct && (
+                                        <span className="text-[9px] bg-amber-500 text-white px-1 py-0.2 rounded font-bold">★</span>
+                                      )}
+                                    </label>
+                                  );
+                                })
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })}
               </div>
             )}
           </div>

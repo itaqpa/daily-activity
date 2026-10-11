@@ -14,6 +14,7 @@ import reportRoutes from './routes/reportRoutes.js';
 import activityLogsRoutes from './routes/activityLogsRoutes.js';
 import surveyEngineRoutes from './routes/surveyEngineRoutes.js';
 import { createAuthLogMiddleware } from './middleware/authLogMiddleware.js';
+import { getUserPermissionScope } from './utils/dataScopeHelper.js';
 
 // Load environment variables from .env
 dotenv.config();
@@ -199,7 +200,42 @@ app.post('/api/login', async (req, res) => {
                   JOIN permissions p ON p.id = up.permission_id
                   WHERE up.user_id = u.id
                  ), '[]'::json
-               ) as explicit_bypass_permissions
+               ) as explicit_bypass_permissions,
+               COALESCE(
+                 (SELECT json_object_agg(p.nama_permission, scoped.max_scope)
+                  FROM (
+                    SELECT all_p.permission_id,
+                           COALESCE(
+                             -- Prioritas 1: User Direct Exception (user_permissions)
+                             (SELECT up.data_scope 
+                              FROM user_permissions up 
+                              WHERE up.user_id = u.id AND up.permission_id = all_p.permission_id 
+                              LIMIT 1),
+                             -- Prioritas 2: Jabatan & Additional Roles
+                             (SELECT CASE 
+                                       WHEN bool_or(jp.data_scope = 'ALL') THEN 'ALL'
+                                       WHEN bool_or(jp.data_scope = 'DIVISION') THEN 'DIVISION'
+                                       ELSE 'OWN'
+                                     END
+                              FROM jabatan_permissions jp
+                              WHERE (jp.jabatan_id = u.jabatan_id OR jp.jabatan_id IN (SELECT jabatan_id FROM user_additional_roles WHERE user_id = u.id))
+                                AND jp.permission_id = all_p.permission_id),
+                             -- Prioritas 3: Default ALL jika dari divisi_permissions
+                             'ALL'
+                           ) as max_scope
+                    FROM (
+                      SELECT permission_id FROM divisi_permissions WHERE divisi_id = u.divisi_id
+                      UNION
+                      SELECT permission_id FROM jabatan_permissions WHERE jabatan_id = u.jabatan_id
+                      UNION
+                      SELECT jp.permission_id FROM user_additional_roles uar JOIN jabatan_permissions jp ON jp.jabatan_id = uar.jabatan_id WHERE uar.user_id = u.id
+                      UNION
+                      SELECT permission_id FROM user_permissions WHERE user_id = u.id
+                    ) all_p
+                  ) scoped
+                  JOIN permissions p ON p.id = scoped.permission_id
+                 ), '{}'::json
+               ) as permission_scopes
         FROM users u
         LEFT JOIN divisis d ON u.divisi_id = d.id
         LEFT JOIN jabatans j ON u.jabatan_id = j.id
@@ -236,7 +272,42 @@ app.post('/api/login', async (req, res) => {
                   JOIN permissions p ON p.id = up.permission_id
                   WHERE up.user_id = u.id
                  ), '[]'::json
-               ) as explicit_bypass_permissions
+               ) as explicit_bypass_permissions,
+               COALESCE(
+                 (SELECT json_object_agg(p.nama_permission, scoped.max_scope)
+                  FROM (
+                    SELECT all_p.permission_id,
+                           COALESCE(
+                             -- Prioritas 1: User Direct Exception (user_permissions)
+                             (SELECT up.data_scope 
+                              FROM user_permissions up 
+                              WHERE up.user_id = u.id AND up.permission_id = all_p.permission_id 
+                              LIMIT 1),
+                             -- Prioritas 2: Jabatan & Additional Roles
+                             (SELECT CASE 
+                                       WHEN bool_or(jp.data_scope = 'ALL') THEN 'ALL'
+                                       WHEN bool_or(jp.data_scope = 'DIVISION') THEN 'DIVISION'
+                                       ELSE 'OWN'
+                                     END
+                              FROM jabatan_permissions jp
+                              WHERE (jp.jabatan_id = u.jabatan_id OR jp.jabatan_id IN (SELECT jabatan_id FROM user_additional_roles WHERE user_id = u.id))
+                                AND jp.permission_id = all_p.permission_id),
+                             -- Prioritas 3: Default ALL jika dari divisi_permissions
+                             'ALL'
+                           ) as max_scope
+                    FROM (
+                      SELECT permission_id FROM divisi_permissions WHERE divisi_id = u.divisi_id
+                      UNION
+                      SELECT permission_id FROM jabatan_permissions WHERE jabatan_id = u.jabatan_id
+                      UNION
+                      SELECT jp.permission_id FROM user_additional_roles uar JOIN jabatan_permissions jp ON jp.jabatan_id = uar.jabatan_id WHERE uar.user_id = u.id
+                      UNION
+                      SELECT permission_id FROM user_permissions WHERE user_id = u.id
+                    ) all_p
+                  ) scoped
+                  JOIN permissions p ON p.id = scoped.permission_id
+                 ), '{}'::json
+               ) as permission_scopes
         FROM users u
         LEFT JOIN divisis d ON u.divisi_id = d.id
         LEFT JOIN jabatans j ON u.jabatan_id = j.id
@@ -330,7 +401,42 @@ app.get('/api/me', async (req, res) => {
                   JOIN permissions p ON p.id = up.permission_id
                   WHERE up.user_id = u.id
                  ), '[]'::json
-               ) as explicit_bypass_permissions
+               ) as explicit_bypass_permissions,
+               COALESCE(
+                 (SELECT json_object_agg(p.nama_permission, scoped.max_scope)
+                  FROM (
+                    SELECT all_p.permission_id,
+                           COALESCE(
+                             -- Prioritas 1: User Direct Exception (user_permissions)
+                             (SELECT up.data_scope 
+                              FROM user_permissions up 
+                              WHERE up.user_id = u.id AND up.permission_id = all_p.permission_id 
+                              LIMIT 1),
+                             -- Prioritas 2: Jabatan & Additional Roles
+                             (SELECT CASE 
+                                       WHEN bool_or(jp.data_scope = 'ALL') THEN 'ALL'
+                                       WHEN bool_or(jp.data_scope = 'DIVISION') THEN 'DIVISION'
+                                       ELSE 'OWN'
+                                     END
+                              FROM jabatan_permissions jp
+                              WHERE (jp.jabatan_id = u.jabatan_id OR jp.jabatan_id IN (SELECT jabatan_id FROM user_additional_roles WHERE user_id = u.id))
+                                AND jp.permission_id = all_p.permission_id),
+                             -- Prioritas 3: Default ALL jika dari divisi_permissions
+                             'ALL'
+                           ) as max_scope
+                    FROM (
+                      SELECT permission_id FROM divisi_permissions WHERE divisi_id = u.divisi_id
+                      UNION
+                      SELECT permission_id FROM jabatan_permissions WHERE jabatan_id = u.jabatan_id
+                      UNION
+                      SELECT jp.permission_id FROM user_additional_roles uar JOIN jabatan_permissions jp ON jp.jabatan_id = uar.jabatan_id WHERE uar.user_id = u.id
+                      UNION
+                      SELECT permission_id FROM user_permissions WHERE user_id = u.id
+                    ) all_p
+                  ) scoped
+                  JOIN permissions p ON p.id = scoped.permission_id
+                 ), '{}'::json
+               ) as permission_scopes
         FROM users u
         LEFT JOIN divisis d ON u.divisi_id = d.id
         LEFT JOIN jabatans j ON u.jabatan_id = j.id
@@ -634,6 +740,22 @@ app.put('/api/customers/:id/approve', async (req, res) => {
 // --- ACTIVITIES API ---
 app.get('/api/activities', async (req, res) => {
   try {
+    const { scope, userId, divisiId, isSuperAdmin } = await getUserPermissionScope(pool, req.user, 'riwayat_aktivitas_view');
+
+    let whereClause = '';
+    const queryParams = [];
+
+    if (!isSuperAdmin) {
+      if (scope === 'OWN') {
+        whereClause = 'WHERE a.user_id = $1';
+        queryParams.push(userId);
+      } else if (scope === 'DIVISION') {
+        whereClause = 'WHERE u.divisi_id = $1';
+        queryParams.push(divisiId || 0);
+      }
+      // scope === 'ALL': tidak menambahkan WHERE filter
+    }
+
     const result = await pool.query(`
       SELECT 
         a.*,
@@ -646,8 +768,9 @@ app.get('/api/activities', async (req, res) => {
       LEFT JOIN users u ON a.user_id = u.id
       LEFT JOIN jabatans j ON u.jabatan_id = j.id
       LEFT JOIN divisis d ON u.divisi_id = d.id
+      ${whereClause}
       ORDER BY a.tanggal DESC, a.created_at DESC
-    `);
+    `, queryParams);
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching activities:', error);
@@ -733,8 +856,8 @@ app.post('/api/permissions/divisi/:id', async (req, res) => {
 app.get('/api/permissions/jabatan/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query('SELECT permission_id FROM jabatan_permissions WHERE jabatan_id = $1', [id]);
-    res.json(result.rows.map(row => row.permission_id));
+    const result = await pool.query('SELECT permission_id, COALESCE(data_scope, \'ALL\') as data_scope FROM jabatan_permissions WHERE jabatan_id = $1', [id]);
+    res.json(result.rows);
   } catch (error) {
     res.status(500).json({ error: 'Gagal mengambil permission jabatan' });
   }
@@ -742,12 +865,21 @@ app.get('/api/permissions/jabatan/:id', async (req, res) => {
 
 app.post('/api/permissions/jabatan/:id', async (req, res) => {
   const { id } = req.params;
-  const { permissions } = req.body; 
+  const { permissions, items } = req.body; 
+  // Mendukung items: [{ permission_id, data_scope }] atau fallback permissions: [id]
   try {
     await pool.query('BEGIN');
     await pool.query('DELETE FROM jabatan_permissions WHERE jabatan_id = $1', [id]);
-    for (let perm_id of permissions) {
-      await pool.query('INSERT INTO jabatan_permissions (jabatan_id, permission_id) VALUES ($1, $2)', [id, perm_id]);
+    if (Array.isArray(items)) {
+      for (let item of items) {
+        const permId = typeof item === 'object' ? item.permission_id : item;
+        const scope = (typeof item === 'object' && item.data_scope) ? item.data_scope : 'ALL';
+        await pool.query('INSERT INTO jabatan_permissions (jabatan_id, permission_id, data_scope) VALUES ($1, $2, $3)', [id, permId, scope]);
+      }
+    } else if (Array.isArray(permissions)) {
+      for (let perm_id of permissions) {
+        await pool.query('INSERT INTO jabatan_permissions (jabatan_id, permission_id, data_scope) VALUES ($1, $2, $3)', [id, perm_id, 'ALL']);
+      }
     }
     await pool.query('COMMIT');
     res.json({ message: 'Hak akses jabatan berhasil diperbarui' });
@@ -761,21 +893,90 @@ app.post('/api/permissions/jabatan/:id', async (req, res) => {
 app.get('/api/permissions/user/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query('SELECT permission_id FROM user_permissions WHERE user_id = $1', [id]);
-    res.json(result.rows.map(row => row.permission_id));
+
+    // Ambil info user (divisi_id, jabatan_id)
+    const userRes = await pool.query(
+      `SELECT u.id, u.name, u.email, u.divisi_id, u.jabatan_id, d.nama_divisi, j.nama_jabatan 
+       FROM users u 
+       LEFT JOIN divisis d ON u.divisi_id = d.id 
+       LEFT JOIN jabatans j ON u.jabatan_id = j.id 
+       WHERE u.id = $1`,
+      [id]
+    );
+
+    if (userRes.rows.length === 0) {
+      return res.status(404).json({ error: 'User tidak ditemukan' });
+    }
+
+    const userData = userRes.rows[0];
+
+    // Ambil permission bawaan Divisi
+    const divRes = await pool.query(
+      `SELECT dp.permission_id, 'DIVISI' as source, 'ALL' as data_scope 
+       FROM divisi_permissions dp 
+       WHERE dp.divisi_id = $1`,
+      [userData.divisi_id || 0]
+    );
+
+    // Ambil permission bawaan Jabatan (termasuk additional roles jika ada)
+    const jabRes = await pool.query(
+      `SELECT jp.permission_id, 'JABATAN' as source, COALESCE(jp.data_scope, 'ALL') as data_scope 
+       FROM jabatan_permissions jp 
+       WHERE jp.jabatan_id = $1
+       UNION
+       SELECT jp.permission_id, 'ADDITIONAL_ROLE' as source, COALESCE(jp.data_scope, 'ALL') as data_scope
+       FROM user_additional_roles uar
+       JOIN jabatan_permissions jp ON jp.jabatan_id = uar.jabatan_id
+       WHERE uar.user_id = $2`,
+      [userData.jabatan_id || 0, id]
+    );
+
+    // Ambil direct user_permissions (custom bypass yang tersimpan khusus user ini)
+    const directRes = await pool.query(
+      `SELECT permission_id, COALESCE(data_scope, 'ALL') as data_scope, is_auto_assigned 
+       FROM user_permissions 
+       WHERE user_id = $1 AND is_auto_assigned = false`,
+      [id]
+    );
+
+    res.json({
+      user: userData,
+      direct: directRes.rows, // [{ permission_id, data_scope }]
+      inherited_divisi: divRes.rows, // [{ permission_id, data_scope }]
+      inherited_jabatan: jabRes.rows // [{ permission_id, data_scope }]
+    });
   } catch (error) {
+    console.error('Error fetching user permissions:', error);
     res.status(500).json({ error: 'Gagal mengambil permission user' });
   }
 });
 
 app.post('/api/permissions/user/:id', async (req, res) => {
   const { id } = req.params;
-  const { permissions } = req.body; 
+  const { permissions, items } = req.body; 
   try {
     await pool.query('BEGIN');
-    await pool.query('DELETE FROM user_permissions WHERE user_id = $1', [id]);
-    for (let perm_id of permissions) {
-      await pool.query('INSERT INTO user_permissions (user_id, permission_id) VALUES ($1, $2)', [id, perm_id]);
+    await pool.query('DELETE FROM user_permissions WHERE user_id = $1 AND is_auto_assigned = false', [id]);
+    if (Array.isArray(items)) {
+      for (let item of items) {
+        const permId = typeof item === 'object' ? item.permission_id : item;
+        const scope = (typeof item === 'object' && item.data_scope) ? item.data_scope : 'ALL';
+        await pool.query(
+          `INSERT INTO user_permissions (user_id, permission_id, data_scope, is_auto_assigned)
+           VALUES ($1, $2, $3, false)
+           ON CONFLICT (user_id, permission_id) DO UPDATE SET data_scope = $3`,
+          [id, permId, scope]
+        );
+      }
+    } else if (Array.isArray(permissions)) {
+      for (let perm_id of permissions) {
+        await pool.query(
+          `INSERT INTO user_permissions (user_id, permission_id, data_scope, is_auto_assigned)
+           VALUES ($1, $2, 'ALL', false)
+           ON CONFLICT (user_id, permission_id) DO UPDATE SET data_scope = 'ALL'`,
+          [id, perm_id]
+        );
+      }
     }
     await pool.query('COMMIT');
     res.json({ message: 'Hak akses user bypass berhasil diperbarui' });

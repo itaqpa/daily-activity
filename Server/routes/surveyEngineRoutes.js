@@ -1,5 +1,6 @@
 import express from 'express';
 import { syncSurveyPermissionsForUsers } from '../utils/surveyPermissions.js';
+import { getUserPermissionScope } from '../utils/dataScopeHelper.js';
 
 export default function (pool) {
   const router = express.Router();
@@ -403,41 +404,56 @@ export default function (pool) {
 
   router.get('/product-drafts', async (req, res) => {
     try {
-      const user = req.user;
-      let isSuperAdminOrAdmin = false;
-      let userId = null;
-
-      if (user && user.id) {
-        userId = user.id;
-        const uRes = await pool.query(`
-          SELECT j.nama_jabatan, u.role
-          FROM users u
-          LEFT JOIN jabatans j ON u.jabatan_id = j.id
-          WHERE u.id = $1
-        `, [user.id]);
-        if (uRes.rows.length > 0) {
-          const jName = (uRes.rows[0].nama_jabatan || '').toLowerCase();
-          const role = (uRes.rows[0].role || '').toLowerCase();
-          if (jName.includes('super admin') || jName.includes('admin') || role === 'admin' || role === 'superadmin') {
-            isSuperAdminOrAdmin = true;
-          }
-        }
-      }
+      const { scope, userId, divisiId, isSuperAdmin } = await getUserPermissionScope(pool, req.user, 'survey_product_view');
 
       let whereClause = '';
       const queryParams = [];
+      const userName = req.user?.name || '';
 
-      if (!isSuperAdminOrAdmin && userId) {
-        whereClause = `
-          WHERE (
-             spd.leader_surveyor_id = $1 
-             OR (spd.leader_surveyor::jsonb @> $2::jsonb)
-             OR (spd.anggota_surveyor::jsonb @> $2::jsonb)
-             OR (spd.leader_surveyor::jsonb @> $3::jsonb)
-             OR (spd.anggota_surveyor::jsonb @> $3::jsonb)
-          ) AND LOWER(COALESCE(spd.status, '')) != 'draft'
-        `;
-        queryParams.push(userId, JSON.stringify([{ value: userId }]), JSON.stringify([{ id: userId }]));
+      if (!isSuperAdmin && scope !== 'ALL') {
+        if (scope === 'DIVISION') {
+          whereClause = `
+            WHERE (
+               creator.divisi_id = $1
+               OR spd.leader_surveyor_id = $2
+               OR (spd.leader_surveyor::jsonb @> $3::jsonb)
+               OR (spd.anggota_surveyor::jsonb @> $3::jsonb)
+               OR (spd.leader_surveyor::jsonb @> $4::jsonb)
+               OR (spd.anggota_surveyor::jsonb @> $4::jsonb)
+               OR (spd.created_by::text = $5::text)
+               OR (spd.created_by::text = $6::text)
+            ) AND LOWER(COALESCE(spd.status, '')) != 'draft'
+          `;
+          queryParams.push(
+            divisiId || 0,
+            userId,
+            JSON.stringify([{ value: userId }]),
+            JSON.stringify([{ id: userId }]),
+            String(userId),
+            userName
+          );
+        } else {
+          whereClause = `
+            WHERE (
+               spd.leader_surveyor_id = $1
+               OR (spd.leader_surveyor::jsonb @> $2::jsonb)
+               OR (spd.anggota_surveyor::jsonb @> $2::jsonb)
+               OR (spd.leader_surveyor::jsonb @> $3::jsonb)
+               OR (spd.anggota_surveyor::jsonb @> $3::jsonb)
+               OR (spd.created_by::text = $4::text)
+               OR (spd.created_by::text = $5::text)
+            ) AND LOWER(COALESCE(spd.status, '')) != 'draft'
+          `;
+          queryParams.push(
+            userId,
+            JSON.stringify([{ value: userId }]),
+            JSON.stringify([{ id: userId }]),
+            String(userId),
+            userName
+          );
+        }
+      } else {
+        whereClause = "WHERE LOWER(COALESCE(spd.status, '')) != 'draft'";
       }
 
       const result = await pool.query(`
@@ -456,6 +472,11 @@ export default function (pool) {
           COALESCE(progress.jumlah_jenis_product, 0)::int AS jumlah_jenis_product,
           COALESCE(progress.percent_kelengkapan, 0)::int AS percent_kelengkapan
         FROM survey_product_data spd
+        LEFT JOIN users creator ON (
+          spd.created_by::text = creator.name
+          OR spd.created_by::text = creator.username
+          OR (spd.created_by::text ~ '^[0-9]+$' AND spd.created_by::text::bigint = creator.id)
+        )
         LEFT JOIN (
           SELECT
             survey_id,

@@ -3,6 +3,7 @@ import pkg from 'pg';
 const { Pool } = pkg;
 import dotenv from 'dotenv';
 import { syncInstallationProjectPermissionsForUsers } from '../utils/installationPermissions.js';
+import { getUserPermissionScope } from '../utils/dataScopeHelper.js';
 
 dotenv.config();
 
@@ -19,16 +20,35 @@ const router = express.Router();
 // GET all projects
 router.get('/', async (req, res) => {
   try {
-    const userId = req.user ? req.user.id : null;
-    const isSuperAdmin = req.user && (
-      Number(req.user.jabatan_id) === 1 || 
-      req.user.role === 'superadmin' ||
-      (req.user.role === 'admin' && Number(req.user.jabatan_id) === 1)
-    );
+    const { scope, userId, divisiId, isSuperAdmin } = await getUserPermissionScope(pool, req.user, 'install_project_view');
 
     let result;
-    if (userId && !isSuperAdmin) {
-      const userName = req.user.name || '';
+    if (isSuperAdmin || scope === 'ALL') {
+      result = await pool.query('SELECT * FROM projects ORDER BY id DESC');
+    } else if (scope === 'DIVISION') {
+      // Division scope: proyek yang dibuat oleh user dalam satu divisi atau user ditugaskan di dalamnya
+      result = await pool.query(`
+        SELECT DISTINCT p.* 
+        FROM projects p
+        LEFT JOIN users creator ON p.created_by = creator.id
+        WHERE creator.divisi_id = $1
+           OR LOWER(TRIM(COALESCE(p.leader, ''))) = LOWER(TRIM($2))
+           OR (p.leaders IS NOT NULL AND p.leaders::jsonb @> $3::jsonb)
+           OR (p.leaders IS NOT NULL AND p.leaders::jsonb @> $4::jsonb)
+           OR (p.leaders IS NOT NULL AND p.leaders::jsonb @> $5::jsonb)
+           OR p.created_by = $6
+        ORDER BY p.id DESC
+      `, [
+        divisiId || 0,
+        req.user?.name || '',
+        JSON.stringify([{ value: userId }]),
+        JSON.stringify([{ id: userId }]),
+        JSON.stringify([{ name: req.user?.name || '' }]),
+        userId
+      ]);
+    } else {
+      // Scope === 'OWN': hanya project di mana user adalah leader atau pembuat
+      const userName = req.user?.name || '';
       result = await pool.query(`
         SELECT DISTINCT p.* 
         FROM projects p
@@ -45,8 +65,6 @@ router.get('/', async (req, res) => {
         JSON.stringify([{ name: userName }]),
         userId
       ]);
-    } else {
-      result = await pool.query('SELECT * FROM projects ORDER BY id DESC');
     }
     res.json(result.rows);
   } catch (err) {
