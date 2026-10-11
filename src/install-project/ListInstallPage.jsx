@@ -47,11 +47,28 @@ export default function ListInstallPage() {
 
         // Selain Super Admin, hanya tampilkan project yang dipimpinnya sendiri
         if (user && !isSuperAdmin) {
+          const uId = Number(user.id);
           const uName = (user.name || '').trim().toLowerCase();
           const uUsername = (user.username || '').trim().toLowerCase();
           data = data.filter(p => {
-            const pLeader = (p.leader || '').trim().toLowerCase();
-            return pLeader === uName || pLeader === uUsername || Number(p.created_by) === Number(user.id);
+            if (Number(p.created_by) === uId) return true;
+            // Check leaders array (JSONB)
+            if (Array.isArray(p.leaders) && p.leaders.length > 0) {
+              const matched = p.leaders.some(l => {
+                const lId = Number(l?.value || l?.id);
+                const lName = (l?.label || l?.name || '').trim().toLowerCase();
+                return (lId && lId === uId) || (lName && (lName === uName || lName === uUsername));
+              });
+              if (matched) return true;
+            }
+            // Check leader string (comma-separated or single)
+            if (p.leader) {
+              const leaderNames = String(p.leader).split(',').map(s => s.trim().toLowerCase());
+              if (leaderNames.includes(uName) || (uUsername && leaderNames.includes(uUsername))) {
+                return true;
+              }
+            }
+            return false;
           });
         }
         

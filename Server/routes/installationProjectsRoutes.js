@@ -2,6 +2,7 @@ import express from 'express';
 import pkg from 'pg';
 const { Pool } = pkg;
 import dotenv from 'dotenv';
+import { syncInstallationProjectPermissionsForUsers } from '../utils/installationPermissions.js';
 
 dotenv.config();
 
@@ -31,10 +32,19 @@ router.get('/', async (req, res) => {
       result = await pool.query(`
         SELECT DISTINCT p.* 
         FROM projects p
-        WHERE LOWER(TRIM(p.leader)) = LOWER(TRIM($1))
-           OR p.created_by = $2
+        WHERE LOWER(TRIM(COALESCE(p.leader, ''))) = LOWER(TRIM($1))
+           OR (p.leaders IS NOT NULL AND p.leaders::jsonb @> $2::jsonb)
+           OR (p.leaders IS NOT NULL AND p.leaders::jsonb @> $3::jsonb)
+           OR (p.leaders IS NOT NULL AND p.leaders::jsonb @> $4::jsonb)
+           OR p.created_by = $5
         ORDER BY p.id DESC
-      `, [userName, userId]);
+      `, [
+        userName,
+        JSON.stringify([{ value: userId }]),
+        JSON.stringify([{ id: userId }]),
+        JSON.stringify([{ name: userName }]),
+        userId
+      ]);
     } else {
       result = await pool.query('SELECT * FROM projects ORDER BY id DESC');
     }
@@ -289,16 +299,26 @@ router.post('/', async (req, res) => {
   try {
     await client.query('BEGIN');
     const { 
-      no_project, nama, customer, lokasi, leader, tgl_mulai, 
+      no_project, nama, customer, lokasi, leader, leaders, tgl_mulai, 
       durasi_hari, nilai_kontrak, budget_biaya, status, catatan, created_by
     } = req.body;
 
+    // Pastikan leader string dan leaders JSONB konsisten
+    let leadersJson = [];
+    if (Array.isArray(leaders)) {
+      leadersJson = leaders;
+    } else if (leader) {
+      leadersJson = [{ value: leader, label: leader, name: leader }];
+    }
+
+    const leaderString = leader || (leadersJson.map(l => l.label || l.name || l.value).join(', '));
+
     const projectQuery = `
-      INSERT INTO projects (no_project, nama, customer, lokasi, leader, tgl_mulai, durasi_hari, nilai_kontrak, budget_biaya, status, catatan, created_by)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id
+      INSERT INTO projects (no_project, nama, customer, lokasi, leader, leaders, tgl_mulai, durasi_hari, nilai_kontrak, budget_biaya, status, catatan, created_by)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id
     `;
     const projectValues = [
-      no_project, nama, customer, lokasi, leader, tgl_mulai || new Date(),
+      no_project, nama, customer, lokasi, leaderString, JSON.stringify(leadersJson), tgl_mulai || new Date(),
       durasi_hari || 1, nilai_kontrak || 0, budget_biaya || 0, status || 'registered', catatan, created_by || null
     ];
     const projectRes = await client.query(projectQuery, projectValues);
@@ -307,6 +327,13 @@ router.post('/', async (req, res) => {
     await insertChildren(client, projectId, req.body);
 
     await client.query('COMMIT');
+
+    // Auto-assign permissions ke semua user yang menjadi leader
+    const affectedUserIds = [...leadersJson, ...(leader ? [leader] : [])];
+    if (affectedUserIds.length > 0) {
+      syncInstallationProjectPermissionsForUsers(pool, affectedUserIds).catch(err => console.error(err));
+    }
+
     res.status(201).json({ message: 'Project created successfully', projectId });
   } catch (err) {
     await client.query('ROLLBACK');
@@ -323,22 +350,35 @@ router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { 
-      no_project, nama, customer, lokasi, leader, tgl_mulai, 
+      no_project, nama, customer, lokasi, leader, leaders, tgl_mulai, 
       durasi_hari, nilai_kontrak, budget_biaya, status, catatan
     } = req.body;
 
+    // Ambil leader lama untuk sinkronisasi jika ada yang dicopot
+    const oldProj = await pool.query('SELECT leader, leaders FROM projects WHERE id = $1', [id]);
+    const oldLeaders = oldProj.rows.length > 0 ? (oldProj.rows[0].leaders || []) : [];
+    const oldLeader = oldProj.rows.length > 0 ? oldProj.rows[0].leader : null;
+
     await client.query('BEGIN');
+
+    let leadersJson = [];
+    if (Array.isArray(leaders)) {
+      leadersJson = leaders;
+    } else if (leader) {
+      leadersJson = [{ value: leader, label: leader, name: leader }];
+    }
+    const leaderString = leader || (leadersJson.map(l => l.label || l.name || l.value).join(', '));
 
     // Update parent
     const query = `
       UPDATE projects 
-      SET no_project = $1, nama = $2, customer = $3, lokasi = $4, leader = $5, 
-          tgl_mulai = $6, durasi_hari = $7, nilai_kontrak = $8, budget_biaya = $9, 
-          status = $10, catatan = $11, updated_at = NOW()
-      WHERE id = $12 RETURNING id
+      SET no_project = $1, nama = $2, customer = $3, lokasi = $4, leader = $5, leaders = $6,
+          tgl_mulai = $7, durasi_hari = $8, nilai_kontrak = $9, budget_biaya = $10, 
+          status = $11, catatan = $12, updated_at = NOW()
+      WHERE id = $13 RETURNING id
     `;
     const values = [
-      no_project, nama, customer, lokasi, leader, tgl_mulai || new Date(), 
+      no_project, nama, customer, lokasi, leaderString, JSON.stringify(leadersJson), tgl_mulai || new Date(), 
       durasi_hari || 1, nilai_kontrak || 0, budget_biaya || 0, status || 'draft', catatan, id
     ];
     
@@ -356,6 +396,18 @@ router.put('/:id', async (req, res) => {
     await insertChildren(client, id, req.body);
 
     await client.query('COMMIT');
+
+    // Auto-sync permissions (leader baru + leader lama)
+    const affectedUserIds = [
+      ...leadersJson,
+      ...oldLeaders,
+      ...(leader ? [leader] : []),
+      ...(oldLeader ? [oldLeader] : [])
+    ];
+    if (affectedUserIds.length > 0) {
+      syncInstallationProjectPermissionsForUsers(pool, affectedUserIds).catch(err => console.error(err));
+    }
+
     res.json({ message: 'Project saved successfully', projectId: id });
   } catch (err) {
     await client.query('ROLLBACK');
@@ -377,11 +429,20 @@ router.patch('/:id/status', async (req, res) => {
     }
 
     const result = await pool.query(
-      'UPDATE projects SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING id',
+      'UPDATE projects SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING id, leader, leaders',
       [status, id]
     );
 
     if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
+
+    // Sync permissions jika project di-close atau di-reopen
+    const leaders = result.rows[0].leaders || [];
+    const leaderStr = result.rows[0].leader;
+    const affectedUserIds = [...leaders, ...(leaderStr ? [leaderStr] : [])];
+    if (affectedUserIds.length > 0) {
+      syncInstallationProjectPermissionsForUsers(pool, affectedUserIds).catch(err => console.error(err));
+    }
+
     res.json({ message: 'Project status updated successfully', status });
   } catch (err) {
     console.error(err);
@@ -393,8 +454,19 @@ router.patch('/:id/status', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    const oldProj = await pool.query('SELECT leader, leaders FROM projects WHERE id = $1', [id]);
+    const leaders = oldProj.rows.length > 0 ? (oldProj.rows[0].leaders || []) : [];
+    const leaderStr = oldProj.rows.length > 0 ? oldProj.rows[0].leader : null;
+
     const result = await pool.query('DELETE FROM projects WHERE id = $1 RETURNING id', [id]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
+
+    // Sync permissions saat project dihapus
+    const affectedUserIds = [...leaders, ...(leaderStr ? [leaderStr] : [])];
+    if (affectedUserIds.length > 0) {
+      syncInstallationProjectPermissionsForUsers(pool, affectedUserIds).catch(err => console.error(err));
+    }
+
     res.json({ message: 'Project deleted successfully' });
   } catch (err) {
     console.error(err);
