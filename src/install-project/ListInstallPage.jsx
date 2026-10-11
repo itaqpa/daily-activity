@@ -37,22 +37,16 @@ export default function ListInstallPage() {
       if (res.ok) {
         let data = await res.json();
         
-        // Cek apakah Super Admin atau Admin (bisa melihat semua project)
-        const isSuperAdminOrAdmin = 
+        // Hanya Super Admin yang melihat semua project
+        const isSuperAdmin = 
           Number(user?.jabatan_id) === 1 || 
-          Number(user?.jabatan_id) === 27 ||
-          user?.role?.toLowerCase() === 'admin' ||
           user?.role?.toLowerCase() === 'superadmin' ||
-          user?.jabatan?.toLowerCase()?.includes('super admin') ||
-          user?.jabatan?.toLowerCase()?.includes('admin') ||
-          user?.jabatan_name?.toLowerCase()?.includes('super admin') ||
-          user?.jabatan_name?.toLowerCase()?.includes('admin') ||
-          user?.additional_roles_data?.some(r => Number(r.id) === 1 || Number(r.id) === 27) ||
-          hasPermission('view-all-projects') ||
-          hasPermission('manage-all-projects');
+          user?.jabatan?.toLowerCase() === 'super admin' ||
+          user?.jabatan_name?.toLowerCase() === 'super admin' ||
+          user?.additional_roles_data?.some(r => Number(r.id) === 1);
 
-        // Jika bukan Super Admin / Admin, hanya tampilkan project yang dipimpinnya
-        if (user && !isSuperAdminOrAdmin) {
+        // Selain Super Admin, hanya tampilkan project yang dipimpinnya sendiri
+        if (user && !isSuperAdmin) {
           const uName = (user.name || '').trim().toLowerCase();
           const uUsername = (user.username || '').trim().toLowerCase();
           data = data.filter(p => {
