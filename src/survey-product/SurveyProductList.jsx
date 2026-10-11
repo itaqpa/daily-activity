@@ -370,7 +370,17 @@ export default function SurveyProductList() {
                 {!isLoading && !errorMessage && paginatedData.map((item) => (
                   <tr key={item.id} className="hover:bg-blue-50/30 transition-colors">
                     <td className="py-4 px-6">
-                      <span className="font-bold text-gray-800">{item.no_survey}</span>
+                      {isSuperAdmin ? (
+                        <button
+                          onClick={() => navigate(`/survey-product/${item.id}`)}
+                          className="font-bold text-blue-600 hover:text-blue-800 hover:underline text-left cursor-pointer transition-colors"
+                          title="Lihat Detail Survey"
+                        >
+                          {item.no_survey}
+                        </button>
+                      ) : (
+                        <span className="font-bold text-gray-800">{item.no_survey}</span>
+                      )}
                     </td>
                     <td className="py-4 px-6">
                       <span className="text-gray-700 font-medium">{item.customer || '-'}</span>
@@ -512,7 +522,17 @@ export default function SurveyProductList() {
             <div key={item.id} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 relative overflow-visible">
               <div className="flex justify-between items-start mb-3">
                 <div>
-                  <h3 className="font-bold text-gray-800 text-lg">{item.no_survey}</h3>
+                  {isSuperAdmin ? (
+                    <button
+                      onClick={() => navigate(`/survey-product/${item.id}`)}
+                      className="font-bold text-blue-600 hover:text-blue-800 hover:underline text-lg text-left"
+                      title="Lihat Detail Survey"
+                    >
+                      {item.no_survey}
+                    </button>
+                  ) : (
+                    <h3 className="font-bold text-gray-800 text-lg">{item.no_survey}</h3>
+                  )}
                   <div className="flex items-center gap-1.5 text-gray-500 text-xs mt-1">
                     <Calendar className="w-3 h-3" />
                     {formatTanggal(item.tanggal)}
