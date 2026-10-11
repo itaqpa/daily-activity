@@ -37,8 +37,22 @@ export default function ListInstallPage() {
       if (res.ok) {
         let data = await res.json();
         
-        // Filter projects: Super Admin (1) & Admin (27) sees all, others only see their own projects
-        if (user && user.jabatan_id !== 1 && user.jabatan_id !== 27) {
+        // Cek apakah Super Admin atau Admin (bisa melihat semua project)
+        const isSuperAdminOrAdmin = 
+          Number(user?.jabatan_id) === 1 || 
+          Number(user?.jabatan_id) === 27 ||
+          user?.role?.toLowerCase() === 'admin' ||
+          user?.role?.toLowerCase() === 'superadmin' ||
+          user?.jabatan?.toLowerCase()?.includes('super admin') ||
+          user?.jabatan?.toLowerCase()?.includes('admin') ||
+          user?.jabatan_name?.toLowerCase()?.includes('super admin') ||
+          user?.jabatan_name?.toLowerCase()?.includes('admin') ||
+          user?.additional_roles_data?.some(r => Number(r.id) === 1 || Number(r.id) === 27) ||
+          hasPermission('view-all-projects') ||
+          hasPermission('manage-all-projects');
+
+        // Jika bukan Super Admin / Admin, hanya tampilkan project yang dipimpinnya
+        if (user && !isSuperAdminOrAdmin) {
           data = data.filter(p => p.leader === user.name);
         }
         
