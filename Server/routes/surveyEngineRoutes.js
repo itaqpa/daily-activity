@@ -1297,6 +1297,7 @@ export default function (pool) {
           COALESCE(tq.is_active, true)   AS is_active,
           tq.sort_order,
           tq.helper_instruction,
+          COALESCE(tq.visibility_rule, '{}'::jsonb) AS visibility_rule,
           (
             SELECT json_agg(
               json_build_object(
@@ -1402,7 +1403,8 @@ export default function (pool) {
         is_active = true,
         sort_order = 100,
         product_codes = [],
-        options = []
+        options = [],
+        visibility_rule = {}
       } = req.body;
 
       if (!label || !label.trim()) {
@@ -1473,14 +1475,14 @@ export default function (pool) {
           question_no, question_key, label_snapshot,
           input_type, unit_snapshot, is_required,
           is_visible_default, helper_instruction,
-          sort_order, is_active
+          sort_order, is_active, visibility_rule
         ) VALUES (
           $1, $2, $3,
           $4, $5,
           $6, $7, $8,
           $9, $10, $11,
           true, $12,
-          $13, $14
+          $13, $14, $15
         )
         RETURNING id
       `, [
@@ -1489,7 +1491,8 @@ export default function (pool) {
         'custom', generatedKey, label.trim(),
         input_type, unit ? unit.trim() : null, !!is_required,
         helper_instruction || null,
-        finalSort, !!is_active
+        finalSort, !!is_active,
+        JSON.stringify(visibility_rule || {})
       ]);
       const templateQuestionId = tqRes.rows[0].id;
 
@@ -1560,7 +1563,8 @@ export default function (pool) {
         is_active = true,
         sort_order = 100,
         product_codes = [],
-        options = []
+        options = [],
+        visibility_rule
       } = req.body;
 
       if (!label || !label.trim()) {
@@ -1583,8 +1587,12 @@ export default function (pool) {
           is_required = $6,
           is_active = $7,
           helper_instruction = $8,
-          sort_order = $9
-        WHERE id = $10
+          sort_order = $9,
+          visibility_rule = CASE 
+            WHEN $10::jsonb IS NOT NULL THEN $10::jsonb 
+            ELSE visibility_rule 
+          END
+        WHERE id = $11
       `, [
         label.trim(),
         input_type,
@@ -1595,6 +1603,7 @@ export default function (pool) {
         !!is_active,
         helper_instruction || null,
         Number(sort_order) || 100,
+        visibility_rule !== undefined ? JSON.stringify(visibility_rule || {}) : null,
         id
       ]);
 

@@ -199,6 +199,16 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
             return isNot ? !res : res;
           }
           
+          // Match inequality: f.field !== 'value'
+          const neqMatch = part.match(/^f\.([a-zA-Z0-9_]+)\s*!==\s*(.+)$/);
+          if (neqMatch) {
+            const fieldName = neqMatch[1];
+            let val = neqMatch[2].replace(/['"]/g, '').trim();
+            if (val === 'CUSTOM') val = CUSTOM;
+            const res = (f[fieldName] !== val);
+            return isNot ? !res : res;
+          }
+
           // Match equality: f.field === 'value' or f.field === CUSTOM
           const eqMatch = part.match(/^f\.([a-zA-Z0-9_]+)\s*===\s*(.+)$/);
           if (eqMatch) {
@@ -414,6 +424,17 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
                         );
                       })}
                     </div>
+                    {/* Render input tambahan jika memilih Lainnya / Custom pada Radio */}
+                    {answers[q.id] && (answers[q.id].toLowerCase().includes('lainnya') || answers[q.id].toLowerCase().includes('custom')) && (
+                      <input
+                        type="text"
+                        value={answers[`${q.id}_lainnya`] || ''}
+                        disabled={readOnly}
+                        onChange={(e) => handleInputChange(`${q.id}_lainnya`, e.target.value)}
+                        className={`w-full px-4 py-2.5 rounded-lg border border-dashed border-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none text-gray-700 mt-2 ${readOnly ? 'bg-gray-100 cursor-not-allowed' : 'bg-gray-50'}`}
+                        placeholder={`Sebutkan ${q.label.toLowerCase()} lainnya...`}
+                      />
+                    )}
                   </div>
                 ) : q.type === 'checklist' ? (
                   <div className="space-y-2 mt-2">

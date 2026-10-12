@@ -16,7 +16,8 @@ import {
   ToggleLeft,
   ToggleRight,
   Tag,
-  RotateCcw
+  RotateCcw,
+  GitBranch
 } from 'lucide-react';
 import MainLayout from '../../components/layouts/MainLayout';
 import { apiUrl } from '../../api';
@@ -37,6 +38,7 @@ export default function SurveyQuestionPage() {
 
   // Data states
   const [questions, setQuestions] = useState([]);
+  const [allQuestionsPool, setAllQuestionsPool] = useState([]);
   const [products, setProducts] = useState([]);
   const [sections, setSections] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -102,6 +104,25 @@ export default function SurveyQuestionPage() {
       }
     };
     fetchSections();
+  }, [filterProduct]);
+
+  // Fetch pool pertanyaan lengkap (unfiltered) untuk referensi percabangan
+  const fetchAllQuestionsPool = async () => {
+    try {
+      const params = new URLSearchParams();
+      if (filterProduct && filterProduct !== 'ALL') params.append('product_code', filterProduct);
+      const res = await fetch(apiUrl(`survey-engine/admin/questions?${params.toString()}`));
+      if (res.ok) {
+        const data = await res.json();
+        setAllQuestionsPool(Array.isArray(data) ? data : []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch all questions pool:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchAllQuestionsPool();
   }, [filterProduct]);
 
   // Fetch questions
@@ -237,6 +258,39 @@ export default function SurveyQuestionPage() {
     setEditingQuestion(item);
     setIsModalOpen(true);
   };
+
+  const getShortKey = (qKey) => {
+    if (!qKey) return '';
+    return qKey.split('.').pop();
+  };
+
+  // Kumpulan key pertanyaan yang menjadi pemicu percabangan bagi pertanyaan lain
+  const parentTriggerKeys = useMemo(() => {
+    const keys = new Set();
+    const pool = allQuestionsPool.length > 0 ? allQuestionsPool : questions;
+    pool.forEach(q => {
+      let vr = q.visibility_rule;
+      if (typeof vr === 'string') {
+        try { vr = JSON.parse(vr); } catch(e) { vr = {}; }
+      }
+      if (vr && typeof vr === 'object') {
+        if (vr.depends_on) {
+          keys.add(vr.depends_on);
+        }
+        if (vr.source_expression) {
+          const s = (vr.source_expression.section_js || '') + ' ' + (vr.source_expression.field_js || '');
+          const m = s.match(/f(?:\.([a-zA-Z0-9_]+)|\['([a-zA-Z0-9_]+)'\])/g);
+          if (m) {
+            m.forEach(match => {
+              const cleaned = match.replace(/f\.|\['|'\]/g, '').trim();
+              if (cleaned) keys.add(cleaned);
+            });
+          }
+        }
+      }
+    });
+    return keys;
+  }, [allQuestionsPool, questions]);
 
   return (
     <MainLayout>
@@ -536,6 +590,26 @@ export default function SurveyQuestionPage() {
                                   <HelpCircle className="w-3.5 h-3.5" />
                                 </span>
                               )}
+                              {/* Badge Bersyarat */}
+                              {item.visibility_rule && (item.visibility_rule.depends_on || item.visibility_rule.source_expression?.field_js || item.visibility_rule.source_expression?.section_js) && (
+                                <span
+                                  title={`Bersyarat: Muncul jika ${item.visibility_rule.depends_on || 'jawaban pertanyaan acuan'} terpenuhi`}
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200"
+                                >
+                                  <GitBranch className="w-3 h-3 text-purple-600" />
+                                  <span>Bersyarat</span>
+                                </span>
+                              )}
+                              {/* Badge Pemicu Cabang */}
+                              {(parentTriggerKeys.has(getShortKey(item.question_key)) || parentTriggerKeys.has(item.question_key)) && (
+                                <span
+                                  title="Pertanyaan ini memiliki opsi pilihan yang memicu pembukaan kelompok/pertanyaan lain"
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200"
+                                >
+                                  <GitBranch className="w-3 h-3 text-indigo-600" />
+                                  <span>Pemicu Cabang</span>
+                                </span>
+                              )}
                             </div>
                           </td>
 
@@ -791,11 +865,13 @@ export default function SurveyQuestionPage() {
           onClose={() => setIsModalOpen(false)}
           onSuccess={() => {
             fetchQuestions();
+            fetchAllQuestionsPool();
             showToast(editingQuestion ? 'Pertanyaan berhasil diperbarui' : 'Pertanyaan baru berhasil ditambahkan');
           }}
           questionData={editingQuestion}
           products={products}
           sections={sections}
+          allQuestions={allQuestionsPool.length > 0 ? allQuestionsPool : questions}
         />
       </div>
     </MainLayout>
