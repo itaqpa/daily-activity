@@ -1,7 +1,11 @@
 import express from 'express';
 import cors from 'cors';
 import pkg from 'pg';
-const { Pool } = pkg;
+const { Pool, types } = pkg;
+
+// Override pg driver: kembalikan DATE (OID 1082) sebagai string 'YYYY-MM-DD'
+// tanpa konversi ke JavaScript Date object (yang menyebabkan timezone shift UTC vs WIB)
+types.setTypeParser(1082, (val) => val);
 import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
