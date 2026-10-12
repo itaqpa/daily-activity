@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, ChevronRight, CheckCircle2, AlertTriangle, AlertCircle, Save, ArrowLeft, Camera, FileText, Plus, Trash2, Check, Image as ImageIcon, Upload } from 'lucide-react';
 import { apiUrl } from '../../../api';
+import { useAuth } from '../../../context/AuthContext';
 
 export const PHOTO_CATS = [
   'Keseluruhan',
@@ -10,6 +11,33 @@ export const PHOTO_CATS = [
   'Kerusakan',
   'Area sekitar',
   'Lainnya'
+];
+
+// Urutan resmi section sesuai acuan Survey Produk GTE (Copy).html
+export const SECTION_ORDER = [
+  'ident',      // Identifikasi
+  'acuan',      // Acuan & validasi
+  'proses',     // Kondisi operasi
+  'komponen',   // Komponen yang diinsulasi (RTI)
+  'desain',     // Desain jacket (RTI)
+  'dimensi',    // Bentuk & dimensi
+  'geom',       // Geometri
+  'flange',     // Koneksi: flange
+  'clamp',      // Koneksi: clamp
+  'weld',       // Koneksi: welded
+  'movement',   // Pergerakan
+  'gflange',    // Data flange (gasket)
+  'gasket',     // Konstruksi & dimensi gasket
+  'equip',      // Equipment
+  'app',        // Aplikasi
+  'box',        // Dimensi stuffing box
+  'packing',    // Packing
+  'ring',       // Ring graphite
+  'material',   // Material & konstruksi
+  'instalasi',  // Kondisi instalasi
+  'kondisi',    // Kondisi existing
+  'komersial',  // Kebutuhan komersial
+  'foto'        // Foto dokumentasi
 ];
 
 // Helper kompresi dan konversi foto
@@ -88,7 +116,8 @@ const getFlangeRow = (std, size) => {
 // Template Engine akan diload dari API berdasarkan product.code
 // const MOCK_TEMPLATE = {...} dihapus
 
-export default function DynamicProductForm({ product, onClose, onSave, onChange, existingData = {}, schedules = [], readOnly = false }) {
+export default function DynamicProductForm({ product, onClose, onSave, onChange, existingData = {}, schedules = [], readOnly = false, noSurvey = null }) {
+  const { user: currentUser } = useAuth() || {};
   const [sections, setSections] = useState([]);
   const [currentSectionId, setCurrentSectionId] = useState(null);
   const [answers, setAnswers] = useState(existingData);
@@ -258,10 +287,44 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
       for (const file of Array.from(files)) {
         if (!file.type.startsWith('image/')) continue;
         const dataUrl = await resizeImageToBlob(file, 1200, 0.75);
+        const photoCat = (currentPhotos.length + newPhotos.length === 0) ? 'Keseluruhan' : 'Lainnya';
+        let uploadedUrl = null;
+
+        // Upload ke backend MinIO / S3
+        try {
+          const username = currentUser?.username || currentUser?.nama || currentUser?.name || 'user';
+          const surveyNumber = noSurvey || answers.no_survey || answers.survey_no || product?.no_survey || 'general-survey';
+          const code = product?.code || product?.id || 'product';
+
+          const res = await fetch(apiUrl('survey-engine/upload-photo'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              data: dataUrl,
+              filename: file.name || 'photo.jpg',
+              category: photoCat,
+              noSurvey: surveyNumber,
+              user: username,
+              productCode: code
+            })
+          });
+          if (res.ok) {
+            const uploadResult = await res.json();
+            if (uploadResult?.url) {
+              uploadedUrl = uploadResult.url;
+            }
+          } else {
+            console.warn('Gagal upload ke MinIO, menggunakan dataUrl lokal sebagai fallback');
+          }
+        } catch (uploadErr) {
+          console.warn('Network error upload ke MinIO, simpan lokal sementara:', uploadErr);
+        }
+
         newPhotos.push({
           id: 'p_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
-          data: dataUrl,
-          cat: (currentPhotos.length + newPhotos.length === 0) ? 'Keseluruhan' : 'Lainnya',
+          url: uploadedUrl || null,
+          data: uploadedUrl ? null : dataUrl, // Jika URL MinIO berhasil, tidak perlu simpan base64 besar
+          cat: photoCat,
           cap: '',
           created_at: Date.now()
         });
@@ -1333,7 +1396,18 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {sections.filter(s => isPhotoSection(s) || s.questions.some(q => evaluateVisibility(q, answers))).map((section) => {
+            {sections
+              .filter(s => isPhotoSection(s) || s.questions.some(q => evaluateVisibility(q, answers)))
+              .sort((a, b) => {
+                const getOrderIndex = (sec) => {
+                  const idL = (sec.id || '').toLowerCase();
+                  const titleL = (sec.title || '').toLowerCase();
+                  const idx = SECTION_ORDER.findIndex(key => idL.includes(key) || titleL.includes(key));
+                  return idx !== -1 ? idx : 999;
+                };
+                return getOrderIndex(a) - getOrderIndex(b);
+              })
+              .map((section) => {
               const progress = getSectionProgress(section);
               const isPhoto = isPhotoSection(section);
               const photoCount = (answers.photos || []).length;

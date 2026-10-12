@@ -1446,6 +1446,7 @@ export default function SurveyProductShow() {
             existingData={selectedProductDetail.formData || {}}
             schedules={actualSchedules}
             readOnly={true}
+            noSurvey={stepData?.no_survey}
             onClose={() => setSelectedProductDetail(null)}
           />
         )}

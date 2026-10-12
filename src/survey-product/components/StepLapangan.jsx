@@ -355,6 +355,7 @@ export default function StepLapangan({ data = createEmptyLapanganData(), stepDat
           onChange={handleProductDataChange}
           schedules={actualSchedules}
           readOnly={readOnly}
+          noSurvey={stepData?.no_survey}
         />
       )}
 
