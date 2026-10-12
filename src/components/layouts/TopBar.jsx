@@ -30,7 +30,7 @@ export default function Topbar({ currentModule }) {
 
   const allModules = [
     { name: 'Daily Activity Sales', icon: <LayoutDashboard className="w-4 h-4 text-blue-600" />, path: marketingPath, hasAccess: hasMarketingAccess },
-    { name: 'Installation Project', icon: <Wrench className="w-4 h-4 text-orange-600" />, path: '/installation-project', hasAccess: hasPermission('install_project_view') },
+    { name: 'Dinas Luar', icon: <Wrench className="w-4 h-4 text-orange-600" />, path: '/installation-project', hasAccess: hasPermission('install_project_view') },
     { name: 'Survey Product', icon: <ClipboardList className="w-4 h-4 text-emerald-600" />, path: '/survey-product', hasAccess: hasPermission('survey_product_view') }
   ];
 

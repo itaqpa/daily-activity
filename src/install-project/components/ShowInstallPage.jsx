@@ -98,7 +98,7 @@ export default function ShowInstallPage({ id: propId, onBack, embedded = false }
           <div>
             <div className="flex items-center gap-2 text-xs text-gray-400 font-medium">
               <Link to="/installation-project" className="hover:text-blue-600 transition-colors">
-                Installation Project
+                Dinas Luar
               </Link>
               <span>/</span>
               <span className="text-gray-700 font-semibold font-mono truncate max-w-[200px]">

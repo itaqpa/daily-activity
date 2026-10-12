@@ -231,7 +231,7 @@ export default function WizardModal({ isOpen, onClose, onSuccess, editId }) {
           <div className="flex items-center gap-3">
             <div>
               <h2 className="text-xl font-bold text-gray-800">
-                {currentStep === 4 ? 'Review & Save' : (editId ? 'Edit Installation Project' : 'Add Installation Project')}
+                {currentStep === 4 ? 'Review & Save' : (editId ? 'Edit Dinas Luar' : 'Tambah Dinas Luar')}
               </h2>
               {currentStep === 4 && (
                 <p className="text-xs text-gray-400 mt-0.5">

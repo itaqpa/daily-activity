@@ -19,7 +19,9 @@ export default function MainLayout({ children }) {
   // Determine current module based on URL, but persist in localStorage
   // so shared routes (like master data) don't lose context.
   const [currentModule, setCurrentModule] = useState(() => {
-    return localStorage.getItem('activeAppModule') || 'Daily Activity Sales';
+    const saved = localStorage.getItem('activeAppModule');
+    if (saved === 'Installation Project') return 'Dinas Luar';
+    return saved || 'Daily Activity Sales';
   });
 
   useEffect(() => {
@@ -34,8 +36,8 @@ export default function MainLayout({ children }) {
         localStorage.setItem('activeAppModule', 'Survey Product');
         setCurrentModule('Survey Product');
       } else if (path.startsWith('/installation-project') || path.startsWith('/data-pengeluaran')) {
-        localStorage.setItem('activeAppModule', 'Installation Project');
-        setCurrentModule('Installation Project');
+        localStorage.setItem('activeAppModule', 'Dinas Luar');
+        setCurrentModule('Dinas Luar');
       } else if (path.startsWith('/marketing')) {
         localStorage.setItem('activeAppModule', 'Daily Activity Sales');
         setCurrentModule('Daily Activity Sales');

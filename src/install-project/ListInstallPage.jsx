@@ -17,7 +17,7 @@ export default function ListInstallPage() {
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [editId, setEditId] = useState(null);
   const { user, hasPermission, getPermissionScope } = useAuth();
-  
+
   // Handle clicking outside dropdown
   useEffect(() => {
     function handleClickOutside(event) {
@@ -36,10 +36,10 @@ export default function ListInstallPage() {
       const res = await fetch(apiUrl('/install-projects'));
       if (res.ok) {
         let data = await res.json();
-        
+
         // Hanya Super Admin yang melihat semua project
-        const isSuperAdmin = 
-          Number(user?.jabatan_id) === 1 || 
+        const isSuperAdmin =
+          Number(user?.jabatan_id) === 1 ||
           user?.role?.toLowerCase() === 'superadmin' ||
           user?.jabatan?.toLowerCase() === 'super admin' ||
           user?.jabatan_name?.toLowerCase() === 'super admin' ||
@@ -78,7 +78,7 @@ export default function ListInstallPage() {
             return false;
           });
         }
-        
+
         setProjects(data);
       } else {
         console.error("Gagal mengambil data project");
@@ -119,8 +119,8 @@ export default function ListInstallPage() {
   }));
 
   // Filtering
-  const filteredData = mappedData.filter(item => 
-    item.nama_project.toLowerCase().includes(searchTerm.toLowerCase()) || 
+  const filteredData = mappedData.filter(item =>
+    item.nama_project.toLowerCase().includes(searchTerm.toLowerCase()) ||
     item.no_project.toLowerCase().includes(searchTerm.toLowerCase()) ||
     item.customer.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -128,7 +128,7 @@ export default function ListInstallPage() {
   // Pagination Logic
   const totalItems = filteredData.length;
   const totalPages = itemsPerPage === "All" ? 1 : Math.ceil(totalItems / itemsPerPage);
-  
+
   const indexOfLastItem = itemsPerPage === "All" ? totalItems : currentPage * itemsPerPage;
   const indexOfFirstItem = itemsPerPage === "All" ? 0 : indexOfLastItem - itemsPerPage;
   const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
@@ -179,7 +179,7 @@ export default function ListInstallPage() {
           },
           body: JSON.stringify({ status })
         });
-        
+
         if (res.ok) {
           fetchProjects();
         } else {
@@ -195,16 +195,16 @@ export default function ListInstallPage() {
   return (
     <MainLayout>
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8">
-        
+
         {/* Title */}
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-800">Installation Project</h1>
-          <p className="text-gray-500 text-sm mt-1">Daftar semua project instalasi beserta status dan detail pelaksanaannya.</p>
+          <h1 className="text-2xl font-bold text-gray-800">Dinas Luar</h1>
+          <p className="text-gray-500 text-sm mt-1">Daftar semua kegiatan dinas luar beserta status dan detail pelaksanaannya.</p>
         </div>
 
         {/* Toolbar: Search (Left) & Add Button (Right) */}
         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-          
+
           <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
             {/* Search */}
             <div className="relative w-full sm:w-80">
@@ -220,7 +220,7 @@ export default function ListInstallPage() {
                 className="w-full pl-11 pr-4 py-2 bg-gray-50/50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
               />
             </div>
-            
+
             {/* Show Entries Dropdown */}
             <div className="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
               <span>Tampilkan:</span>
@@ -243,7 +243,7 @@ export default function ListInstallPage() {
           </div>
 
           {hasPermission('install_project_create') && (
-            <button 
+            <button
               onClick={() => setIsWizardOpen(true)}
               className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition-all shadow-sm hover:shadow-md active:scale-95"
             >
@@ -251,7 +251,7 @@ export default function ListInstallPage() {
               Add Installation
             </button>
           )}
-          
+
         </div>
 
         {/* Table / Card Container */}
@@ -285,13 +285,13 @@ export default function ListInstallPage() {
                     {currentItems.map((row, index) => (
                       <tr key={row.id} className="bg-white hover:bg-blue-50/30 transition-colors">
                         <td className="px-4 py-3.5 text-center text-gray-500">{indexOfFirstItem + index + 1}</td>
-                        <td 
+                        <td
                           onClick={() => handleView(row.id)}
                           className="px-4 py-3.5 font-semibold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
                         >
                           {row.no_project}
                         </td>
-                        <td 
+                        <td
                           onClick={() => handleView(row.id)}
                           className="px-4 py-3.5 font-semibold text-gray-900 hover:text-blue-600 cursor-pointer"
                         >
@@ -306,12 +306,11 @@ export default function ListInstallPage() {
                           <div className="line-clamp-2" title={row.catatan}>{row.catatan}</div>
                         </td>
                         <td className="px-4 py-3.5 text-center">
-                          <span className={`px-2.5 py-1 text-xs font-semibold rounded-full border whitespace-nowrap capitalize ${
-                            row.status.toLowerCase() === 'registered' ? 'bg-blue-50 text-blue-700 border-blue-200' : 
-                            row.status.toLowerCase() === 'running' || row.status.toLowerCase() === 'in progress' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
-                            row.status.toLowerCase() === 'draft' ? 'bg-amber-50 text-amber-700 border-amber-200' : 
-                            'bg-gray-50 text-gray-700 border-gray-200'
-                          }`}>
+                          <span className={`px-2.5 py-1 text-xs font-semibold rounded-full border whitespace-nowrap capitalize ${row.status.toLowerCase() === 'registered' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                              row.status.toLowerCase() === 'running' || row.status.toLowerCase() === 'in progress' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                row.status.toLowerCase() === 'draft' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                  'bg-gray-50 text-gray-700 border-gray-200'
+                            }`}>
                             {row.status}
                           </span>
                         </td>
@@ -325,14 +324,14 @@ export default function ListInstallPage() {
                           >
                             <MoreVertical className="w-5 h-5" />
                           </button>
-                          
+
                           {/* Dropdown Menu - Desktop */}
                           {activeDropdown === row.id && (
-                            <div 
+                            <div
                               className={`absolute right-12 w-40 bg-white rounded-xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.15)] border border-gray-200 py-2 z-[9999] ${index >= 3 && index >= currentItems.length - 3 ? 'bottom-10' : 'top-10'}`}
                             >
                               {hasPermission('install_project_view') && (
-                                <button 
+                                <button
                                   onClick={() => { setActiveDropdown(null); handleView(row.id); }}
                                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors text-left font-medium"
                                 >
@@ -340,8 +339,8 @@ export default function ListInstallPage() {
                                 </button>
                               )}
                               {hasPermission('install_project_edit') && (
-                                <button 
-                                  onClick={() => { if(row.status.toLowerCase() !== 'running') { setActiveDropdown(null); handleEdit(row.id); } }}
+                                <button
+                                  onClick={() => { if (row.status.toLowerCase() !== 'running') { setActiveDropdown(null); handleEdit(row.id); } }}
                                   disabled={row.status.toLowerCase() === 'running'}
                                   className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left font-medium transition-colors ${row.status.toLowerCase() === 'running' ? 'text-gray-400 cursor-not-allowed bg-gray-50/50' : 'text-gray-700 hover:bg-amber-50 hover:text-amber-600'}`}
                                 >
@@ -349,7 +348,7 @@ export default function ListInstallPage() {
                                 </button>
                               )}
                               {hasPermission('install_project_progress') && row.status.toLowerCase() === 'registered' && (
-                                <button 
+                                <button
                                   onClick={() => { setActiveDropdown(null); handleUpdateStatus(row.id, 'running'); }}
                                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-emerald-700 hover:bg-emerald-50 transition-colors text-left font-medium"
                                 >
@@ -357,7 +356,7 @@ export default function ListInstallPage() {
                                 </button>
                               )}
                               {hasPermission('install_project_progress') && row.status.toLowerCase() === 'running' && (
-                                <button 
+                                <button
                                   onClick={() => { setActiveDropdown(null); handleUpdateStatus(row.id, 'closed'); }}
                                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 transition-colors text-left font-medium"
                                 >
@@ -367,7 +366,7 @@ export default function ListInstallPage() {
                               {hasPermission('install_project_delete') && (
                                 <>
                                   <div className="h-px bg-gray-100 my-1"></div>
-                                  <button 
+                                  <button
                                     onClick={() => { setActiveDropdown(null); handleDelete(row.id); }}
                                     className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors text-left font-medium"
                                   >
@@ -380,7 +379,7 @@ export default function ListInstallPage() {
                         </td>
                       </tr>
                     ))}
-                    
+
                     {/* Jika data kosong (Search filter) */}
                     {currentItems.length === 0 && (
                       <tr>
@@ -399,27 +398,26 @@ export default function ListInstallPage() {
                   <div key={row.id} className={`p-4 flex flex-col gap-3 relative bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-all ${activeDropdown === row.id ? 'z-50' : 'z-10'}`}>
                     <div className="flex justify-between items-start gap-2">
                       <div>
-                        <div 
+                        <div
                           onClick={() => handleView(row.id)}
                           className="font-bold text-blue-600 hover:underline cursor-pointer text-base"
                         >
                           {row.no_project}
                         </div>
-                        <div 
+                        <div
                           onClick={() => handleView(row.id)}
                           className="font-semibold text-gray-900 mt-0.5 cursor-pointer hover:text-blue-600 transition-colors line-clamp-2"
                         >
                           {row.nama_project}
                         </div>
                       </div>
-                      
+
                       <div className="flex items-center gap-1.5 action-dropdown-container">
-                        <span className={`px-2.5 py-1 text-xs font-semibold rounded-full border whitespace-nowrap capitalize ${
-                          row.status.toLowerCase() === 'registered' ? 'bg-blue-50 text-blue-700 border-blue-200' : 
-                          row.status.toLowerCase() === 'running' || row.status.toLowerCase() === 'in progress' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
-                          row.status.toLowerCase() === 'draft' ? 'bg-amber-50 text-amber-700 border-amber-200' : 
-                          'bg-gray-50 text-gray-700 border-gray-200'
-                        }`}>
+                        <span className={`px-2.5 py-1 text-xs font-semibold rounded-full border whitespace-nowrap capitalize ${row.status.toLowerCase() === 'registered' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                            row.status.toLowerCase() === 'running' || row.status.toLowerCase() === 'in progress' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                              row.status.toLowerCase() === 'draft' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                'bg-gray-50 text-gray-700 border-gray-200'
+                          }`}>
                           {row.status}
                         </span>
 
@@ -435,11 +433,11 @@ export default function ListInstallPage() {
 
                         {/* Dropdown Menu - Mobile */}
                         {activeDropdown === row.id && (
-                          <div 
+                          <div
                             className="absolute right-4 top-12 w-40 bg-white rounded-xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.15)] border border-gray-200 py-2 z-[9999]"
                           >
                             {hasPermission('install_project_view') && (
-                              <button 
+                              <button
                                 onClick={() => { setActiveDropdown(null); handleView(row.id); }}
                                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors text-left font-medium"
                               >
@@ -447,8 +445,8 @@ export default function ListInstallPage() {
                               </button>
                             )}
                             {hasPermission('install_project_edit') && (
-                              <button 
-                                onClick={() => { if(row.status.toLowerCase() !== 'running') { setActiveDropdown(null); handleEdit(row.id); } }}
+                              <button
+                                onClick={() => { if (row.status.toLowerCase() !== 'running') { setActiveDropdown(null); handleEdit(row.id); } }}
                                 disabled={row.status.toLowerCase() === 'running'}
                                 className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left font-medium transition-colors ${row.status.toLowerCase() === 'running' ? 'text-gray-400 cursor-not-allowed bg-gray-50/50' : 'text-gray-700 hover:bg-amber-50 hover:text-amber-600'}`}
                               >
@@ -456,7 +454,7 @@ export default function ListInstallPage() {
                               </button>
                             )}
                             {hasPermission('install_project_progress') && row.status.toLowerCase() === 'registered' && (
-                              <button 
+                              <button
                                 onClick={() => { setActiveDropdown(null); handleUpdateStatus(row.id, 'running'); }}
                                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-emerald-700 hover:bg-emerald-50 transition-colors text-left font-medium"
                               >
@@ -464,7 +462,7 @@ export default function ListInstallPage() {
                               </button>
                             )}
                             {hasPermission('install_project_progress') && row.status.toLowerCase() === 'running' && (
-                              <button 
+                              <button
                                 onClick={() => { setActiveDropdown(null); handleUpdateStatus(row.id, 'closed'); }}
                                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 transition-colors text-left font-medium"
                               >
@@ -474,7 +472,7 @@ export default function ListInstallPage() {
                             {hasPermission('install_project_delete') && (
                               <>
                                 <div className="h-px bg-gray-100 my-1"></div>
-                                <button 
+                                <button
                                   onClick={() => { setActiveDropdown(null); handleDelete(row.id); }}
                                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors text-left font-medium"
                                 >
@@ -518,7 +516,7 @@ export default function ListInstallPage() {
                     )}
                   </div>
                 ))}
-                
+
                 {/* Jika data kosong (Search filter) */}
                 {currentItems.length === 0 && (
                   <div className="px-4 py-12 text-center text-gray-500 bg-white rounded-xl border border-gray-100">
@@ -536,17 +534,17 @@ export default function ListInstallPage() {
             <div className="text-sm text-gray-500">
               Menampilkan <span className="font-semibold text-gray-700">{indexOfFirstItem + 1}</span> hingga <span className="font-semibold text-gray-700">{Math.min(indexOfLastItem, totalItems)}</span> dari <span className="font-semibold text-gray-700">{totalItems}</span> data
             </div>
-            
+
             {itemsPerPage !== "All" && totalPages > 1 && (
               <div className="flex items-center gap-2">
-                <button 
+                <button
                   onClick={() => handlePageChange(currentPage - 1)}
                   disabled={currentPage === 1}
                   className="p-2 border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
-                
+
                 <div className="flex items-center gap-1">
                   {[...Array(totalPages)].map((_, idx) => {
                     // Logic untuk membatasi jumlah tombol pagination yang tampil agar tidak terlalu panjang
@@ -566,11 +564,10 @@ export default function ListInstallPage() {
                       <button
                         key={idx}
                         onClick={() => handlePageChange(idx + 1)}
-                        className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
-                          currentPage === idx + 1 
-                            ? 'bg-blue-600 text-white' 
+                        className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${currentPage === idx + 1
+                            ? 'bg-blue-600 text-white'
                             : 'text-gray-600 hover:bg-gray-100'
-                        }`}
+                          }`}
                       >
                         {idx + 1}
                       </button>
@@ -578,7 +575,7 @@ export default function ListInstallPage() {
                   })}
                 </div>
 
-                <button 
+                <button
                   onClick={() => handlePageChange(currentPage + 1)}
                   disabled={currentPage === totalPages}
                   className="p-2 border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
@@ -591,8 +588,8 @@ export default function ListInstallPage() {
         )}
       </div>
 
-      <WizardModal 
-        isOpen={isWizardOpen} 
+      <WizardModal
+        isOpen={isWizardOpen}
         onClose={() => {
           setIsWizardOpen(false);
           setEditId(null);

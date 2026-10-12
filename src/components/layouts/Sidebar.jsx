@@ -23,7 +23,7 @@ export default function Sidebar({ isOpen, setIsOpen, currentModule }) {
   };
 
   const isMarketing = currentModule === 'Daily Activity Sales';
-  const isInstallation = currentModule === 'Installation Project';
+  const isInstallation = currentModule === 'Dinas Luar' || currentModule === 'Installation Project';
   const isSurveyProduct = currentModule === 'Survey Product';
 
   return (

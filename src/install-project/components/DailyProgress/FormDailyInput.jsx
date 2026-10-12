@@ -86,11 +86,17 @@ export default function FormDailyInput({ onBack, project }) {
       return;
     }
 
+    const jamVal = parseFloat(formData.jamKerja) || 0;
+    if (jamVal > 24) {
+      alert("Jam Kerja Hari ini maksimal 24 jam dalam 1 hari.\n\nCatatan: Jika bermaksud mengisi total jam seluruh tim (man-hours), sistem menghitungnya otomatis dari jam kerja shift dikali jumlah personil.");
+      return;
+    }
+
     setIsSaving(true);
     const payload = {
       tanggal: formData.tanggal,
       unit_id: parseInt(formData.unit),
-      jam_kerja: parseFloat(formData.jamKerja) || 0,
+      jam_kerja: jamVal,
       scopes: scopes
         .filter(s => s.capaianHariIni > 0 || s.id > 1000000 || (s.catatan && s.catatan.trim() !== '')) 
         .map(s => ({
@@ -180,13 +186,17 @@ export default function FormDailyInput({ onBack, project }) {
           <div className="relative">
             <input 
               type="number" 
+              min="0"
+              max="24"
+              step="0.5"
               className="w-full rounded-xl border border-gray-300 px-4 py-2.5 pr-12 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow" 
-              placeholder="0" 
+              placeholder="mis. 8" 
               value={formData.jamKerja} 
               onChange={e => setFormData({...formData, jamKerja: e.target.value})} 
             />
             <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-medium">Jam</span>
           </div>
+          <span className="text-[11px] text-gray-400 mt-1 block">Durasi shift (1 - 24 jam), bukan total man-hours tim</span>
         </div>
       </div>
 
