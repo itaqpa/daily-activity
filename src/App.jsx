@@ -55,6 +55,7 @@ import StandaloneAddCost from './install-project/pages/StandaloneAddCost';
 
 import SurveyProductList from './survey-product/SurveyProductList';
 import SurveyProductShow from './survey-product/SurveyProductShow';
+import SurveyProductReports from './survey-product/SurveyProductReports';
 import DataSurveyor from './master-admin/surveyor/DataSurveyor';
 import FormSurveyProductPage from './survey-product/formsurveyproduct/FormSurveyProductPage';
 
@@ -129,7 +130,7 @@ function App() {
             <Route element={<ModuleGuard requiredPermissions={['survey_product_view', 'surveyor_view']} />}>
               <Route index element={<SurveyProductList />} />
               <Route path="create" element={<FormSurveyProductPage />} />
-              <Route path="reports" element={<div>Laporan Coming Soon...</div>} />
+              <Route path="reports" element={<SurveyProductReports />} />
               <Route path="master-data/surveyor" element={<DataSurveyor />} />
               <Route path=":id" element={<SurveyProductShow />} />
             </Route>

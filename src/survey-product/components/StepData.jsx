@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import Select from 'react-select';
+import CreatableSelect from 'react-select/creatable';
 import { Building2, MapPin, Calendar, User, Phone, FileText, Target, Plus, Trash2, PackageOpen, CalendarDays, Users, Printer, ClipboardCheck } from 'lucide-react';
 import { apiUrl } from '../../api';
 import { useAuth } from '../../context/AuthContext';
@@ -68,6 +69,8 @@ export default function StepData({ data = createEmptyStepData(), persiapanData =
   const anggotaSurveyor = data.anggota_surveyor || [];
   const [userOptions, setUserOptions] = useState([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [customerOptions, setCustomerOptions] = useState([]);
+  const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -97,6 +100,37 @@ export default function StepData({ data = createEmptyStepData(), persiapanData =
     };
 
     fetchUsers();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchCustomers = async () => {
+      setIsLoadingCustomers(true);
+      try {
+        const response = await fetch(apiUrl('/customers'));
+        const customers = await response.json().catch(() => []);
+        if (!response.ok) throw new Error('Gagal memuat customer');
+        if (!isMounted) return;
+        setCustomerOptions(
+          (Array.isArray(customers) ? customers : [])
+            .map(c => ({
+              value: c.nama_customer || '',
+              label: c.nama_customer || '',
+              data: c
+            }))
+            .filter(opt => Boolean(opt.value))
+        );
+      } catch (error) {
+        if (isMounted) setCustomerOptions([]);
+      } finally {
+        if (isMounted) setIsLoadingCustomers(false);
+      }
+    };
+
+    fetchCustomers();
     return () => {
       isMounted = false;
     };
@@ -329,10 +363,40 @@ export default function StepData({ data = createEmptyStepData(), persiapanData =
           {/* Data Client / Perusahaan */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1">Data Client / Perusahaan <span className="text-red-500">*</span></label>
-            <div className="relative">
-              <Building2 className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input type="text" value={data.nama_client || ''} disabled={readOnly} onChange={(e) => updateField('nama_client', e.target.value)} className={`w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm ${readOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`} placeholder="Nama Perusahaan Client" />
-            </div>
+            <CreatableSelect
+              options={customerOptions}
+              value={data.nama_client ? { value: data.nama_client, label: data.nama_client } : null}
+              onChange={(selected) => {
+                const val = selected?.value || '';
+                const customerObj = selected?.data;
+                if (customerObj) {
+                  updateData({
+                    nama_client: val,
+                    alamat_lokasi: data.alamat_lokasi || customerObj.alamat || '',
+                    pic_client: data.pic_client || customerObj.pic || '',
+                    kontak_pic: data.kontak_pic || customerObj.kontak_pic || ''
+                  });
+                } else {
+                  updateField('nama_client', val);
+                }
+              }}
+              onCreateOption={(inputValue) => {
+                const trimmed = inputValue.trim();
+                if (trimmed) {
+                  const newOpt = { value: trimmed, label: trimmed };
+                  setCustomerOptions(prev => [...prev, newOpt]);
+                  updateField('nama_client', trimmed);
+                }
+              }}
+              formatCreateLabel={(inputValue) => `+ Tambah "${inputValue}"`}
+              placeholder={isLoadingCustomers ? 'Memuat customer...' : 'Pilih atau cari client / perusahaan...'}
+              isClearable
+              isSearchable
+              isLoading={isLoadingCustomers}
+              isDisabled={readOnly}
+              styles={selectStyles}
+              noOptionsMessage={() => 'Ketik nama client baru'}
+            />
           </div>
 
           {/* Plant / Area */}
@@ -410,10 +474,25 @@ export default function StepData({ data = createEmptyStepData(), persiapanData =
           {/* Marketing / Sales */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1">Marketing / Sales <span className="text-red-500">*</span></label>
-            <div className="relative">
-              <User className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input type="text" value={data.nama_marketing || ''} disabled={readOnly} onChange={(e) => updateField('nama_marketing', e.target.value)} className={`w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm ${readOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`} placeholder="Nama Marketing" />
-            </div>
+            <Select
+              options={userOptions}
+              value={
+                data.nama_marketing
+                  ? (userOptions.find(opt => opt.name === data.nama_marketing || opt.label === data.nama_marketing) || {
+                      value: data.nama_marketing,
+                      label: data.nama_marketing
+                    })
+                  : null
+              }
+              onChange={(selected) => updateField('nama_marketing', selected?.name || selected?.label || '')}
+              placeholder={isLoadingUsers ? 'Memuat user...' : 'Pilih Marketing / Sales'}
+              isSearchable
+              isClearable
+              isLoading={isLoadingUsers}
+              isDisabled={readOnly}
+              styles={selectStyles}
+              noOptionsMessage={() => 'User tidak ditemukan'}
+            />
           </div>
 
           {/* No Inquiry / Referensi */}
