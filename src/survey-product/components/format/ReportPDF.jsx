@@ -26,7 +26,7 @@ const mapDataToLegacyState = (stepData, lapanganData) => {
       prod: prod.code,
       f: prod.formData || {},
       fail: prod.formData?.fail || {}, // Handle fail checklist if we have one
-      photos: [], // TODO: photos mapping
+      photos: prod.formData?.photos || [],
       gap: prod.formData?.gap || {},
       cref: prod.formData?.custom_refs || []
     };

@@ -1,6 +1,39 @@
 import React, { useState, useEffect } from 'react';
-import { X, ChevronRight, CheckCircle2, AlertTriangle, AlertCircle, Save, ArrowLeft, Camera, FileText, Plus, Trash2, Check } from 'lucide-react';
+import { X, ChevronRight, CheckCircle2, AlertTriangle, AlertCircle, Save, ArrowLeft, Camera, FileText, Plus, Trash2, Check, Image as ImageIcon, Upload } from 'lucide-react';
 import { apiUrl } from '../../../api';
+
+export const PHOTO_CATS = [
+  'Keseluruhan',
+  'Nameplate / marking',
+  'Flange / koneksi',
+  'Dimensi (dengan meteran)',
+  'Kerusakan',
+  'Area sekitar',
+  'Lainnya'
+];
+
+// Helper kompresi dan konversi foto
+const resizeImageToBlob = (file, max = 1200, quality = 0.75) => {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const ratio = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.naturalWidth * ratio);
+      canvas.height = Math.round(img.naturalHeight * ratio);
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = (err) => {
+      URL.revokeObjectURL(url);
+      reject(err);
+    };
+    img.src = url;
+  });
+};
 
 // Database Standar Flange
 const NPS = [['1/2"',15],['3/4"',20],['1"',25],['1-1/4"',32],['1-1/2"',40],['2"',50],['2-1/2"',65],['3"',80],['4"',100],['5"',125],['6"',150],['8"',200],['10"',250],['12"',300],['14"',350],['16"',400],['18"',450],['20"',500],['24"',600]];
@@ -124,10 +157,17 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
 
   const getAutoTagValue = () => product?.displayId || `${product?.code || 'PRD'}-001`;
 
-  const isTagQuestion = (question = {}) => {
+  const isProductTagQuestion = (question = {}) => {
     const label = (question.label || '').toLowerCase();
     const id = (question.id || '').toLowerCase();
-    return id === 'tag' || id === 'tag_no' || id === 'tag_number' || id.includes('tag') || label.includes('tag');
+    if (id === 'eq_tag' || label.includes('equipment')) return false;
+    return id === 'tag' || id === 'tag_no' || id === 'tag_number' || label.includes('tag number');
+  };
+
+  const isEqTagQuestion = (question = {}) => {
+    const label = (question.label || '').toLowerCase();
+    const id = (question.id || '').toLowerCase();
+    return id === 'eq_tag' || (label.includes('tag') && label.includes('equipment'));
   };
 
   const handleInputChange = (questionId, value) => {
@@ -160,10 +200,10 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
 
   useEffect(() => {
     const autoTagValue = getAutoTagValue();
-    if (!sections.length || !autoTagValue) return;
+    if (!sections.length || !autoTagValue || readOnly) return;
 
     const tagQuestionIds = sections.flatMap(sec => sec.questions || [])
-      .filter(isTagQuestion)
+      .filter(isProductTagQuestion)
       .map(q => q.id);
 
     if (!tagQuestionIds.length) return;
@@ -173,7 +213,7 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
       const next = { ...prev };
 
       tagQuestionIds.forEach(id => {
-        if (next[id] !== autoTagValue) {
+        if (!next[id] || String(next[id]).trim() === '') {
           next[id] = autoTagValue;
           changed = true;
         }
@@ -181,7 +221,7 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
 
       return changed ? next : prev;
     });
-  }, [sections, product?.displayId, product?.code]);
+  }, [sections, product?.displayId, product?.code, readOnly]);
 
   const handleAddCustomRef = () => {
     if (readOnly) return;
@@ -204,6 +244,54 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
     setAnswers(prev => ({
       ...prev,
       custom_refs: (prev.custom_refs || []).filter(ref => ref.id !== id)
+    }));
+  };
+
+  const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);
+
+  const handleAddPhotos = async (files) => {
+    if (readOnly || !files || files.length === 0) return;
+    setIsProcessingPhoto(true);
+    try {
+      const newPhotos = [];
+      const currentPhotos = answers.photos || [];
+      for (const file of Array.from(files)) {
+        if (!file.type.startsWith('image/')) continue;
+        const dataUrl = await resizeImageToBlob(file, 1200, 0.75);
+        newPhotos.push({
+          id: 'p_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+          data: dataUrl,
+          cat: (currentPhotos.length + newPhotos.length === 0) ? 'Keseluruhan' : 'Lainnya',
+          cap: '',
+          created_at: Date.now()
+        });
+      }
+      if (newPhotos.length > 0) {
+        setAnswers(prev => ({
+          ...prev,
+          photos: [...(prev.photos || []), ...newPhotos]
+        }));
+      }
+    } catch (err) {
+      console.error('Gagal memproses foto:', err);
+    } finally {
+      setIsProcessingPhoto(false);
+    }
+  };
+
+  const handleUpdatePhoto = (id, field, value) => {
+    if (readOnly) return;
+    setAnswers(prev => ({
+      ...prev,
+      photos: (prev.photos || []).map(p => p.id === id ? { ...p, [field]: value } : p)
+    }));
+  };
+
+  const handleDeletePhoto = (id) => {
+    if (readOnly) return;
+    setAnswers(prev => ({
+      ...prev,
+      photos: (prev.photos || []).filter(p => p.id !== id)
     }));
   };
 
@@ -404,16 +492,26 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
     }
   };
 
+  const isPhotoSection = (sec) => {
+    return (sec.id && String(sec.id).toLowerCase().includes('foto')) ||
+      (sec.title && String(sec.title).toLowerCase().includes('foto')) ||
+      (sec.questions || []).some(q => q.type === 'photo');
+  };
+
   const getSectionProgress = (section) => {
+    const isPhotoSec = isPhotoSection(section);
     const visibleQuestions = section.questions.filter(q => evaluateVisibility(q, answers));
-    const totalAll = visibleQuestions.length;
+    const totalAll = isPhotoSec ? Math.max(visibleQuestions.length, 1) : visibleQuestions.length;
     
     let filledAll = 0;
     let filledRequired = 0;
     let totalRequired = 0;
 
     visibleQuestions.forEach(q => {
-      const isFilled = answers[q.id] !== undefined && answers[q.id] !== '';
+      const isFilled = q.type === 'photo' 
+        ? ((answers.photos || []).length > 0 || (answers[q.id] && answers[q.id].length > 0))
+        : (answers[q.id] !== undefined && answers[q.id] !== '');
+
       if (isFilled) filledAll++;
       
       if (q.required) {
@@ -422,8 +520,20 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
       }
     });
 
+    if (isPhotoSec && visibleQuestions.length === 0) {
+      if ((answers.photos || []).length > 0) {
+        filledAll = 1;
+      }
+    }
+
     let status = 'red';
-    if (totalRequired === 0 || filledRequired === totalRequired) {
+    if (totalRequired === 0) {
+      if (isPhotoSec) {
+        status = (answers.photos || []).length > 0 ? 'green' : 'yellow';
+      } else {
+        status = 'green';
+      }
+    } else if (filledRequired === totalRequired) {
       status = 'green';
     } else if (filledRequired > 0) {
       status = 'yellow';
@@ -433,15 +543,30 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
   };
 
   const getOverallPercent = () => {
-    let totalFilledAll = 0;
-    let totalAll = 0;
+    let totalRequired = 0;
+    let filledRequired = 0;
+
     sections.forEach(sec => {
       const prog = getSectionProgress(sec);
-      totalFilledAll += prog.filled;
-      totalAll += prog.total;
+      totalRequired += prog.totalRequired;
+      filledRequired += prog.filledRequired;
     });
-    if (totalAll === 0) return 0;
-    return Math.round((totalFilledAll / totalAll) * 100);
+
+    // Jika ada pertanyaan wajib (requirement)
+    if (totalRequired > 0) {
+      return Math.round((filledRequired / totalRequired) * 100);
+    }
+
+    // Fallback jika suatu template tidak memiliki pertanyaan required
+    let totalAll = 0;
+    let filledAll = 0;
+    sections.forEach(sec => {
+      const prog = getSectionProgress(sec);
+      totalAll += prog.total;
+      filledAll += prog.filled;
+    });
+    if (totalAll === 0) return 100;
+    return Math.round((filledAll / totalAll) * 100);
   };
 
   useEffect(() => {
@@ -476,7 +601,8 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
               const labelL = (q.label || '').toLowerCase();
               const idL = (q.id || '').toLowerCase();
               const isHariSurvey = labelL.includes('hari survey') || labelL.includes('hari pelaksanaan') || idL === 'hari_ke' || idL.includes('hari_survey') || idL.includes('hari');
-              const isTagField = isTagQuestion(q);
+              const isProductTag = isProductTagQuestion(q);
+              const isEqTag = isEqTagQuestion(q);
 
               if (isHariSurvey) {
                 return (
@@ -501,7 +627,7 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
                 );
               }
 
-              if (isTagField) {
+              if (isProductTag) {
                 return (
                   <div key={q.id} className="space-y-1.5">
                     <label className="block text-sm font-semibold text-gray-700">
@@ -509,10 +635,29 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
                     </label>
                     <input
                       type="text"
-                      value={answers[q.id] || getAutoTagValue()}
-                      disabled
-                      className="w-full px-4 py-2.5 rounded-lg border border-gray-300 outline-none text-gray-700 bg-gray-100 cursor-not-allowed"
+                      value={answers[q.id] !== undefined ? answers[q.id] : getAutoTagValue()}
+                      disabled={readOnly}
+                      onChange={(e) => handleInputChange(q.id, e.target.value)}
+                      className={`w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none text-gray-700 ${readOnly ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
                       placeholder={getAutoTagValue()}
+                    />
+                  </div>
+                );
+              }
+
+              if (isEqTag) {
+                return (
+                  <div key={q.id} className="space-y-1.5">
+                    <label className="block text-sm font-semibold text-gray-700">
+                      {q.label} {q.required && <span className="text-red-500">*</span>}
+                    </label>
+                    <input
+                      type="text"
+                      value={answers[q.id] || ''}
+                      disabled={readOnly}
+                      onChange={(e) => handleInputChange(q.id, e.target.value)}
+                      className={`w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none text-gray-700 ${readOnly ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
+                      placeholder="mis. P-101A, E-201, TK-01"
                     />
                   </div>
                 );
@@ -631,6 +776,48 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
                         </label>
                       );
                     })}
+                  </div>
+                ) : (q.type === 'photo' || q.type === 'file') ? (
+                  <div className="space-y-3 p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                    <p className="text-xs text-gray-500">
+                      Lampirkan foto/dokumen untuk {q.label}. File foto juga akan otomatis tercatat ke galeri dokumentasi item ini.
+                    </p>
+                    {!readOnly && (
+                      <div className="flex flex-wrap gap-2">
+                        <label className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg text-xs font-semibold cursor-pointer hover:bg-blue-700 transition-colors shadow-2xs">
+                          <Camera className="w-4 h-4" />
+                          <span>Ambil Foto</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            className="hidden"
+                            onChange={(e) => {
+                              if (e.target.files?.length) {
+                                handleAddPhotos(e.target.files);
+                                e.target.value = '';
+                              }
+                            }}
+                          />
+                        </label>
+                        <label className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-xs font-semibold cursor-pointer hover:bg-gray-50 transition-colors shadow-2xs">
+                          <Upload className="w-4 h-4" />
+                          <span>Pilih Foto</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            className="hidden"
+                            onChange={(e) => {
+                              if (e.target.files?.length) {
+                                handleAddPhotos(e.target.files);
+                                e.target.value = '';
+                              }
+                            }}
+                          />
+                        </label>
+                      </div>
+                    )}
                   </div>
                 ) : null}
               </div>
@@ -903,6 +1090,135 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
                 </div>
               </div>
             )}
+
+            {/* Foto Dokumentasi Section Dedicated UI */}
+            {isPhotoSection(section) && (
+              <div className="mt-8 pt-6 border-t border-gray-200">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                  <div>
+                    <h4 className="font-bold text-gray-800 flex items-center gap-2">
+                      <Camera className="w-5 h-5 text-blue-600" />
+                      Galeri Foto Dokumentasi Lapangan
+                    </h4>
+                    <p className="text-sm text-gray-500">
+                      Ambil foto kondisi eksisting, marking/nameplate, flange, dimensi (sertakan meteran), atau kerusakan.
+                    </p>
+                  </div>
+
+                  {!readOnly && (
+                    <div className="flex items-center gap-2 shrink-0">
+                      <label className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-lg text-xs font-semibold cursor-pointer hover:bg-blue-700 transition-colors shadow-sm">
+                        <Camera className="w-4 h-4" />
+                        <span>Ambil Foto</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          className="hidden"
+                          onChange={(e) => {
+                            if (e.target.files?.length) {
+                              handleAddPhotos(e.target.files);
+                              e.target.value = '';
+                            }
+                          }}
+                        />
+                      </label>
+                      <label className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-xs font-semibold cursor-pointer hover:bg-gray-50 transition-colors shadow-sm">
+                        <Upload className="w-4 h-4" />
+                        <span>Pilih Galeri</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          className="hidden"
+                          onChange={(e) => {
+                            if (e.target.files?.length) {
+                              handleAddPhotos(e.target.files);
+                              e.target.value = '';
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+                  )}
+                </div>
+
+                {isProcessingPhoto && (
+                  <div className="p-3 mb-4 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700 flex items-center gap-2 animate-pulse">
+                    <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-blue-600"></div>
+                    <span>Mengompresi dan menyimpan foto...</span>
+                  </div>
+                )}
+
+                {(!answers.photos || answers.photos.length === 0) ? (
+                  <div className="p-8 text-center border-2 border-dashed border-gray-200 rounded-xl bg-slate-50">
+                    <ImageIcon className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                    <p className="text-sm font-medium text-gray-600">Belum ada foto yang diunggah</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Klik tombol Ambil Foto atau Pilih Galeri di atas untuk menambahkan dokumentasi.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {answers.photos.map((p, idx) => (
+                      <div key={p.id || idx} className="bg-white border border-gray-200 rounded-xl p-3 shadow-2xs space-y-2.5">
+                        <div className="relative aspect-video rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
+                          <img
+                            src={p.data || p.url}
+                            alt={p.cap || p.cat || 'Foto'}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                          <span className="absolute top-2 left-2 px-2 py-0.5 rounded text-[10px] font-bold bg-black/60 text-white backdrop-blur-xs">
+                            #{idx + 1}
+                          </span>
+                        </div>
+
+                        <div className="space-y-2">
+                          <div>
+                            <label className="block text-[11px] font-bold text-gray-500 mb-1">Kategori</label>
+                            <select
+                              value={p.cat || 'Keseluruhan'}
+                              disabled={readOnly}
+                              onChange={(e) => handleUpdatePhoto(p.id, 'cat', e.target.value)}
+                              className={`w-full px-2.5 py-1.5 rounded-lg border border-gray-300 text-xs text-gray-700 outline-none focus:ring-1 focus:ring-blue-500 ${readOnly ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
+                            >
+                              {PHOTO_CATS.map(cat => (
+                                <option key={cat} value={cat}>{cat}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-bold text-gray-500 mb-1">Keterangan Foto</label>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={p.cap || ''}
+                                disabled={readOnly}
+                                onChange={(e) => handleUpdatePhoto(p.id, 'cap', e.target.value)}
+                                placeholder="mis. Tampak flange retak..."
+                                className={`flex-1 px-2.5 py-1.5 rounded-lg border border-gray-300 text-xs text-gray-700 outline-none focus:ring-1 focus:ring-blue-500 ${readOnly ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
+                              />
+                              {!readOnly && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeletePhoto(p.id)}
+                                  className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors border border-red-100"
+                                  title="Hapus foto"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Footer Section */}
@@ -937,6 +1253,8 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
   };
   const missingFields = getMissingCriticalFields();
 
+  const overallPercent = getOverallPercent();
+
   if (isLoading) {
     return (
       <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -967,33 +1285,58 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl flex flex-col max-h-[90vh] overflow-hidden">
         
         {/* Header Master */}
-        <div className="p-5 md:p-6 border-b border-gray-100 flex justify-between items-start bg-blue-50/50">
-          <div>
-            <div className="flex items-center gap-3 mb-1">
-              <div className="w-10 h-10 rounded-full border border-blue-200 bg-white flex items-center justify-center text-xs font-bold text-blue-700">
-                {product.code}
-              </div>
-              <div>
+        <div className="p-5 md:p-6 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-blue-50/50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full border border-blue-200 bg-white flex items-center justify-center text-xs font-bold text-blue-700 shadow-2xs">
+              {product.code}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
                 <h2 className="text-xl font-bold text-gray-900">{product.displayId}</h2>
-                <p className="text-sm text-gray-500 font-medium">{product.name}</p>
+                <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${
+                  overallPercent === 100 
+                    ? 'bg-emerald-100 text-emerald-700 border-emerald-200' 
+                    : overallPercent >= 50 
+                    ? 'bg-blue-100 text-blue-700 border-blue-200' 
+                    : 'bg-amber-100 text-amber-700 border-amber-200'
+                }`}>
+                  {overallPercent}%
+                </span>
               </div>
+              <p className="text-sm text-gray-500 font-medium">{product.name}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 bg-white text-gray-400 hover:text-gray-600 rounded-full border border-gray-200 shadow-sm transition-colors">
-            <X className="w-5 h-5" />
-          </button>
+
+          <div className="flex items-center gap-4 self-end sm:self-auto">
+            <div className="text-right">
+              <span className="text-xs font-semibold text-gray-600 block">
+                {missingFields.length === 0 ? 'Semua data wajib lengkap' : `${missingFields.length} data wajib belum lengkap`}
+              </span>
+              <div className="w-32 bg-gray-200 rounded-full h-2 mt-1 overflow-hidden">
+                <div 
+                  className={`h-2 rounded-full transition-all duration-300 ${overallPercent === 100 ? 'bg-emerald-500' : 'bg-blue-600'}`}
+                  style={{ width: `${overallPercent}%` }}
+                />
+              </div>
+            </div>
+            <button onClick={onClose} className="p-2 bg-white text-gray-400 hover:text-gray-600 rounded-full border border-gray-200 shadow-sm transition-colors">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Body Cards List */}
         <div className="flex-1 overflow-y-auto p-5 md:p-6 bg-slate-50">
           <div className="mb-4 flex items-center justify-between">
             <h3 className="font-bold text-gray-700">Form Inspeksi Lapangan</h3>
-              <span className="text-xs font-medium text-gray-500">{readOnly ? 'Data hanya dapat dilihat' : 'Pilih modul untuk mengisi data'}</span>
+            <span className="text-xs font-medium text-gray-500">{readOnly ? 'Data hanya dapat dilihat' : 'Pilih modul untuk mengisi data'}</span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {sections.filter(s => s.questions.some(q => evaluateVisibility(q, answers))).map((section) => {
+            {sections.filter(s => isPhotoSection(s) || s.questions.some(q => evaluateVisibility(q, answers))).map((section) => {
               const progress = getSectionProgress(section);
+              const isPhoto = isPhotoSection(section);
+              const photoCount = (answers.photos || []).length;
               
               // Badge colors based on status
               const statusConfig = {
@@ -1011,20 +1354,36 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
                 >
                   <div className="flex justify-between items-start mb-3 w-full">
                     <div className="bg-blue-50 p-2 rounded-lg text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                      <FileText className="w-5 h-5" />
+                      {isPhoto ? <Camera className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
                     </div>
                     <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold border ${config.bg} ${config.text} ${config.border}`}>
                       {config.icon}
-                      <span>{progress.filled} / {progress.total} Diisi</span>
+                      <span>
+                        {isPhoto 
+                          ? `${photoCount} Foto Tersimpan`
+                          : progress.totalRequired > 0 
+                          ? `${progress.filledRequired} / ${progress.totalRequired} Wajib` 
+                          : `${progress.filled} / ${progress.total} Diisi`}
+                      </span>
                     </div>
                   </div>
                   
                   <h4 className="font-bold text-gray-800 text-lg mb-1">{section.title}</h4>
-                  <p className="text-sm text-gray-500 line-clamp-2">{section.description}</p>
+                  <p className="text-sm text-gray-500 line-clamp-2">{section.description || (isPhoto ? 'Dokumentasi foto lapangan, nameplate, dan hasil ukur' : '')}</p>
                   
                   {/* Info Data Utama */}
                   <div className="mt-3">
-                    {progress.totalRequired === 0 ? (
+                    {isPhoto ? (
+                      photoCount > 0 ? (
+                        <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded">
+                          {photoCount} dokumentasi tersimpan
+                        </span>
+                      ) : (
+                        <span className="text-xs font-medium text-amber-600 bg-amber-50 px-2 py-1 rounded">
+                          Belum ada foto dokumentasi
+                        </span>
+                      )
+                    ) : progress.totalRequired === 0 ? (
                       <span className="text-xs font-medium text-gray-400 bg-gray-100 px-2 py-1 rounded">Tidak ada data wajib</span>
                     ) : progress.filledRequired < progress.totalRequired ? (
                       <span className="text-xs font-medium text-rose-600 bg-rose-50 px-2 py-1 rounded">

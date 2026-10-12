@@ -638,6 +638,8 @@ export default function ModalQuestionForm({
                   <option value="date">Tanggal (Date)</option>
                   <option value="boolean">Switch Ya / Tidak (Boolean)</option>
                   <option value="checklist">Daftar Checklist Khusus</option>
+                  <option value="photo">Foto Dokumentasi (Photo)</option>
+                  <option value="file">File / Dokumen Lampiran (File)</option>
                 </select>
               </div>
 
