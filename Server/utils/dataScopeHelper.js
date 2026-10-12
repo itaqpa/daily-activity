@@ -61,7 +61,7 @@ export async function getUserPermissionScope(pool, user, permissionName) {
        WHERE (
          jp.jabatan_id = (SELECT jabatan_id FROM users WHERE id = $1)
          OR jp.jabatan_id IN (SELECT jabatan_id FROM user_additional_roles WHERE user_id = $1)
-       ) AND p.nama_permission = $2`,
+       ) AND (jp.divisi_id = (SELECT divisi_id FROM users WHERE id = $1) OR jp.divisi_id IS NULL) AND p.nama_permission = $2`,
       [user.id, permissionName]
     );
 

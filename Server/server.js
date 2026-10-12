@@ -183,11 +183,11 @@ app.post('/api/login', async (req, res) => {
                   FROM (
                     SELECT permission_id FROM divisi_permissions WHERE divisi_id = u.divisi_id
                     UNION
-                    SELECT permission_id FROM jabatan_permissions WHERE jabatan_id = u.jabatan_id
+                    SELECT permission_id FROM jabatan_permissions WHERE jabatan_id = u.jabatan_id AND (divisi_id = u.divisi_id OR divisi_id IS NULL) AND (divisi_id = u.divisi_id OR divisi_id IS NULL) AND (divisi_id = u.divisi_id OR divisi_id IS NULL)
                     UNION
                     SELECT jp.permission_id FROM user_additional_roles uar 
                       JOIN jabatan_permissions jp ON jp.jabatan_id = uar.jabatan_id 
-                      WHERE uar.user_id = u.id
+                      WHERE uar.user_id = u.id AND (jp.divisi_id = u.divisi_id OR jp.divisi_id IS NULL) AND (jp.divisi_id = u.divisi_id OR jp.divisi_id IS NULL)
                     UNION
                     SELECT permission_id FROM user_permissions WHERE user_id = u.id
                   ) all_perms
@@ -201,6 +201,13 @@ app.post('/api/login', async (req, res) => {
                   WHERE up.user_id = u.id
                  ), '[]'::json
                ) as explicit_bypass_permissions,
+               COALESCE(
+                 (SELECT json_agg(DISTINCT p.nama_permission)
+                  FROM divisi_permissions dp
+                  JOIN permissions p ON p.id = dp.permission_id
+                  WHERE dp.divisi_id = u.divisi_id
+                 ), '[]'::json
+               ) as divisi_permissions,
                COALESCE(
                  (SELECT json_object_agg(p.nama_permission, scoped.max_scope)
                   FROM (
@@ -219,6 +226,7 @@ app.post('/api/login', async (req, res) => {
                                      END
                               FROM jabatan_permissions jp
                               WHERE (jp.jabatan_id = u.jabatan_id OR jp.jabatan_id IN (SELECT jabatan_id FROM user_additional_roles WHERE user_id = u.id))
+                                AND (jp.divisi_id = u.divisi_id OR jp.divisi_id IS NULL)
                                 AND jp.permission_id = all_p.permission_id),
                              -- Prioritas 3: Default DIVISION jika dari divisi_permissions
                              'DIVISION'
@@ -226,9 +234,9 @@ app.post('/api/login', async (req, res) => {
                     FROM (
                       SELECT permission_id FROM divisi_permissions WHERE divisi_id = u.divisi_id
                       UNION
-                      SELECT permission_id FROM jabatan_permissions WHERE jabatan_id = u.jabatan_id
+                      SELECT permission_id FROM jabatan_permissions WHERE jabatan_id = u.jabatan_id AND (divisi_id = u.divisi_id OR divisi_id IS NULL) AND (divisi_id = u.divisi_id OR divisi_id IS NULL)
                       UNION
-                      SELECT jp.permission_id FROM user_additional_roles uar JOIN jabatan_permissions jp ON jp.jabatan_id = uar.jabatan_id WHERE uar.user_id = u.id
+                      SELECT jp.permission_id FROM user_additional_roles uar JOIN jabatan_permissions jp ON jp.jabatan_id = uar.jabatan_id WHERE uar.user_id = u.id AND (jp.divisi_id = u.divisi_id OR jp.divisi_id IS NULL)
                       UNION
                       SELECT permission_id FROM user_permissions WHERE user_id = u.id
                     ) all_p
@@ -255,11 +263,11 @@ app.post('/api/login', async (req, res) => {
                   FROM (
                     SELECT permission_id FROM divisi_permissions WHERE divisi_id = u.divisi_id
                     UNION
-                    SELECT permission_id FROM jabatan_permissions WHERE jabatan_id = u.jabatan_id
+                    SELECT permission_id FROM jabatan_permissions WHERE jabatan_id = u.jabatan_id AND (divisi_id = u.divisi_id OR divisi_id IS NULL) AND (divisi_id = u.divisi_id OR divisi_id IS NULL)
                     UNION
                     SELECT jp.permission_id FROM user_additional_roles uar 
                       JOIN jabatan_permissions jp ON jp.jabatan_id = uar.jabatan_id 
-                      WHERE uar.user_id = u.id
+                      WHERE uar.user_id = u.id AND (jp.divisi_id = u.divisi_id OR jp.divisi_id IS NULL)
                     UNION
                     SELECT permission_id FROM user_permissions WHERE user_id = u.id
                   ) all_perms
@@ -273,6 +281,13 @@ app.post('/api/login', async (req, res) => {
                   WHERE up.user_id = u.id
                  ), '[]'::json
                ) as explicit_bypass_permissions,
+               COALESCE(
+                 (SELECT json_agg(DISTINCT p.nama_permission)
+                  FROM divisi_permissions dp
+                  JOIN permissions p ON p.id = dp.permission_id
+                  WHERE dp.divisi_id = u.divisi_id
+                 ), '[]'::json
+               ) as divisi_permissions,
                COALESCE(
                  (SELECT json_object_agg(p.nama_permission, scoped.max_scope)
                   FROM (
@@ -291,6 +306,7 @@ app.post('/api/login', async (req, res) => {
                                      END
                               FROM jabatan_permissions jp
                               WHERE (jp.jabatan_id = u.jabatan_id OR jp.jabatan_id IN (SELECT jabatan_id FROM user_additional_roles WHERE user_id = u.id))
+                                AND (jp.divisi_id = u.divisi_id OR jp.divisi_id IS NULL)
                                 AND jp.permission_id = all_p.permission_id),
                              -- Prioritas 3: Default DIVISION jika dari divisi_permissions
                              'DIVISION'
@@ -298,9 +314,9 @@ app.post('/api/login', async (req, res) => {
                     FROM (
                       SELECT permission_id FROM divisi_permissions WHERE divisi_id = u.divisi_id
                       UNION
-                      SELECT permission_id FROM jabatan_permissions WHERE jabatan_id = u.jabatan_id
+                      SELECT permission_id FROM jabatan_permissions WHERE jabatan_id = u.jabatan_id AND (divisi_id = u.divisi_id OR divisi_id IS NULL) AND (divisi_id = u.divisi_id OR divisi_id IS NULL)
                       UNION
-                      SELECT jp.permission_id FROM user_additional_roles uar JOIN jabatan_permissions jp ON jp.jabatan_id = uar.jabatan_id WHERE uar.user_id = u.id
+                      SELECT jp.permission_id FROM user_additional_roles uar JOIN jabatan_permissions jp ON jp.jabatan_id = uar.jabatan_id WHERE uar.user_id = u.id AND (jp.divisi_id = u.divisi_id OR jp.divisi_id IS NULL)
                       UNION
                       SELECT permission_id FROM user_permissions WHERE user_id = u.id
                     ) all_p
@@ -384,11 +400,11 @@ app.get('/api/me', async (req, res) => {
                   FROM (
                     SELECT permission_id FROM divisi_permissions WHERE divisi_id = u.divisi_id
                     UNION
-                    SELECT permission_id FROM jabatan_permissions WHERE jabatan_id = u.jabatan_id
+                    SELECT permission_id FROM jabatan_permissions WHERE jabatan_id = u.jabatan_id AND (divisi_id = u.divisi_id OR divisi_id IS NULL) AND (divisi_id = u.divisi_id OR divisi_id IS NULL)
                     UNION
                     SELECT jp.permission_id FROM user_additional_roles uar 
                       JOIN jabatan_permissions jp ON jp.jabatan_id = uar.jabatan_id 
-                      WHERE uar.user_id = u.id
+                      WHERE uar.user_id = u.id AND (jp.divisi_id = u.divisi_id OR jp.divisi_id IS NULL)
                     UNION
                     SELECT permission_id FROM user_permissions WHERE user_id = u.id
                   ) all_perms
@@ -402,6 +418,13 @@ app.get('/api/me', async (req, res) => {
                   WHERE up.user_id = u.id
                  ), '[]'::json
                ) as explicit_bypass_permissions,
+               COALESCE(
+                 (SELECT json_agg(DISTINCT p.nama_permission)
+                  FROM divisi_permissions dp
+                  JOIN permissions p ON p.id = dp.permission_id
+                  WHERE dp.divisi_id = u.divisi_id
+                 ), '[]'::json
+               ) as divisi_permissions,
                COALESCE(
                  (SELECT json_object_agg(p.nama_permission, scoped.max_scope)
                   FROM (
@@ -420,6 +443,7 @@ app.get('/api/me', async (req, res) => {
                                      END
                               FROM jabatan_permissions jp
                               WHERE (jp.jabatan_id = u.jabatan_id OR jp.jabatan_id IN (SELECT jabatan_id FROM user_additional_roles WHERE user_id = u.id))
+                                AND (jp.divisi_id = u.divisi_id OR jp.divisi_id IS NULL)
                                 AND jp.permission_id = all_p.permission_id),
                              -- Prioritas 3: Default DIVISION jika dari divisi_permissions
                              'DIVISION'
@@ -427,9 +451,9 @@ app.get('/api/me', async (req, res) => {
                     FROM (
                       SELECT permission_id FROM divisi_permissions WHERE divisi_id = u.divisi_id
                       UNION
-                      SELECT permission_id FROM jabatan_permissions WHERE jabatan_id = u.jabatan_id
+                      SELECT permission_id FROM jabatan_permissions WHERE jabatan_id = u.jabatan_id AND (divisi_id = u.divisi_id OR divisi_id IS NULL) AND (divisi_id = u.divisi_id OR divisi_id IS NULL)
                       UNION
-                      SELECT jp.permission_id FROM user_additional_roles uar JOIN jabatan_permissions jp ON jp.jabatan_id = uar.jabatan_id WHERE uar.user_id = u.id
+                      SELECT jp.permission_id FROM user_additional_roles uar JOIN jabatan_permissions jp ON jp.jabatan_id = uar.jabatan_id WHERE uar.user_id = u.id AND (jp.divisi_id = u.divisi_id OR jp.divisi_id IS NULL)
                       UNION
                       SELECT permission_id FROM user_permissions WHERE user_id = u.id
                     ) all_p
@@ -825,7 +849,7 @@ app.get('/api/permissions', async (req, res) => {
 });
 
 // 2. Divisi Permissions (GET & POST)
-app.get('/api/debug-user/:email', async (req, res) => { const result = await pool.query('SELECT u.email, u.divisi_id, u.jabatan_id, j.nama_jabatan, d.nama_divisi, (SELECT json_agg(p.nama_permission) FROM (SELECT permission_id FROM divisi_permissions WHERE divisi_id = u.divisi_id UNION SELECT permission_id FROM jabatan_permissions WHERE jabatan_id = u.jabatan_id UNION SELECT jp.permission_id FROM user_additional_roles uar JOIN jabatan_permissions jp ON jp.jabatan_id = uar.jabatan_id WHERE uar.user_id = u.id UNION SELECT permission_id FROM user_permissions WHERE user_id = u.id) all_perms JOIN permissions p ON p.id = all_perms.permission_id) as perms FROM users u LEFT JOIN jabatans j ON u.jabatan_id = j.id LEFT JOIN divisis d ON u.divisi_id = d.id WHERE u.email = ', [req.params.email]); res.json(result.rows[0]); }); 
+app.get('/api/debug-user/:email', async (req, res) => { const result = await pool.query('SELECT u.email, u.divisi_id, u.jabatan_id, j.nama_jabatan, d.nama_divisi, (SELECT json_agg(p.nama_permission) FROM (SELECT permission_id FROM divisi_permissions WHERE divisi_id = u.divisi_id UNION SELECT permission_id FROM jabatan_permissions WHERE jabatan_id = u.jabatan_id AND (divisi_id = u.divisi_id OR divisi_id IS NULL) AND (divisi_id = u.divisi_id OR divisi_id IS NULL) UNION SELECT jp.permission_id FROM user_additional_roles uar JOIN jabatan_permissions jp ON jp.jabatan_id = uar.jabatan_id WHERE uar.user_id = u.id AND (jp.divisi_id = u.divisi_id OR jp.divisi_id IS NULL) UNION SELECT permission_id FROM user_permissions WHERE user_id = u.id) all_perms JOIN permissions p ON p.id = all_perms.permission_id) as perms FROM users u LEFT JOIN jabatans j ON u.jabatan_id = j.id LEFT JOIN divisis d ON u.divisi_id = d.id WHERE u.email = ', [req.params.email]); res.json(result.rows[0]); }); 
 app.get('/api/permissions/divisi/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -857,7 +881,14 @@ app.post('/api/permissions/divisi/:id', async (req, res) => {
 app.get('/api/permissions/jabatan/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query('SELECT permission_id, COALESCE(data_scope, \'ALL\') as data_scope FROM jabatan_permissions WHERE jabatan_id = $1', [id]);
+    const { divisi_id } = req.query;
+    let queryText = 'SELECT permission_id, COALESCE(data_scope, \'ALL\') as data_scope FROM jabatan_permissions WHERE jabatan_id = $1';
+    let params = [id];
+    if (divisi_id) {
+      queryText += ' AND (divisi_id = $2 OR divisi_id IS NULL)';
+      params.push(divisi_id);
+    }
+    const result = await pool.query(queryText, params);
     res.json(result.rows);
   } catch (error) {
     res.status(500).json({ error: 'Gagal mengambil permission jabatan' });
@@ -866,20 +897,31 @@ app.get('/api/permissions/jabatan/:id', async (req, res) => {
 
 app.post('/api/permissions/jabatan/:id', async (req, res) => {
   const { id } = req.params;
-  const { permissions, items } = req.body; 
+  const { permissions, items, divisi_id } = req.body; 
   // Mendukung items: [{ permission_id, data_scope }] atau fallback permissions: [id]
   try {
     await pool.query('BEGIN');
-    await pool.query('DELETE FROM jabatan_permissions WHERE jabatan_id = $1', [id]);
+    if (divisi_id) {
+      await pool.query('DELETE FROM jabatan_permissions WHERE jabatan_id = $1 AND divisi_id = $2', [id, divisi_id]);
+    } else {
+      await pool.query('DELETE FROM jabatan_permissions WHERE jabatan_id = $1 AND divisi_id IS NULL', [id]);
+    }
+
     if (Array.isArray(items)) {
       for (let item of items) {
         const permId = typeof item === 'object' ? item.permission_id : item;
         const scope = (typeof item === 'object' && item.data_scope) ? item.data_scope : 'ALL';
-        await pool.query('INSERT INTO jabatan_permissions (jabatan_id, permission_id, data_scope) VALUES ($1, $2, $3)', [id, permId, scope]);
+        await pool.query(
+          'INSERT INTO jabatan_permissions (jabatan_id, permission_id, data_scope, divisi_id) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING', 
+          [id, permId, scope, divisi_id || null]
+        );
       }
     } else if (Array.isArray(permissions)) {
       for (let perm_id of permissions) {
-        await pool.query('INSERT INTO jabatan_permissions (jabatan_id, permission_id, data_scope) VALUES ($1, $2, $3)', [id, perm_id, 'ALL']);
+        await pool.query(
+          'INSERT INTO jabatan_permissions (jabatan_id, permission_id, data_scope, divisi_id) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING', 
+          [id, perm_id, 'ALL', divisi_id || null]
+        );
       }
     }
     await pool.query('COMMIT');
@@ -919,17 +961,17 @@ app.get('/api/permissions/user/:id', async (req, res) => {
       [userData.divisi_id || 0]
     );
 
-    // Ambil permission bawaan Jabatan (termasuk additional roles jika ada)
+    // Ambil permission bawaan Jabatan (termasuk additional roles jika ada, disaring berdasarkan divisi user)
     const jabRes = await pool.query(
       `SELECT jp.permission_id, 'JABATAN' as source, COALESCE(jp.data_scope, 'ALL') as data_scope 
        FROM jabatan_permissions jp 
-       WHERE jp.jabatan_id = $1
+       WHERE jp.jabatan_id = $1 AND (jp.divisi_id = $3 OR jp.divisi_id IS NULL)
        UNION
        SELECT jp.permission_id, 'ADDITIONAL_ROLE' as source, COALESCE(jp.data_scope, 'ALL') as data_scope
        FROM user_additional_roles uar
        JOIN jabatan_permissions jp ON jp.jabatan_id = uar.jabatan_id
-       WHERE uar.user_id = $2`,
-      [userData.jabatan_id || 0, id]
+       WHERE uar.user_id = $2 AND (jp.divisi_id = $3 OR jp.divisi_id IS NULL)`,
+      [userData.jabatan_id || 0, id, userData.divisi_id || 0]
     );
 
     // Ambil direct user_permissions (custom bypass yang tersimpan khusus user ini)

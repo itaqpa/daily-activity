@@ -19,7 +19,7 @@ import { useAuth } from '../context/AuthContext';
 
 export default function Portal() {
   const navigate = useNavigate();
-  const { user, logout, hasPermission } = useAuth();
+  const { user, logout, hasPermission, canAccessModule } = useAuth();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const handleLogout = () => {
@@ -28,33 +28,38 @@ export default function Portal() {
   };
 
   // --- HAK AKSES UNTUK DAILY ACTIVITY SALES ---
-  // Murni permission-based: Divisi+Jabatan sudah mengatur permission default saat login.
-  // User bypass (cross-division) otomatis dapat akses jika diberi permission via user_permissions.
-  const hasDailyActivitySalesAccess =
-    hasPermission('dashboard_view') ||
-    hasPermission('aktivitas_view') ||
-    hasPermission('riwayat_aktivitas_view') ||
-    hasPermission('laporan_marketing_view') ||
-    hasPermission('customer_view') ||
-    hasPermission('sales_view');
+  // Memvalidasi hak akses Divisi (Kunci Pintu Masuk), Jabatan (Role), atau User Direct Bypass
+  const hasDailyActivitySalesAccess = canAccessModule([
+    'dashboard_view',
+    'aktivitas_view',
+    'riwayat_aktivitas_view',
+    'laporan_marketing_view',
+    'customer_view',
+    'sales_view'
+  ]);
 
   const dailyActivityPath = hasPermission('dashboard_view') ? '/marketing/dashboard' :
     (hasPermission('aktivitas_view') || hasPermission('riwayat_aktivitas_view')) ? '/marketing/activities' :
       hasPermission('laporan_marketing_view') ? '/marketing/reports' : '/marketing/activities';
 
   // --- HAK AKSES UNTUK DINAS LUAR (INSTALLATION) ---
-  // Memeriksa apakah user memiliki minimal satu akses "View" ke fitur-fitur di modul Dinas Luar
-  const hasDinasLuarAccess =
-    hasPermission('install_project_view') ||
-    hasPermission('daily_progress_view') ||
-    hasPermission('laporan_project_view') ||
-    hasPermission('pengeluaran_view') ||
-    hasPermission('manpower_view');
+  const hasDinasLuarAccess = canAccessModule([
+    'install_project_view',
+    'daily_progress_view',
+    'laporan_project_view',
+    'pengeluaran_view',
+    'manpower_view'
+  ]);
 
   const dinasLuarPath = hasPermission('install_project_view') ? '/installation-project' :
     hasPermission('daily_progress_view') ? '/installation-project/progress' :
       hasPermission('laporan_project_view') ? '/installation-project/reports' :
         hasPermission('pengeluaran_view') ? '/installation-project/expenses' : '/installation-project';
+
+  const hasSurveyProductAccess = canAccessModule([
+    'survey_product_view',
+    'surveyor_view'
+  ]);
 
   const allModules = [
     {
@@ -85,7 +90,7 @@ export default function Portal() {
       borderClass: 'border-green-100',
       shadowClass: 'shadow-green-500/20',
       path: '/survey-product',
-      hasAccess: hasPermission('survey_product_view')
+      hasAccess: hasSurveyProductAccess
     }
   ];
 
