@@ -314,7 +314,8 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
               uploadedUrl = uploadResult.url;
             }
           } else {
-            console.warn('Gagal upload ke MinIO, menggunakan dataUrl lokal sebagai fallback');
+            const errData = await res.json().catch(() => ({}));
+            console.error('Server error upload ke MinIO:', res.status, errData);
           }
         } catch (uploadErr) {
           console.warn('Network error upload ke MinIO, simpan lokal sementara:', uploadErr);

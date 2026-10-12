@@ -68,13 +68,61 @@ export function AuthProvider({ children }) {
     return user.permission_scopes?.[permissionName] || 'ALL';
   };
 
+  // Helper function to check module access respecting both Division gatekeeper and Direct User Bypass
+  const canAccessModule = (requiredPermissions = []) => {
+    if (!user) return false;
+
+    // Super Admin gets god-mode access
+    if (user.jabatan === 'Super Admin') return true;
+
+    // 1. Direct User Bypass: User explicitly given access in user_permissions
+    const hasDirectBypass = requiredPermissions.some(perm =>
+      user.explicit_bypass_permissions?.includes(perm)
+    );
+    if (hasDirectBypass) return true;
+
+    // 2. Modul Master Admin (user_view, akses_view, dsb) bersifat lintas divisi untuk jabatan Admin
+    const isMasterAdminCheck = requiredPermissions.every(perm =>
+      ['user_view', 'akses_view', 'history_view', 'survey_question_view'].includes(perm)
+    );
+    if (isMasterAdminCheck && user.jabatan === 'Admin') {
+      return requiredPermissions.some(perm => user.permissions?.includes(perm));
+    }
+
+    // 3. Division check untuk modul operasional kerja (Sales, Dinas Luar, Survey):
+    // If divisi_permissions is loaded, verify against it
+    let hasDivisiAccess = false;
+    if (Array.isArray(user.divisi_permissions)) {
+      hasDivisiAccess = requiredPermissions.some(perm =>
+        user.divisi_permissions.includes(perm)
+      );
+    } else {
+      // Fallback transitional check based on division name
+      const divName = (user.nama_divisi || user.divisi || '').toLowerCase();
+      if (divName.includes('sales') && requiredPermissions.some(p => p.includes('aktivitas') || p.includes('customer') || p.includes('sales') || p.includes('laporan_marketing'))) {
+        hasDivisiAccess = true;
+      } else if (divName.includes('engineering') && requiredPermissions.some(p => p.includes('install') || p.includes('progress') || p.includes('pengeluaran'))) {
+        hasDivisiAccess = true;
+      } else if (divName.includes('management')) {
+        hasDivisiAccess = true;
+      }
+    }
+
+    // User's role must also have permission
+    const hasRoleAccess = requiredPermissions.some(perm =>
+      user.permissions?.includes(perm)
+    );
+
+    return !!(hasDivisiAccess && hasRoleAccess);
+  };
+
   // Alias hasMarketingPerm to hasPermission to support existing components without division hardcoding
   const hasMarketingPerm = (permissionName) => {
     return hasPermission(permissionName);
   };
 
   return (
-    <AuthContext.Provider value={{ user, updateUser, refreshUser, logout, hasPermission, getPermissionScope, hasMarketingPerm }}>
+    <AuthContext.Provider value={{ user, updateUser, refreshUser, logout, hasPermission, canAccessModule, getPermissionScope, hasMarketingPerm }}>
       {children}
     </AuthContext.Provider>
   );

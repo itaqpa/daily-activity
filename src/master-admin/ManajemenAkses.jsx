@@ -62,7 +62,7 @@ export default function ManajemenAkses() {
     } finally { setIsLoading(false); }
   }
 
-  const fetchJabatanPerms = async (id) => {
+  const fetchJabatanPerms = async (id, divisiId) => {
     if(!id) {
       setJabatanPerms([]);
       setJabatanScopes({});
@@ -70,7 +70,10 @@ export default function ManajemenAkses() {
     }
     setIsLoading(true);
     try {
-      const res = await fetch(apiUrl(`/permissions/jabatan/${id}`));
+      const url = divisiId 
+        ? apiUrl(`/permissions/jabatan/${id}?divisi_id=${divisiId}`)
+        : apiUrl(`/permissions/jabatan/${id}`);
+      const res = await fetch(url);
       const data = await res.json();
       if (Array.isArray(data)) {
         const ids = data.map(item => (typeof item === 'object' ? item.permission_id : item));
@@ -165,7 +168,14 @@ export default function ManajemenAkses() {
   }
 
   useEffect(() => { fetchDivisiPerms(selectedDivisi); }, [selectedDivisi]);
-  useEffect(() => { fetchJabatanPerms(selectedJabatan); }, [selectedJabatan]);
+  useEffect(() => { 
+    if (selectedJabatan) {
+      fetchJabatanPerms(selectedJabatan, selectedDivisi); 
+    } else {
+      setJabatanPerms([]);
+      setJabatanScopes({});
+    }
+  }, [selectedJabatan, selectedDivisi]);
   useEffect(() => { fetchUserPerms(selectedUser); }, [selectedUser]);
 
   const toggleDivisiPerm = (id) => setDivisiPerms(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]);
@@ -216,7 +226,11 @@ export default function ManajemenAkses() {
           }));
           promises.push(fetch(apiUrl(`/permissions/jabatan/${selectedJabatan}`), {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ items, permissions: jabatanPerms })
+            body: JSON.stringify({ 
+              divisi_id: selectedDivisi || null,
+              items, 
+              permissions: jabatanPerms 
+            })
           }));
         }
       } else {
