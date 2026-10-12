@@ -1,10 +1,59 @@
 import React, { useState, useEffect } from 'react';
-import { X, ChevronRight, CheckCircle2, AlertTriangle, AlertCircle, Save, ArrowLeft, Camera, FileText, Plus, Trash2 } from 'lucide-react';
+import { X, ChevronRight, CheckCircle2, AlertTriangle, AlertCircle, Save, ArrowLeft, Camera, FileText, Plus, Trash2, Check } from 'lucide-react';
 import { apiUrl } from '../../../api';
+
+// Database Standar Flange
+const NPS = [['1/2"',15],['3/4"',20],['1"',25],['1-1/4"',32],['1-1/2"',40],['2"',50],['2-1/2"',65],['3"',80],['4"',100],['5"',125],['6"',150],['8"',200],['10"',250],['12"',300],['14"',350],['16"',400],['18"',450],['20"',500],['24"',600]];
+const A150 = [[88.9,60.3,4,15.9],[98.4,69.9,4,15.9],[108,79.4,4,15.9],[117.5,88.9,4,15.9],[127,98.4,4,15.9],[152.4,120.7,4,19.1],[177.8,139.7,4,19.1],[190.5,152.4,4,19.1],[228.6,190.5,8,19.1],[254,215.9,8,22.2],[279.4,241.3,8,22.2],[342.9,298.5,8,22.2],[406.4,362,12,25.4],[482.6,431.8,12,25.4],[533.4,476.3,12,28.6],[596.9,539.8,16,28.6],[635,577.9,16,31.8],[698.5,635,20,31.8],[812.8,749.3,20,34.9]];
+const A300 = [[95.3,66.7,4,15.9],[117.5,82.6,4,19.1],[123.8,88.9,4,19.1],[133.4,98.4,4,19.1],[155.6,114.3,4,22.2],[165.1,127,8,19.1],[190.5,149.2,8,22.2],[209.6,168.3,8,22.2],[254,200,8,22.2],[279.4,235,8,22.2],[317.5,269.9,12,22.2],[381,330.2,12,25.4],[444.5,387.4,16,28.6],[520.7,450.8,16,31.8],[584.2,514.4,20,31.8],[647.7,571.5,20,34.9],[711.2,628.7,24,34.9],[774.7,685.8,24,34.9],[914.4,812.8,24,41.3]];
+const asmeRows = t => NPS.map((n,i)=>[n[0]+' (DN'+n[1]+')'].concat(t[i]));
+const FL = {
+  "ASME B16.5 Class 150": asmeRows(A150),
+  "ASME B16.5 Class 300": asmeRows(A300),
+  "JIS B2220 10K": [['DN25',125,90,4,19],['DN40',140,105,4,19],['DN50',155,120,4,19],['DN65',175,140,4,19],['DN80',185,150,8,19],['DN100',210,175,8,19],['DN125',250,210,8,23],['DN150',280,240,8,23],['DN200',330,290,12,23],['DN250',400,355,12,25],['DN300',445,400,16,25],['DN350',490,445,16,25],['DN400',560,510,16,27],['DN450',620,565,20,27],['DN500',675,620,20,27],['DN600',795,730,24,33]],
+  "EN 1092 / DIN PN10": [['DN25',115,85,4,14],['DN40',150,110,4,18],['DN50',165,125,4,18],['DN65',185,145,8,18],['DN80',200,160,8,18],['DN100',220,180,8,18],['DN125',250,210,8,18],['DN150',285,240,8,22],['DN200',340,295,8,22],['DN250',395,350,12,22],['DN300',445,400,12,22],['DN350',505,460,16,22],['DN400',565,515,16,26],['DN450',615,565,20,26],['DN500',670,620,20,26],['DN600',780,725,20,30]],
+  "EN 1092 / DIN PN16": [['DN25',115,85,4,14],['DN40',150,110,4,18],['DN50',165,125,4,18],['DN65',185,145,8,18],['DN80',200,160,8,18],['DN100',220,180,8,18],['DN125',250,210,8,18],['DN150',285,240,8,22],['DN200',340,295,12,22],['DN250',405,355,12,26],['DN300',460,410,12,26],['DN350',520,470,16,26],['DN400',580,525,16,30],['DN450',640,585,20,30],['DN500',715,650,20,33],['DN600',840,770,20,36]]
+};
+
+const parseNum = v => {
+  if (v == null || v === '') return null;
+  const n = Number(String(v).replace(',', '.').replace(/[^0-9.-]/g, ''));
+  return isNaN(n) ? null : n;
+};
+
+const findFlangeCandidates = (f) => {
+  const od = parseNum(f.f_od ?? f.od);
+  const pcd = parseNum(f.pcd);
+  const n = parseNum(f.n_bolt ?? f.bolt_n);
+  const hole = parseNum(f.hole ?? f.hole_dia);
+  if (od == null && pcd == null) return null;
+  const res = [];
+  Object.keys(FL).forEach(std => {
+    FL[std].forEach(r => {
+      let sc = 0;
+      if (od != null) sc += Math.abs(od - r[1]);
+      if (pcd != null) sc += 2 * Math.abs(pcd - r[2]);
+      if (n != null && n !== r[3]) sc += 40;
+      if (hole != null) sc += Math.abs(hole - r[4]);
+      res.push({ std, r, sc });
+    });
+  });
+  return res.sort((a, b) => a.sc - b.sc).slice(0, 4);
+};
+
+const getFlangeRow = (std, size) => {
+  const rows = FL[std];
+  if (!rows || !size) return null;
+  const norm = x => String(x).replace(/\s/g, '').toUpperCase();
+  const sz = norm(size);
+  return rows.find(x => {
+    const m = x[0].match(/\((.*)\)/);
+    return sz === norm(x[0]) || sz === norm(x[0].split(' ')[0]) || (m && sz === norm(m[1]));
+  }) || null;
+};
 
 // Template Engine akan diload dari API berdasarkan product.code
 // const MOCK_TEMPLATE = {...} dihapus
-
 
 export default function DynamicProductForm({ product, onClose, onSave, onChange, existingData = {}, schedules = [], readOnly = false }) {
   const [sections, setSections] = useState([]);
@@ -13,6 +62,19 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
   const [isLoading, setIsLoading] = useState(true);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [isEditingOutstanding, setIsEditingOutstanding] = useState(false);
+
+  // Helper State
+  const [matchCandidates, setMatchCandidates] = useState(null);
+  const [matchMessage, setMatchMessage] = useState(null);
+  const [appliedMessage, setAppliedMessage] = useState(null);
+
+  // PCD Calculator state
+  const [pcdN, setPcdN] = useState('');
+  const [pcdC, setPcdC] = useState('');
+
+  // Gap Calculator state
+  const [gapPoints, setGapPoints] = useState({ g12: '', g3: '', g6: '', g9: '', od: '' });
+  const [gapResultMsg, setGapResultMsg] = useState(null);
 
   const onChangeRef = React.useRef(onChange);
   useEffect(() => {
@@ -143,6 +205,115 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
       ...prev,
       custom_refs: (prev.custom_refs || []).filter(ref => ref.id !== id)
     }));
+  };
+
+  const findQuestionKey = (preferredKeys, labelKeywords = []) => {
+    for (const sec of sections) {
+      for (const q of (sec.questions || [])) {
+        if (preferredKeys.includes(q.id)) return q.id;
+      }
+    }
+    for (const sec of sections) {
+      for (const q of (sec.questions || [])) {
+        const lowerLabel = (q.label || '').toLowerCase();
+        if (labelKeywords.some(kw => lowerLabel.includes(kw))) return q.id;
+      }
+    }
+    return preferredKeys[0];
+  };
+
+  const handleFindFlangeMatch = () => {
+    const odKey = findQuestionKey(['f_od', 'od'], ['diameter luar', 'od flange']);
+    const pcdKey = findQuestionKey(['pcd', 'f_pcd'], ['pcd', 'bolt circle']);
+    const nKey = findQuestionKey(['n_bolt', 'bolt_n'], ['jumlah lubang']);
+    const holeKey = findQuestionKey(['hole', 'hole_dia'], ['diameter lubang']);
+
+    const fData = {
+      f_od: answers[odKey] ?? answers.f_od ?? answers.od,
+      pcd: answers[pcdKey] ?? answers.pcd,
+      n_bolt: answers[nKey] ?? answers.n_bolt,
+      hole: answers[holeKey] ?? answers.hole
+    };
+
+    const candidates = findFlangeCandidates(fData);
+    if (!candidates) {
+      setMatchMessage('Isi OD flange atau PCD di form terlebih dahulu.');
+      setMatchCandidates([]);
+      return;
+    }
+    setMatchMessage(null);
+    setMatchCandidates(candidates);
+  };
+
+  const handleApplyFlangeCandidate = (cand) => {
+    if (readOnly) return;
+    const stdKey = findQuestionKey(['std', 'fl_std'], ['standar flange']);
+    const sizeKey = findQuestionKey(['size1', 'size'], ['ukuran nominal', 'ukuran flange']);
+    const nKey = findQuestionKey(['n_bolt', 'bolt_n'], ['jumlah lubang']);
+    const holeKey = findQuestionKey(['hole', 'hole_dia'], ['diameter lubang']);
+
+    setAnswers(prev => ({
+      ...prev,
+      [stdKey]: cand.std,
+      [sizeKey]: cand.r[0],
+      [nKey]: prev[nKey] ? prev[nKey] : String(cand.r[3]),
+      [holeKey]: prev[holeKey] ? prev[holeKey] : String(cand.r[4])
+    }));
+
+    setAppliedMessage(`Standar ${cand.std} ${cand.r[0]} berhasil diterapkan ke form.`);
+    setTimeout(() => setAppliedMessage(null), 4000);
+  };
+
+  const calculatedPcd = React.useMemo(() => {
+    const n = parseNum(pcdN || answers[findQuestionKey(['n_bolt', 'bolt_n'], ['jumlah lubang'])]);
+    const c = parseNum(pcdC);
+    if (!n || n < 3 || !c) return null;
+    const p = c / Math.sin(Math.PI / n);
+    return p.toFixed(1);
+  }, [pcdN, pcdC, answers, sections]);
+
+  const handleApplyPcd = () => {
+    if (readOnly || !calculatedPcd) return;
+    const pcdKey = findQuestionKey(['pcd', 'f_pcd'], ['pcd', 'bolt circle']);
+    handleInputChange(pcdKey, calculatedPcd);
+    setAppliedMessage(`PCD ${calculatedPcd} mm berhasil diterapkan.`);
+    setTimeout(() => setAppliedMessage(null), 4000);
+  };
+
+  const handleCalcGap = () => {
+    if (readOnly) return;
+    const g12 = parseNum(gapPoints.g12);
+    const g3 = parseNum(gapPoints.g3);
+    const g6 = parseNum(gapPoints.g6);
+    const g9 = parseNum(gapPoints.g9);
+    const odVal = parseNum(gapPoints.od || answers[findQuestionKey(['f_od', 'od'], ['diameter luar', 'od flange'])]);
+
+    if ([g12, g3, g6, g9].some(x => x == null) || !odVal) {
+      setGapResultMsg({ type: 'error', text: 'Isi keempat titik celah (jam 12, 3, 6, 9) dan OD flange.' });
+      return;
+    }
+
+    const avg = (g12 + g3 + g6 + g9) / 4;
+    const dv = Math.abs(g12 - g6);
+    const dh = Math.abs(g3 - g9);
+    const ang = Math.atan(Math.sqrt(dv * dv + dh * dh) / odVal) * 180 / Math.PI;
+
+    const ftfKey = findQuestionKey(['ftf', 'f2f', 'panjang_terpasang'], ['face-to-face', 'panjang terpasang']);
+    const angKey = findQuestionKey(['ang_mis', 'mis_ang'], ['misalignment angular']);
+    const movSrcKey = findQuestionKey(['mov_src'], ['sumber data pergerakan']);
+
+    setAnswers(prev => ({
+      ...prev,
+      [ftfKey]: avg.toFixed(1),
+      [angKey]: ang.toFixed(2),
+      [movSrcKey]: prev[movSrcKey] || 'Pengukuran lapangan'
+    }));
+
+    setGapResultMsg({
+      type: 'success',
+      text: `Celah rata-rata ${avg.toFixed(1)} mm, misalignment angular ${ang.toFixed(2)}° telah diisikan ke form.`
+    });
+    setTimeout(() => setGapResultMsg(null), 5000);
   };
 
   const evaluateVisibility = (q, currentAnswers) => {
@@ -556,11 +727,87 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
                 <div className="bg-blue-50/50 p-5 rounded-xl border border-blue-100">
                   <h4 className="font-bold text-gray-800 mb-1">Cocokkan standar dari hasil ukur</h4>
                   <p className="text-sm text-gray-500 mb-4">Isi OD, PCD, dan jumlah lubang di form utama, lalu cari standar yang mendekati.</p>
+                  
                   {!readOnly && (
-                    <button className="px-4 py-2 bg-white border border-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
+                    <button 
+                      type="button"
+                      onClick={handleFindFlangeMatch}
+                      className="px-4 py-2 bg-white border border-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 text-gray-700 transition-colors shadow-sm"
+                    >
                       Cari standar yang cocok
                     </button>
                   )}
+
+                  {matchMessage && (
+                    <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>{matchMessage}</span>
+                    </div>
+                  )}
+
+                  {appliedMessage && (
+                    <div className="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800 flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span className="font-medium">{appliedMessage}</span>
+                    </div>
+                  )}
+
+                  {matchCandidates && matchCandidates.length > 0 && (
+                    <div className="mt-4 overflow-x-auto border border-gray-200 rounded-xl bg-white shadow-sm">
+                      <table className="w-full text-xs text-left">
+                        <thead className="bg-slate-50 text-gray-600 font-semibold border-b border-gray-200">
+                          <tr>
+                            <th className="px-3.5 py-2.5">Standar & ukuran</th>
+                            <th className="px-3.5 py-2.5">OD / PCD (mm)</th>
+                            <th className="px-3.5 py-2.5">Lubang</th>
+                            <th className="px-3.5 py-2.5 text-center">Aksi</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {matchCandidates.map((cand, idx) => (
+                            <tr key={idx} className="hover:bg-blue-50/50 transition-colors">
+                              <td className="px-3.5 py-2.5">
+                                <span className="text-gray-500 block text-[11px]">{cand.std}</span>
+                                <span className="font-bold text-gray-900">{cand.r[0]}</span>
+                              </td>
+                              <td className="px-3.5 py-2.5 font-medium text-gray-700">
+                                {cand.r[1]} / {cand.r[2]}
+                              </td>
+                              <td className="px-3.5 py-2.5 text-gray-700">
+                                {cand.r[3]} × Ø{cand.r[4]} mm
+                              </td>
+                              <td className="px-3.5 py-2.5 text-center">
+                                {!readOnly && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleApplyFlangeCandidate(cand)}
+                                    className="px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold rounded-md border border-blue-200 transition-colors shadow-2xs"
+                                  >
+                                    Pakai
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {(() => {
+                    const stdKey = findQuestionKey(['std', 'fl_std'], ['standar flange']);
+                    const sizeKey = findQuestionKey(['size1', 'size'], ['ukuran nominal', 'ukuran flange']);
+                    const curStd = answers[stdKey];
+                    const curSize = answers[sizeKey];
+                    const curRef = curStd && curSize ? getFlangeRow(curStd, curSize) : null;
+                    if (!curRef) return null;
+                    return (
+                      <div className="mt-3 p-3 bg-white border border-blue-200 rounded-lg text-xs text-gray-700">
+                        <span className="font-semibold text-blue-800">Nilai referensi {curStd} {curRef[0]}:</span>{' '}
+                        OD {curRef[1]} mm, PCD {curRef[2]} mm, {curRef[3]} lubang Ø{curRef[4]} mm.
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <div className="bg-blue-50/50 p-5 rounded-xl border border-blue-100">
@@ -568,17 +815,38 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
                   <div className="grid grid-cols-2 gap-4 mb-4">
                     <div>
                       <label className="block text-xs font-semibold text-gray-600 mb-1">Jumlah lubang</label>
-                      <input type="number" disabled={readOnly} className={`w-full px-3 py-2 rounded-md border border-gray-200 outline-none text-sm focus:ring-1 focus:ring-blue-500 ${readOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`} placeholder="0" />
+                      <input 
+                        type="number" 
+                        disabled={readOnly} 
+                        value={pcdN}
+                        onChange={(e) => setPcdN(e.target.value)}
+                        className={`w-full px-3 py-2 rounded-md border border-gray-200 outline-none text-sm focus:ring-1 focus:ring-blue-500 bg-white ${readOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`} 
+                        placeholder={answers[findQuestionKey(['n_bolt', 'bolt_n'], ['jumlah lubang'])] || "0"} 
+                      />
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-gray-600 mb-1">Jarak antar pusat (mm)</label>
-                      <input type="number" disabled={readOnly} className={`w-full px-3 py-2 rounded-md border border-gray-200 outline-none text-sm focus:ring-1 focus:ring-blue-500 ${readOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`} placeholder="0" />
+                      <input 
+                        type="number" 
+                        disabled={readOnly} 
+                        value={pcdC}
+                        onChange={(e) => setPcdC(e.target.value)}
+                        className={`w-full px-3 py-2 rounded-md border border-gray-200 outline-none text-sm focus:ring-1 focus:ring-blue-500 bg-white ${readOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`} 
+                        placeholder="0" 
+                      />
                     </div>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-bold text-blue-600">PCD: -</span>
+                    <span className="text-sm font-bold text-blue-600">
+                      {calculatedPcd ? `PCD ≈ ${calculatedPcd} mm` : 'PCD: -'}
+                    </span>
                     {!readOnly && (
-                      <button className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
+                      <button 
+                        type="button"
+                        onClick={handleApplyPcd}
+                        disabled={!calculatedPcd}
+                        className={`px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed`}
+                      >
                         Pakai sebagai PCD
                       </button>
                     )}
@@ -594,16 +862,41 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
                   <h4 className="font-bold text-gray-800 mb-1">Ukur celah flange di 4 titik</h4>
                   <p className="text-sm text-gray-500 mb-4">Posisi jam 12, 3, 6, dan 9.</p>
                   
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-                    {['Jam 12', 'Jam 3', 'Jam 6', 'Jam 9', 'OD Flange'].map(label => (
-                      <div key={label}>
-                        <label className="block text-xs font-semibold text-gray-600 mb-1">{label} (mm)</label>
-                        <input type="number" disabled={readOnly} className={`w-full px-3 py-2 rounded-md border border-gray-200 outline-none text-sm focus:ring-1 focus:ring-blue-500 ${readOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`} placeholder="0" />
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+                    {[
+                      { key: 'g12', label: 'Jam 12' },
+                      { key: 'g3', label: 'Jam 3' },
+                      { key: 'g6', label: 'Jam 6' },
+                      { key: 'g9', label: 'Jam 9' },
+                      { key: 'od', label: 'OD Flange', defaultVal: answers[findQuestionKey(['f_od', 'od'], ['diameter luar', 'od flange'])] }
+                    ].map(item => (
+                      <div key={item.key}>
+                        <label className="block text-xs font-semibold text-gray-600 mb-1">{item.label} (mm)</label>
+                        <input 
+                          type="number" 
+                          disabled={readOnly} 
+                          value={gapPoints[item.key] ?? ''}
+                          onChange={(e) => setGapPoints(prev => ({ ...prev, [item.key]: e.target.value }))}
+                          placeholder={item.defaultVal ? String(item.defaultVal) : '0'}
+                          className={`w-full px-3 py-2 rounded-md border border-gray-200 outline-none text-sm focus:ring-1 focus:ring-blue-500 bg-white ${readOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`} 
+                        />
                       </div>
                     ))}
                   </div>
+
+                  {gapResultMsg && (
+                    <div className={`mb-3 p-3 rounded-lg text-xs flex items-center gap-2 ${gapResultMsg.type === 'success' ? 'bg-emerald-50 border border-emerald-200 text-emerald-800' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}>
+                      {gapResultMsg.type === 'success' ? <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" /> : <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600" />}
+                      <span>{gapResultMsg.text}</span>
+                    </div>
+                  )}
+
                   {!readOnly && (
-                    <button className="px-4 py-2 bg-white border border-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
+                    <button 
+                      type="button"
+                      onClick={handleCalcGap}
+                      className="px-4 py-2 bg-white border border-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 text-gray-700 transition-colors shadow-sm"
+                    >
                       Hitung & Isi panjang terpasang / misalignment
                     </button>
                   )}
