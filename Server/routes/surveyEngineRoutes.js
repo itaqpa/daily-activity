@@ -1326,6 +1326,7 @@ export default function (pool) {
             JOIN survey_engine.products p ON p.id = tp.product_id
             WHERE tpq.template_question_id = tq.id
               AND tpq.deleted_at IS NULL
+              AND COALESCE(tpq.is_active, true) = true
           ) AS products
         FROM survey_engine.template_questions tq
         JOIN survey_engine.survey_template_versions v ON v.id = tq.version_id
@@ -1347,6 +1348,7 @@ export default function (pool) {
             WHERE tpq2.template_question_id = tq.id
               AND p2.code = $${paramIndex}
               AND tpq2.deleted_at IS NULL
+              AND COALESCE(tpq2.is_active, true) = true
           )
         `;
         params.push(product_code);
@@ -1498,20 +1500,32 @@ export default function (pool) {
 
       // Relasikan ke template_products
       const isAllProducts = !product_codes || product_codes.length === 0 || product_codes.includes('ALL');
-      const tpQuery = isAllProducts
-        ? `SELECT tp.id FROM survey_engine.template_products tp WHERE tp.version_id = $1`
-        : `SELECT tp.id FROM survey_engine.template_products tp JOIN survey_engine.products p ON p.id = tp.product_id WHERE tp.version_id = $1 AND p.code = ANY($2)`;
-      const tpParams = isAllProducts ? [versionId] : [versionId, product_codes];
-      const tpRows = await client.query(tpQuery, tpParams);
+      const allTpRows = await client.query(`
+        SELECT tp.id, p.code
+        FROM survey_engine.template_products tp
+        JOIN survey_engine.products p ON p.id = tp.product_id
+        WHERE tp.version_id = $1
+      `, [versionId]);
 
-      for (const tp of tpRows.rows) {
-        await client.query(`
-          INSERT INTO survey_engine.template_product_questions (
-            template_product_id, template_question_id, is_active
-          ) VALUES ($1, $2, $3)
-          ON CONFLICT (template_product_id, template_question_id)
-          DO UPDATE SET is_active = $3, deleted_at = NULL
-        `, [tp.id, templateQuestionId, !!is_active]);
+      for (const tp of allTpRows.rows) {
+        const shouldEnable = isAllProducts || product_codes.includes(tp.code);
+        if (shouldEnable) {
+          await client.query(`
+            INSERT INTO survey_engine.template_product_questions (
+              template_product_id, template_question_id, is_active, deleted_at
+            ) VALUES ($1, $2, $3, NULL)
+            ON CONFLICT (template_product_id, template_question_id)
+            DO UPDATE SET is_active = $3, deleted_at = NULL
+          `, [tp.id, templateQuestionId, !!is_active]);
+        } else {
+          await client.query(`
+            INSERT INTO survey_engine.template_product_questions (
+              template_product_id, template_question_id, is_active, deleted_at
+            ) VALUES ($1, $2, false, NOW())
+            ON CONFLICT (template_product_id, template_question_id)
+            DO UPDATE SET is_active = false, deleted_at = NOW()
+          `, [tp.id, templateQuestionId]);
+        }
       }
 
       // Tambahkan opsi jika ada
@@ -1625,13 +1639,23 @@ export default function (pool) {
 
       for (const tp of allTpRows.rows) {
         const shouldEnable = isAllProducts || product_codes.includes(tp.code);
-        await client.query(`
-          INSERT INTO survey_engine.template_product_questions (
-            template_product_id, template_question_id, is_active
-          ) VALUES ($1, $2, $3)
-          ON CONFLICT (template_product_id, template_question_id)
-          DO UPDATE SET is_active = $3, deleted_at = CASE WHEN $3 = true THEN NULL ELSE template_product_questions.deleted_at END
-        `, [tp.id, id, shouldEnable && !!is_active]);
+        if (shouldEnable) {
+          await client.query(`
+            INSERT INTO survey_engine.template_product_questions (
+              template_product_id, template_question_id, is_active, deleted_at
+            ) VALUES ($1, $2, $3, NULL)
+            ON CONFLICT (template_product_id, template_question_id)
+            DO UPDATE SET is_active = $3, deleted_at = NULL
+          `, [tp.id, id, !!is_active]);
+        } else {
+          await client.query(`
+            INSERT INTO survey_engine.template_product_questions (
+              template_product_id, template_question_id, is_active, deleted_at
+            ) VALUES ($1, $2, false, NOW())
+            ON CONFLICT (template_product_id, template_question_id)
+            DO UPDATE SET is_active = false, deleted_at = NOW()
+          `, [tp.id, id]);
+        }
       }
 
       // Update opsi jika input_type mendukung opsi
@@ -1686,11 +1710,11 @@ export default function (pool) {
 
       const newStatus = updateRes.rows[0].is_active;
 
-      // Update juga di template_product_questions
+      // Update juga di template_product_questions (hanya yang tidak terhapus)
       await client.query(`
         UPDATE survey_engine.template_product_questions
         SET is_active = $1
-        WHERE template_question_id = $2
+        WHERE template_question_id = $2 AND deleted_at IS NULL
       `, [newStatus, id]);
 
       await client.query('COMMIT');
