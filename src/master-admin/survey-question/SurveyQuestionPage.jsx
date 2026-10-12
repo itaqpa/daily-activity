@@ -637,24 +637,29 @@ export default function SurveyQuestionPage() {
 
                           <td className="py-3.5 px-4">
                             <div className="flex flex-wrap gap-1 max-w-[240px]">
-                              {Array.isArray(item.products) && item.products.length > 0 ? (
-                                item.products.length >= products.length ? (
-                                  <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded font-semibold text-[10px]">
-                                    Semua Produk ({item.products.length})
-                                  </span>
-                                ) : (
-                                  item.products.map(p => (
-                                    <span
-                                      key={p.code}
-                                      className="px-1.5 py-0.5 bg-gray-100 text-gray-700 rounded font-mono text-[10px]"
-                                    >
-                                      {p.code}
+                              {(() => {
+                                const activeList = Array.isArray(item.products)
+                                  ? item.products.filter(p => p.is_active !== false)
+                                  : [];
+                                if (activeList.length === 0) {
+                                  return <span className="text-gray-400 italic text-[11px]">-</span>;
+                                }
+                                if (products.length > 0 && activeList.length >= products.length) {
+                                  return (
+                                    <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded font-semibold text-[10px]">
+                                      Semua Produk ({activeList.length})
                                     </span>
-                                  ))
-                                )
-                              ) : (
-                                <span className="text-gray-400 italic text-[11px]">-</span>
-                              )}
+                                  );
+                                }
+                                return activeList.map(p => (
+                                  <span
+                                    key={p.code}
+                                    className="px-1.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded font-mono text-[10px] font-semibold"
+                                  >
+                                    {p.code}
+                                  </span>
+                                ));
+                              })()}
                             </div>
                           </td>
 
@@ -771,6 +776,27 @@ export default function SurveyQuestionPage() {
                       <span className="px-2 py-0.5 bg-gray-100 rounded font-mono">
                         Urutan #{item.sort_order}
                       </span>
+                      {(() => {
+                        const activeList = Array.isArray(item.products)
+                          ? item.products.filter(p => p.is_active !== false)
+                          : [];
+                        if (activeList.length === 0) return null;
+                        if (products.length > 0 && activeList.length >= products.length) {
+                          return (
+                            <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded font-semibold text-[10px]">
+                              Semua Produk
+                            </span>
+                          );
+                        }
+                        return activeList.map(p => (
+                          <span
+                            key={p.code}
+                            className="px-1.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded font-mono text-[10px] font-semibold"
+                          >
+                            {p.code}
+                          </span>
+                        ));
+                      })()}
                     </div>
 
                     <div className="flex items-center justify-between pt-2 border-t border-gray-100">

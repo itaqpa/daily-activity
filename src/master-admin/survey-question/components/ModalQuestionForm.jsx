@@ -224,9 +224,12 @@ export default function ModalQuestionForm({
 
   useEffect(() => {
     if (questionData) {
-      const pCodes = Array.isArray(questionData.products) && questionData.products.length > 0
-        ? questionData.products.map(p => p.code)
-        : ['ALL'];
+      const activeProducts = Array.isArray(questionData.products)
+        ? questionData.products.filter(p => p.is_active !== false)
+        : [];
+      const pCodes = activeProducts.length > 0
+        ? activeProducts.map(p => p.code)
+        : (products.length > 0 ? products.map(p => p.code) : ['ALL']);
 
       const opts = Array.isArray(questionData.options) && questionData.options.length > 0
         ? questionData.options.map(o => ({
@@ -341,31 +344,45 @@ export default function ModalQuestionForm({
     setErrorMsg('');
   }, [questionData, isOpen, sections]);
 
-  if (!isOpen) return null;
+  const allProductCodes = useMemo(() => products.map(p => p.code), [products]);
+
+  const isAllProductsSelected = useMemo(() => {
+    if (formData.product_codes.includes('ALL')) return true;
+    if (allProductCodes.length > 0 && allProductCodes.every(c => formData.product_codes.includes(c))) return true;
+    return false;
+  }, [formData.product_codes, allProductCodes]);
 
   const handleProductToggle = (code) => {
-    setFormData(prev => {
-      let current = [...prev.product_codes];
-      if (code === 'ALL') {
-        return { ...prev, product_codes: ['ALL'] };
+    if (code === 'ALL') {
+      if (isAllProductsSelected) {
+        // Jika sedang semua terpilih, kosongkan agar user bisa leluasa memilih 1 atau 2 produk
+        setFormData(prev => ({ ...prev, product_codes: [] }));
+      } else {
+        // Jika belum semua terpilih, pilih semua
+        setFormData(prev => ({ ...prev, product_codes: ['ALL'] }));
       }
-      
-      current = current.filter(c => c !== 'ALL');
+      return;
+    }
+
+    setFormData(prev => {
+      let current = prev.product_codes.includes('ALL')
+        ? [...allProductCodes]
+        : [...prev.product_codes];
+
       if (current.includes(code)) {
         current = current.filter(c => c !== code);
       } else {
         current.push(code);
       }
 
-      // Jika kosong, balik ke ALL
-      if (current.length === 0) {
+      // Jika seluruh produk telah terpilih manual, normalisasi ke ['ALL']
+      if (allProductCodes.length > 0 && allProductCodes.every(c => current.includes(c))) {
         current = ['ALL'];
       }
+
       return { ...prev, product_codes: current };
     });
   };
-
-  const isAllProductsSelected = formData.product_codes.includes('ALL');
 
   const handleAddOption = () => {
     setFormData(prev => ({
@@ -474,6 +491,10 @@ export default function ModalQuestionForm({
         visibilityRulePayload = {};
       }
 
+      if (!isAllProductsSelected && (!formData.product_codes || formData.product_codes.length === 0)) {
+        throw new Error('Pilih minimal 1 produk terkait untuk pertanyaan ini');
+      }
+
       const payload = {
         label: formData.label.trim(),
         question_key: formData.question_key ? formData.question_key.trim() : undefined,
@@ -485,7 +506,7 @@ export default function ModalQuestionForm({
         is_required: formData.is_required,
         is_active: formData.is_active,
         sort_order: Number(formData.sort_order) || 100,
-        product_codes: formData.product_codes,
+        product_codes: isAllProductsSelected ? ['ALL'] : formData.product_codes,
         options: cleanedOptions,
         visibility_rule: visibilityRulePayload
       };
@@ -518,6 +539,8 @@ export default function ModalQuestionForm({
   };
 
   const showOptionsConfig = ['select', 'radio', 'multi_select'].includes(formData.input_type);
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
@@ -864,11 +887,12 @@ export default function ModalQuestionForm({
                 onClick={() => handleProductToggle('ALL')}
                 className={`text-xs px-2.5 py-1 rounded-lg font-semibold transition-colors ${
                   isAllProductsSelected
-                    ? 'bg-blue-600 text-white'
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
+                title={isAllProductsSelected ? 'Klik untuk mengosongkan pilihan dan memilih produk tertentu' : 'Pilih semua produk'}
               >
-                {isAllProductsSelected ? '✓ Berlaku Semua Produk' : 'Pilih Semua Produk'}
+                {isAllProductsSelected ? '✓ Berlaku Semua Produk (Batalkan)' : 'Pilih Semua Produk'}
               </button>
             </div>
 
