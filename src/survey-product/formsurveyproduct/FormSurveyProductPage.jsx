@@ -5,6 +5,7 @@ import { apiUrl } from '../../api';
 import { useAuth } from '../../context/AuthContext';
 import Swal from 'sweetalert2';
 import { exportToPDF, generatePreviewHTML } from '../utils/pdfExport';
+import MainLayout from '../../components/layouts/MainLayout';
 
 import StepData, { createEmptyStepData, PRODUCT_LIST } from '../components/StepData';
 import StepPersiapan, { createEmptyPersiapanData } from '../components/StepPersiapan';
@@ -448,35 +449,38 @@ export default function FormSurveyProductPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-12">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+    <MainLayout currentModule="Survey Product">
+      <div className="min-h-screen bg-gray-50/50 pb-16">
+        {/* Header Bar */}
+        <div className="bg-white border-b border-gray-200/80 sticky top-0 z-10 px-4 sm:px-6 lg:px-8 py-3.5 mb-6 rounded-b-xl shadow-xs">
+          <div className="flex items-center justify-between max-w-5xl mx-auto">
             <div className="flex items-center">
               <button
                 onClick={() => navigate('/survey-product')}
-                className="mr-4 text-gray-500 hover:text-gray-700 transition-colors"
+                className="mr-3 p-1.5 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors"
+                title="Kembali ke Daftar Survey"
               >
-                <ArrowLeft className="w-6 h-6" />
+                <ArrowLeft className="w-5 h-5" />
               </button>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Survey Product</h1>
+                <h1 className="text-lg sm:text-xl font-bold text-gray-900">
+                  {editId ? `Edit Survey (${stepData?.no_survey || 'Draft'})` : 'Input Survey Product Baru'}
+                </h1>
+                <p className="text-xs text-gray-500 hidden sm:block">Lengkapi tahapan data, persiapan, lapangan, dan summary laporan</p>
               </div>
             </div>
-            <div className="flex space-x-3">
+            <div className="flex items-center space-x-2">
               <button
                 onClick={() => navigate('/survey-product')}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                className="px-3.5 py-1.5 border border-gray-300 rounded-lg text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-2xs"
               >
-                Home
+                Daftar Survey
               </button>
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Progress Bar / Steps */}
         <div className="mb-8 rounded-2xl border border-gray-100 bg-white px-4 py-8 shadow-sm sm:px-12 sm:py-10">
           <div className="relative flex justify-between items-center w-full max-w-3xl mx-auto">
@@ -618,5 +622,6 @@ export default function FormSurveyProductPage() {
         </div>
       </div>
     </div>
+  </MainLayout>
   );
 }
