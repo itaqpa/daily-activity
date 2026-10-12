@@ -57,11 +57,19 @@ export default function dailyProgressRoutes(pool) {
 
       // 1. Insert/Update daily_hours
       if (jam_kerja && Number(jam_kerja) > 0) {
+        const numJam = Number(jam_kerja);
+        if (numJam > 24) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ 
+            error: 'Jam kerja harian per unit maksimal 24 jam dalam 1 hari. (Man-hours tim dihitung otomatis dari durasi shift x personil).' 
+          });
+        }
+
         await client.query(`
           INSERT INTO daily_hours (unit_id, tanggal, jam)
           VALUES ($1, $2, $3)
           ON CONFLICT (unit_id, tanggal) DO UPDATE SET jam = EXCLUDED.jam
-        `, [unit_id, tanggal, jam_kerja]);
+        `, [unit_id, tanggal, numJam]);
       }
 
       // 2. Process scopes

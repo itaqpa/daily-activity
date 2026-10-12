@@ -21,7 +21,7 @@ export default function SidebarInstallation({ isActive }) {
       >
         <div className="flex items-center gap-2">
           <Wrench className="w-4 h-4 text-blue-300" />
-          <span>Installation Project</span>
+          <span>Dinas Luar</span>
         </div>
         {isOpen ? (
           <ChevronDown className="w-3.5 h-3.5 text-blue-200/60" />

@@ -68,8 +68,8 @@ export default function Portal() {
       hasAccess: hasDailyActivitySalesAccess
     },
     {
-      title: 'Dinas Luar (Installation)',
-      description: 'Manajemen proyek instalasi, progress harian, dan pelaporan lapangan',
+      title: 'Dinas Luar',
+      description: 'Manajemen proyek dinas luar, progress harian, dan pelaporan lapangan',
       icon: <Wrench className="w-7 h-7 text-orange-600" />,
       bgClass: 'bg-orange-50/80',
       borderClass: 'border-orange-100',

@@ -7,7 +7,7 @@ export default function MobileBottomNav({ currentModule, isActive, canAddActivit
   const { hasPermission } = useAuth();
   const [showInstallMenu, setShowInstallMenu] = useState(false);
 
-  if (currentModule === 'Installation Project') {
+  if (currentModule === 'Dinas Luar' || currentModule === 'Installation Project') {
     return (
       <>
         {/* Backdrop for popup menu */}
