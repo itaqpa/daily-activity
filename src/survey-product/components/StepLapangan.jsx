@@ -348,6 +348,7 @@ export default function StepLapangan({ data = createEmptyLapanganData(), stepDat
 
       {selectedProduct && (
         <DynamicProductForm
+          key={`${selectedProduct.id}_${selectedProduct.code}`}
           product={selectedProduct}
           existingData={selectedProduct.formData || {}}
           onClose={() => setSelectedProduct(null)}

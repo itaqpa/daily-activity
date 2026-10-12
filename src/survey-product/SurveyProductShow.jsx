@@ -1442,6 +1442,7 @@ export default function SurveyProductShow() {
         {/* Modal Detail Isian Product Form (Read-only) */}
         {selectedProductDetail && (
           <DynamicProductForm
+            key={`${selectedProductDetail.id}_${selectedProductDetail.code}`}
             product={selectedProductDetail}
             existingData={selectedProductDetail.formData || {}}
             schedules={actualSchedules}

@@ -1,5 +1,5 @@
 import express from 'express';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, PutBucketPolicyCommand } from '@aws-sdk/client-s3';
 import { syncSurveyPermissionsForUsers } from '../utils/surveyPermissions.js';
 import { getUserPermissionScope } from '../utils/dataScopeHelper.js';
 
@@ -13,6 +13,31 @@ const minioClient = new S3Client({
   }
 });
 const BUCKET_NAME = 'survey-product';
+
+// Pastikan bucket memiliki policy public-read agar foto dapat diakses publik oleh browser
+async function ensureBucketPublicRead() {
+  try {
+    const policy = {
+      Version: '2012-10-17',
+      Statement: [
+        {
+          Sid: 'PublicReadGetObject',
+          Effect: 'Allow',
+          Principal: '*',
+          Action: ['s3:GetObject'],
+          Resource: [`arn:aws:s3:::${BUCKET_NAME}/*`]
+        }
+      ]
+    };
+    await minioClient.send(new PutBucketPolicyCommand({
+      Bucket: BUCKET_NAME,
+      Policy: JSON.stringify(policy)
+    }));
+  } catch (err) {
+    console.warn('[MinIO] Warning checking/setting bucket policy:', err.message);
+  }
+}
+ensureBucketPublicRead();
 
 export default function (pool) {
   const router = express.Router();
@@ -93,7 +118,7 @@ export default function (pool) {
       }));
 
       // URL publik MinIO (forcePathStyle: true -> endpoint/BUCKET_NAME/key)
-      const fileUrl = `http://bucket.gte.co.id/${BUCKET_NAME}/${key}`;
+      const fileUrl = `https://bucket.gte.co.id/${BUCKET_NAME}/${key}`;
       return res.json({
         success: true,
         url: fileUrl,
@@ -533,11 +558,14 @@ export default function (pool) {
           COALESCE(progress.jumlah_jenis_product, 0)::int AS jumlah_jenis_product,
           COALESCE(progress.percent_kelengkapan, 0)::int AS percent_kelengkapan
         FROM survey_product_data spd
-        LEFT JOIN users creator ON (
-          spd.created_by::text = creator.name
-          OR spd.created_by::text = creator.username
-          OR (spd.created_by::text ~ '^[0-9]+$' AND spd.created_by::text::bigint = creator.id)
-        )
+        LEFT JOIN LATERAL (
+          SELECT divisi_id
+          FROM users u
+          WHERE spd.created_by::text = u.name
+             OR spd.created_by::text = u.username
+             OR (spd.created_by::text ~ '^[0-9]+$' AND spd.created_by::text::bigint = u.id)
+          LIMIT 1
+        ) creator ON true
         LEFT JOIN (
           SELECT
             survey_id,
