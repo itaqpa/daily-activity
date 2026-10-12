@@ -1,6 +1,18 @@
 import express from 'express';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { syncSurveyPermissionsForUsers } from '../utils/surveyPermissions.js';
 import { getUserPermissionScope } from '../utils/dataScopeHelper.js';
+
+const minioClient = new S3Client({
+  region: 'us-east-1',
+  endpoint: 'http://bucket.gte.co.id',
+  forcePathStyle: true,
+  credentials: {
+    accessKeyId: 'gtefileadmin',
+    secretAccessKey: 'gte1122@2026',
+  }
+});
+const BUCKET_NAME = 'survey-product';
 
 export default function (pool) {
   const router = express.Router();
@@ -45,6 +57,55 @@ export default function (pool) {
     const nextNo = Number(result.rows[0]?.last_no || 0) + 1;
     return `${prefix}${String(nextNo).padStart(5, '0')}`;
   };
+
+  // ─── POST /upload-photo (MinIO S3 Upload) ─────────────────────────────────
+  router.post('/upload-photo', async (req, res) => {
+    try {
+      const { data, filename, category, noSurvey, user: userParam, productCode } = req.body;
+      if (!data) {
+        return res.status(400).json({ error: 'Tidak ada data gambar yang dikirim' });
+      }
+
+      // Deteksi format data URL (base64)
+      const matches = data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+      const contentType = matches ? matches[1] : 'image/jpeg';
+      const base64Content = matches ? matches[2] : data;
+      const buffer = Buffer.from(base64Content, 'base64');
+
+      // Sanitasi path segments
+      const cleanNoSurvey = (noSurvey || 'general-survey').toString().trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+      const cleanUser = (userParam || 'user').toString().trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+      const cleanProduct = (productCode || 'product').toString().trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+      const cleanName = (filename || 'photo').toString().replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+      const ext = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg';
+      const timestamp = Date.now();
+      const randomStr = Math.random().toString(36).substring(2, 8);
+
+      // Format Key: survey-photos/<No Survey>/<user>_<product/code product>/<timestamp>_<random>_<filename>.<ext>
+      const key = `survey-photos/${cleanNoSurvey}/${cleanUser}_${cleanProduct}/${timestamp}_${randomStr}_${cleanName}.${ext}`;
+
+      await minioClient.send(new PutObjectCommand({
+        Bucket: BUCKET_NAME,
+        Key: key,
+        Body: buffer,
+        ContentType: contentType,
+      }));
+
+      // URL publik MinIO (forcePathStyle: true -> endpoint/BUCKET_NAME/key)
+      const fileUrl = `http://bucket.gte.co.id/${BUCKET_NAME}/${key}`;
+      return res.json({
+        success: true,
+        url: fileUrl,
+        key: key
+      });
+    } catch (error) {
+      console.error('Error uploading photo to MinIO:', error);
+      return res.status(500).json({
+        error: 'Gagal mengunggah foto ke MinIO: ' + error.message
+      });
+    }
+  });
 
   // ─── GET /template/:productCode ───────────────────────────────────────────
   // Kembalikan seluruh konfigurasi template yang dibutuhkan frontend:
