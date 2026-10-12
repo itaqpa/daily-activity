@@ -125,6 +125,11 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [isEditingOutstanding, setIsEditingOutstanding] = useState(false);
 
+  // Sync answers saat produk yang dipilih berganti agar tidak bocor dari produk sebelumnya
+  useEffect(() => {
+    setAnswers(existingData || {});
+  }, [product?.id]);
+
   // Helper State
   const [matchCandidates, setMatchCandidates] = useState(null);
   const [matchMessage, setMatchMessage] = useState(null);

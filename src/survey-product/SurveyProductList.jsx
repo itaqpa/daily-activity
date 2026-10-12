@@ -39,7 +39,14 @@ export default function SurveyProductList() {
         if (!response.ok) {
           throw new Error(result.error || 'Gagal mengambil daftar survey product');
         }
-        setData(Array.isArray(result.data) ? result.data : []);
+        const rawList = Array.isArray(result.data) ? result.data : [];
+        const seenIds = new Set();
+        const uniqueList = rawList.filter(item => {
+          if (!item?.id || seenIds.has(item.id)) return false;
+          seenIds.add(item.id);
+          return true;
+        });
+        setData(uniqueList);
       } catch (error) {
         setErrorMessage(error.message);
         setData([]);
