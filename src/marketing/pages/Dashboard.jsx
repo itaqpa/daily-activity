@@ -780,6 +780,27 @@ export default function Dashboard() {
     navigate(`/marketing/reports?${params.toString()}`);
   };
 
+  const handleSalesCardClick = (salesUser) => {
+    let currentPeriodVal = dailyValue;
+    if (periodType === 'weekly') currentPeriodVal = weeklyValue;
+    else if (periodType === 'monthly') currentPeriodVal = monthlyValue;
+    else if (periodType === 'yearly') currentPeriodVal = yearlyValue;
+
+    const params = new URLSearchParams({
+      period: periodType,
+      periodRef: currentPeriodVal,
+    });
+
+    if (salesUser.id) {
+      params.set('salesId', salesUser.id.toString());
+    }
+    if (salesUser.name) {
+      params.set('salesName', salesUser.name);
+    }
+
+    navigate(`/marketing/reports?${params.toString()}`);
+  };
+
   return (
     <MainLayout>
       <div className="mb-6 flex justify-between items-center">
@@ -1246,9 +1267,11 @@ export default function Dashboard() {
                   return (
                     <div
                       key={r.id || r.name}
-                      className={`px-3.5 py-3 rounded-xl border transition-all hover:shadow-xs flex flex-col justify-between ${isTop1
-                          ? "bg-amber-50/20 border-amber-200/90 shadow-2xs"
-                          : "bg-white border-gray-200 hover:border-blue-200"
+                      onClick={() => handleSalesCardClick(r)}
+                      title={`Klik untuk melihat laporan aktivitas ${r.name} di Laporan`}
+                      className={`px-3.5 py-3 rounded-xl border transition-all duration-200 cursor-pointer hover:shadow-md hover:-translate-y-0.5 flex flex-col justify-between group ${isTop1
+                          ? "bg-amber-50/20 border-amber-200/90 shadow-2xs hover:border-amber-400"
+                          : "bg-white border-gray-200 hover:border-blue-300"
                         }`}
                     >
                       {/* Baris Atas: Rank, Nama Sales, & Badge Total Aktivitas Utama */}
@@ -1257,10 +1280,11 @@ export default function Dashboard() {
                           <div className={`w-7 h-7 rounded-lg border font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs ${badgeBg}`}>
                             {isTop1 ? <Medal className="w-4 h-4 text-amber-600" /> : rank}
                           </div>
-                          <div className="min-w-0">
-                            <span className="font-bold text-gray-900 text-sm truncate block" title={r.name}>
+                          <div className="min-w-0 flex items-center gap-1.5">
+                            <span className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors text-sm truncate block" title={r.name}>
                               {r.name}
                             </span>
+                            <ExternalLink className="w-3.5 h-3.5 text-gray-400 opacity-0 group-hover:opacity-100 group-hover:text-blue-600 transition-all shrink-0" />
                           </div>
                         </div>
 
