@@ -587,14 +587,14 @@ export default function Laporan() {
 
       if (isDaily) {
         let hour = null;
-        if (a.created_at) {
-          const dt = new Date(a.created_at);
-          if (!isNaN(dt.getTime())) {
-            hour = String(dt.getHours()).padStart(2, '0');
+        if (a.created_at && typeof a.created_at === 'string') {
+          const match = a.created_at.match(/[T\s](\d{2}):/);
+          if (match) {
+            hour = match[1];
           }
         }
-        if (hour === null && a.tanggal && typeof a.tanggal === 'string' && a.tanggal.includes('T')) {
-          const dt = new Date(a.tanggal);
+        if (hour === null && a.created_at) {
+          const dt = new Date(a.created_at);
           if (!isNaN(dt.getTime())) {
             hour = String(dt.getHours()).padStart(2, '0');
           }
