@@ -10,8 +10,13 @@ export default function RiwayatAktivitas() {
   
   const isSuperAdmin = Number(user.jabatan_id) === 1 || (user.jabatan || '').toLowerCase() === 'super admin' || (user.role || '').toLowerCase() === 'superadmin';
   
-  // Ambil scope dari DB / context (ALL / DIVISION / OWN)
-  const actScope = getPermissionScope('riwayat_aktivitas_view') || getPermissionScope('aktivitas_view') || 'ALL';
+  // Ambil scope dari DB / context (ALL / DIVISION / OWN). Utamakan scope restriktif jika salah satunya diset ke OWN / DIVISION
+  const rawRiwayatScope = getPermissionScope('riwayat_aktivitas_view');
+  const rawAktivitasScope = getPermissionScope('aktivitas_view');
+  let actScope = rawRiwayatScope || rawAktivitasScope || 'ALL';
+  if ((rawAktivitasScope === 'OWN' || rawAktivitasScope === 'DIVISION') && actScope === 'ALL') {
+    actScope = rawAktivitasScope;
+  }
 
   const canSeeAll = actScope === 'ALL' || isSuperAdmin;
   const canAction = hasPermission('aktivitas_delete');

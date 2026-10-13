@@ -768,7 +768,14 @@ app.put('/api/customers/:id/approve', async (req, res) => {
 // --- ACTIVITIES API ---
 app.get('/api/activities', async (req, res) => {
   try {
-    const { scope, userId, divisiId, isSuperAdmin } = await getUserPermissionScope(pool, req.user, 'riwayat_aktivitas_view');
+    let scopeRes = await getUserPermissionScope(pool, req.user, 'riwayat_aktivitas_view');
+    if (scopeRes.scope === 'ALL' && !scopeRes.isSuperAdmin) {
+      const altScope = await getUserPermissionScope(pool, req.user, 'aktivitas_view');
+      if (altScope.scope === 'OWN' || altScope.scope === 'DIVISION') {
+        scopeRes = altScope;
+      }
+    }
+    const { scope, userId, divisiId, isSuperAdmin } = scopeRes;
 
     let whereClause = '';
     const queryParams = [];

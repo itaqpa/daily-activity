@@ -267,7 +267,8 @@ export default function ManajemenAkses() {
       else if (p.nama_permission.startsWith("user")) key = "User Management";
       else if (p.nama_permission.startsWith("akses")) key = "Manajemen Akses";
       else if (p.nama_permission.startsWith("history")) key = "History Log";
-      else if (p.nama_permission.startsWith("aktivitas") || p.nama_permission.startsWith("riwayat_aktivitas")) key = "Aktivitas Sales";
+      else if (p.nama_permission.startsWith("riwayat_aktivitas")) key = "Riwayat Aktivitas";
+      else if (p.nama_permission.startsWith("aktivitas")) key = "Aktivitas Sales";
       else if (p.nama_permission.startsWith("laporan_marketing")) key = "Laporan Marketing";
       else if (p.nama_permission.startsWith("install_project")) key = "Dinas Luar";
       else if (p.nama_permission.startsWith("daily_progress")) key = "Daily Progress";
