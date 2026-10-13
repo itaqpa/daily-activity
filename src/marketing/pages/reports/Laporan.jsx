@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import MainLayout from '../../../components/layouts/MainLayout';
 import { apiUrl } from '../../../api';
@@ -75,9 +76,11 @@ export default function Laporan() {
   const [customersData, setCustomersData] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const [searchParams] = useSearchParams();
+
   // Filters
-  const [period, setPeriod] = useState('monthly');
-  const [periodRef, setPeriodRef] = useState(new Date().toISOString().substring(0, 7));
+  const [period, setPeriod] = useState(() => searchParams.get('period') || 'monthly');
+  const [periodRef, setPeriodRef] = useState(() => searchParams.get('periodRef') || new Date().toISOString().substring(0, 7));
 
   const [reportScope, setReportScope] = useState('all');
   const [salesSearch, setSalesSearch] = useState('');
@@ -86,12 +89,45 @@ export default function Laporan() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: 'tanggal', direction: 'desc' });
-  const [filters, setFilters] = useState({});
+  const [filters, setFilters] = useState(() => {
+    const qJenis = searchParams.get('jenis');
+    return qJenis ? { jenis_aktivitas: qJenis } : {};
+  });
   const [openFilter, setOpenFilter] = useState(null);
   const [filterSearch, setFilterSearch] = useState('');
   const [filterPopupPosition, setFilterPopupPosition] = useState({ top: 0, left: 0 });
   const filterPopupRef = useRef(null);
   const filterButtonRefs = useRef({});
+
+  // Sync state whenever searchParams changes & smooth scroll to table
+  useEffect(() => {
+    const qPeriod = searchParams.get('period');
+    const qPeriodRef = searchParams.get('periodRef');
+    const qJenis = searchParams.get('jenis');
+
+    if (qPeriod) setPeriod(qPeriod);
+    if (qPeriodRef) setPeriodRef(qPeriodRef);
+    if (qJenis !== null) {
+      if (qJenis) {
+        setFilters(prev => ({ ...prev, jenis_aktivitas: qJenis }));
+      } else {
+        setFilters(prev => {
+          const next = { ...prev };
+          delete next.jenis_aktivitas;
+          return next;
+        });
+      }
+    }
+
+    if (qPeriod || qPeriodRef || qJenis) {
+      setTimeout(() => {
+        const tableSection = document.getElementById('table-aktivitas-laporan');
+        if (tableSection) {
+          tableSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 350);
+    }
+  }, [searchParams]);
 
   // Tutup dropdown filter jika klik di luar, menekan Esc, atau tabel di-scroll.
   // Portal membuat dropdown tidak terpotong oleh overflow-x-auto pada tabel.
@@ -1144,16 +1180,40 @@ export default function Laporan() {
 
       {/* STATS CARDS */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-6">
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center items-center">
-          <div className="text-2xl font-bold text-gray-800">{filteredActs.length}</div>
-          <div className="text-xs text-gray-500 font-medium text-center mt-1 uppercase">Total Aktivitas</div>
+        <div
+          onClick={() => {
+            setFilters(prev => {
+              const next = { ...prev };
+              delete next.jenis_aktivitas;
+              return next;
+            });
+            document.getElementById('table-aktivitas-laporan')?.scrollIntoView({ behavior: 'smooth' });
+          }}
+          title="Klik untuk menampilkan semua aktivitas"
+          className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center items-center cursor-pointer hover:shadow-md hover:border-blue-300 hover:-translate-y-0.5 transition-all group"
+        >
+          <div className="text-2xl font-bold text-gray-800 group-hover:text-blue-600 transition-colors">{filteredActs.length}</div>
+          <div className="text-xs text-gray-500 group-hover:text-blue-600 font-medium text-center mt-1 uppercase transition-colors">Total Aktivitas</div>
         </div>
-        {ACTIVITY_TYPES.map(t => (
-          <div key={t.key} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center items-center">
-            <div className="text-2xl font-bold" style={{ color: t.color }}>{statCounts[t.key] || 0}</div>
-            <div className="text-xs text-gray-500 font-medium text-center mt-1 uppercase">{t.short}</div>
-          </div>
-        ))}
+        {ACTIVITY_TYPES.map(t => {
+          const isActive = filters.jenis_aktivitas === t.key;
+          return (
+            <div
+              key={t.key}
+              onClick={() => {
+                setFilters(prev => ({ ...prev, jenis_aktivitas: isActive ? '' : t.key }));
+                document.getElementById('table-aktivitas-laporan')?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              title={`Klik untuk filter ${t.label}`}
+              className={`bg-white p-4 rounded-xl shadow-sm border flex flex-col justify-center items-center cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all group ${
+                isActive ? 'ring-2 ring-blue-500 border-blue-500 bg-blue-50/20' : 'border-gray-100'
+              }`}
+            >
+              <div className="text-2xl font-bold group-hover:scale-105 transition-transform" style={{ color: t.color }}>{statCounts[t.key] || 0}</div>
+              <div className="text-xs text-gray-500 font-medium text-center mt-1 uppercase group-hover:text-gray-900 transition-colors">{t.short}</div>
+            </div>
+          );
+        })}
       </div>
 
       {/* SECTION CHARTS: SAMA PERSIS SEPERTI DASHBOARD */}
@@ -1358,7 +1418,7 @@ export default function Laporan() {
         )}
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 relative">
+      <div id="table-aktivitas-laporan" className="bg-white rounded-xl shadow-sm border border-gray-100 relative scroll-mt-6">
         <div className="p-4 border-b border-gray-100 flex flex-wrap gap-4 items-center justify-between bg-gray-50">
           <div className="flex gap-2 w-full max-w-md">
             <div className="relative w-full">
