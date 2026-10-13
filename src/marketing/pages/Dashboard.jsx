@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import MainLayout from '../../components/layouts/MainLayout';
 import { Clock, ArrowDown, ArrowUp, ArrowUpDown, X, ExternalLink, Search, Trophy, Medal, Award, TrendingUp, Users, ChevronDown, ChevronUp } from 'lucide-react';
 import {
@@ -39,6 +40,7 @@ const ACTIVITY_TYPES = [
 ];
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const getVisibilityRoles = (jabatan) => {
     if (!jabatan) return [];
@@ -757,6 +759,24 @@ export default function Dashboard() {
     return <MainLayout><div className="flex items-center justify-center min-h-[50vh]">Memuat data...</div></MainLayout>;
   }
 
+  const handleKpiCardClick = (activityTypeKey = null) => {
+    let currentPeriodVal = dailyValue;
+    if (periodType === 'weekly') currentPeriodVal = weeklyValue;
+    else if (periodType === 'monthly') currentPeriodVal = monthlyValue;
+    else if (periodType === 'yearly') currentPeriodVal = yearlyValue;
+
+    const params = new URLSearchParams({
+      period: periodType,
+      periodRef: currentPeriodVal,
+    });
+
+    if (activityTypeKey) {
+      params.set('jenis', activityTypeKey);
+    }
+
+    navigate(`/marketing/reports?${params.toString()}`);
+  };
+
   return (
     <MainLayout>
       <div className="mb-6 flex justify-between items-center">
@@ -812,14 +832,36 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-6">
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 text-center flex flex-col justify-center">
-          <div className="text-3xl font-bold text-gray-900 mb-1" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{filteredActivities.length}</div>
-          <div className="text-xs font-semibold text-gray-500">Total Aktivitas</div>
+        <div
+          onClick={() => handleKpiCardClick(null)}
+          title="Klik untuk melihat rincian seluruh aktivitas di Laporan"
+          className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 text-center flex flex-col justify-center cursor-pointer hover:shadow-md hover:border-blue-300 hover:-translate-y-0.5 transition-all duration-200 group"
+        >
+          <div className="text-3xl font-bold text-gray-900 group-hover:text-blue-600 mb-1 transition-colors" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+            {filteredActivities.length}
+          </div>
+          <div className="text-xs font-semibold text-gray-500 group-hover:text-blue-600 transition-colors flex items-center justify-center gap-1">
+            <span>Total Aktivitas</span>
+            <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+          </div>
         </div>
         {ACTIVITY_TYPES.map(t => (
-          <div key={t.key} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 text-center flex flex-col justify-center">
-            <div className="text-3xl font-bold mb-1" style={{ color: t.color, fontFamily: "'Space Grotesk', sans-serif" }}>{typeCounts[t.key]}</div>
-            <div className="text-xs font-semibold text-gray-500">{t.short}</div>
+          <div
+            key={t.key}
+            onClick={() => handleKpiCardClick(t.key)}
+            title={`Klik untuk mem-filter ${t.key} di Laporan`}
+            className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 text-center flex flex-col justify-center cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group"
+            style={{
+              borderColor: undefined,
+            }}
+          >
+            <div className="text-3xl font-bold mb-1 group-hover:scale-105 transition-transform" style={{ color: t.color, fontFamily: "'Space Grotesk', sans-serif" }}>
+              {typeCounts[t.key]}
+            </div>
+            <div className="text-xs font-semibold text-gray-500 group-hover:text-gray-900 transition-colors flex items-center justify-center gap-1">
+              <span>{t.short}</span>
+              <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: t.color }} />
+            </div>
           </div>
         ))}
       </div>
