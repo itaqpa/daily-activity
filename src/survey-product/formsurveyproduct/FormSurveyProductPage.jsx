@@ -104,7 +104,7 @@ export default function FormSurveyProductPage() {
     return Number.isInteger(stepNumber) ? stepNumber : null;
   };
 
-  const checkDataComplete = (data, silent = false) => {
+  const checkDataComplete = (data) => {
     const checks = {
       nama_client: !!data.nama_client,
       leader_surveyor: !!(data.leader_surveyor && data.leader_surveyor.length > 0),
@@ -114,11 +114,7 @@ export default function FormSurveyProductPage() {
       selectedProducts: !!(data.selectedProducts && data.selectedProducts.length > 0),
       schedules: !!(data.schedules && data.schedules.length > 0 && data.schedules.some(s => s.hari || s.tanggal || s.rencana_area || s.target_item))
     };
-    const isComplete = Object.values(checks).every(Boolean);
-    if (!isComplete && !silent) {
-       alert('Belum Open karena data belum lengkap:\n' + JSON.stringify(checks, null, 2));
-    }
-    return isComplete;
+    return Object.values(checks).every(Boolean);
   };
 
   useEffect(() => {
@@ -186,7 +182,7 @@ export default function FormSurveyProductPage() {
         return product || { code, name: code };
       });
       
-      const isDataComplete = checkDataComplete(stepData, forceStatus !== 'Submit');
+      const isDataComplete = checkDataComplete(stepData);
       const isOnProgress = checkOnProgress(lapanganData);
       
       let calculatedStatus = 'Draft';
@@ -210,7 +206,10 @@ export default function FormSurveyProductPage() {
         body: JSON.stringify({
           survey_id: surveyIdOverride,
           status: (forceStatus && forceStatus !== 'Submit') ? forceStatus : finalStatus,
-          data: stepData,
+          data: {
+            ...stepData,
+            created_by: stepData.created_by || user?.name || user?.username || user?.id || ''
+          },
           selected_products: selectedProducts,
           schedules: (stepData.schedules || []).map((schedule, index) => ({
             ...schedule,
@@ -345,8 +344,8 @@ export default function FormSurveyProductPage() {
           const saved = await savePersiapanDraft();
           if (!saved) return;
         }
-        if (editId && checkDataComplete(stepData, true)) {
-          // Silent evaluation: if complete, try to set to Open automatically when progressing to Step 3
+        if (editId && checkDataComplete(stepData)) {
+          // If complete, try to set to Open automatically when progressing to Step 3
           await saveStepDataDraft('Submit');
         }
       }
@@ -379,6 +378,54 @@ export default function FormSurveyProductPage() {
         if (!saved) return;
       }
       setCurrentStep(prevVisibleStep);
+    }
+  };
+
+  const handleSaveDraftManual = async () => {
+    if (isReadonlyClosed) return;
+    if (currentStep === 1) {
+      if (!stepData.nama_client) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Perhatian',
+          text: 'Nama Client / Perusahaan wajib diisi untuk menyimpan draft.'
+        });
+        return;
+      }
+      const savedId = await saveStepDataDraft();
+      if (savedId) {
+        Swal.fire({
+          icon: 'success',
+          title: 'Berhasil Disimpan',
+          text: checkDataComplete(stepData)
+            ? 'Data survey berhasil disimpan (Status: Open).'
+            : 'Data survey berhasil disimpan sebagai Draft.',
+          timer: 1800,
+          showConfirmButton: false
+        });
+      }
+    } else if (currentStep === 2) {
+      const saved = await savePersiapanDraft();
+      if (saved) {
+        Swal.fire({
+          icon: 'success',
+          title: 'Draft Tersimpan',
+          text: 'Data persiapan berhasil disimpan.',
+          timer: 1500,
+          showConfirmButton: false
+        });
+      }
+    } else if (currentStep === 3) {
+      const saved = await saveLapanganDraft();
+      if (saved) {
+        Swal.fire({
+          icon: 'success',
+          title: 'Draft Tersimpan',
+          text: 'Data lapangan berhasil disimpan.',
+          timer: 1500,
+          showConfirmButton: false
+        });
+      }
     }
   };
 
@@ -560,65 +607,92 @@ export default function FormSurveyProductPage() {
             Kembali
           </button>
 
-          {!isLastVisibleStep ? (
-            <button
-              onClick={handleNext}
-              disabled={isSavingDraft || isLoadingDraft}
-              className="px-6 py-2.5 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 flex items-center transition-colors shadow-sm"
-            >
-              {isReadonlyClosed ? 'Selanjutnya' : (isSavingDraft ? 'Menyimpan Draft...' : 'Selanjutnya')}
-              <ChevronRight className="w-4 h-4 ml-1" />
-            </button>
-          ) : (
-            !isReadonlyClosed && (
+          <div className="flex items-center space-x-3">
+            {!isReadonlyClosed && (
               <button
-                onClick={async () => {
-                if (!editId && currentStep === 2 && hasPersiapanPerm) {
-                  const savedSurveyId = await savePersiapanDraft();
-                  if (!savedSurveyId) return;
-                  await saveStepDataDraft('Submit', savedSurveyId);
-                  Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Survey berhasil disimpan!' });
-                  navigate('/survey-product');
-                } else if (editId && currentStep === 3 && hasLapPerm) {
-                  await saveLapanganDraft();
-                  await saveStepDataDraft('Submit');
-                  Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Survey berhasil disimpan!' });
-                  navigate('/survey-product');
-                } else if (editId && currentStep === 4 && hasSummaryPerm) {
-                  if (!canSaveFinal) {
-                    Swal.fire({ icon: 'error', title: 'Akses Ditolak', text: 'Hanya Leader Surveyor atau Admin yang dapat menyimpan (menyelesaikan) survey ini.' });
-                    return;
-                  }
-                  
-                  const result = await Swal.fire({
-                    title: 'Apakah Anda Yakin Menyelesaikan Survey Ini?',
-                    text: 'Jika ya, Anda dan anggota lainnya tidak dapat merubahnya kembali.',
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonColor: '#3085d6',
-                    cancelButtonColor: '#d33',
-                    confirmButtonText: 'Ya, Selesaikan!',
-                    cancelButtonText: 'Batal'
-                  });
+                type="button"
+                onClick={handleSaveDraftManual}
+                disabled={isSavingDraft || isLoadingDraft}
+                className="px-4 py-2.5 rounded-lg text-sm font-medium border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 flex items-center transition-colors shadow-2xs"
+              >
+                {isSavingDraft ? 'Menyimpan...' : 'Simpan Draft'}
+              </button>
+            )}
 
-                  if (result.isConfirmed) {
-                    await saveStepDataDraft(isAdmin ? 'Closed' : 'Completed');
-                    Swal.fire('Berhasil!', 'Survey berhasil diselesaikan!', 'success');
+            {!isLastVisibleStep ? (
+              <button
+                onClick={handleNext}
+                disabled={isSavingDraft || isLoadingDraft}
+                className="px-6 py-2.5 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 flex items-center transition-colors shadow-sm"
+              >
+                {isReadonlyClosed ? 'Selanjutnya' : (isSavingDraft ? 'Menyimpan...' : 'Selanjutnya')}
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </button>
+            ) : (
+              !isReadonlyClosed && (
+                <button
+                  onClick={async () => {
+                  if (!editId && currentStep === 2 && hasPersiapanPerm) {
+                    const savedSurveyId = await savePersiapanDraft();
+                    if (!savedSurveyId) return;
+                    await saveStepDataDraft('Submit', savedSurveyId);
+                    const isComplete = checkDataComplete(stepData);
+                    Swal.fire({
+                      icon: 'success',
+                      title: 'Berhasil Disimpan',
+                      text: isComplete
+                        ? 'Survey berhasil disimpan dan berstatus Open!'
+                        : 'Survey berhasil disimpan sebagai Draft karena data belum lengkap.'
+                    });
                     navigate('/survey-product');
+                  } else if (editId && currentStep === 3 && hasLapPerm) {
+                    await saveLapanganDraft();
+                    await saveStepDataDraft('Submit');
+                    const isComplete = checkDataComplete(stepData);
+                    Swal.fire({
+                      icon: 'success',
+                      title: 'Berhasil Disimpan',
+                      text: isComplete
+                        ? 'Survey berhasil disimpan!'
+                        : 'Survey berhasil disimpan sebagai Draft karena data belum lengkap.'
+                    });
+                    navigate('/survey-product');
+                  } else if (editId && currentStep === 4 && hasSummaryPerm) {
+                    if (!canSaveFinal) {
+                      Swal.fire({ icon: 'error', title: 'Akses Ditolak', text: 'Hanya Leader Surveyor atau Admin yang dapat menyimpan (menyelesaikan) survey ini.' });
+                      return;
+                    }
+                    
+                    const result = await Swal.fire({
+                      title: 'Apakah Anda Yakin Menyelesaikan Survey Ini?',
+                      text: 'Jika ya, Anda dan anggota lainnya tidak dapat merubahnya kembali.',
+                      icon: 'warning',
+                      showCancelButton: true,
+                      confirmButtonColor: '#3085d6',
+                      cancelButtonColor: '#d33',
+                      confirmButtonText: 'Ya, Selesaikan!',
+                      cancelButtonText: 'Batal'
+                    });
+
+                    if (result.isConfirmed) {
+                      await saveStepDataDraft(isAdmin ? 'Closed' : 'Completed');
+                      Swal.fire('Berhasil!', 'Survey berhasil diselesaikan!', 'success');
+                      navigate('/survey-product');
+                    }
                   }
-                }
-              }}
-              disabled={isSavingDraft || (!editId && !hasPersiapanPerm) || (editId && currentStep === 3 && !hasLapPerm) || (editId && currentStep === 4 && (!hasSummaryPerm || !canSaveFinal))}
-              className={`px-6 py-2.5 rounded-lg text-sm font-medium flex items-center transition-colors shadow-sm ${
-                (!editId && !hasPersiapanPerm) || (editId && currentStep === 3 && !hasLapPerm) || (editId && currentStep === 4 && (!hasSummaryPerm || !canSaveFinal)) ? 'bg-gray-400 text-gray-200 cursor-not-allowed' : 'bg-green-600 text-white hover:bg-green-700'
-              }`}
-              title={editId && currentStep === 4 && !canSaveFinal ? "Hanya Leader Surveyor yang dapat menyimpan data" : ""}
-            >
-              {isSavingDraft ? 'Menyimpan...' : 'Simpan Survey'}
-              <Check className="w-4 h-4 ml-1" />
-            </button>
-            )
-          )}
+                }}
+                disabled={isSavingDraft || (!editId && !hasPersiapanPerm) || (editId && currentStep === 3 && !hasLapPerm) || (editId && currentStep === 4 && (!hasSummaryPerm || !canSaveFinal))}
+                className={`px-6 py-2.5 rounded-lg text-sm font-medium flex items-center transition-colors shadow-sm ${
+                  (!editId && !hasPersiapanPerm) || (editId && currentStep === 3 && !hasLapPerm) || (editId && currentStep === 4 && (!hasSummaryPerm || !canSaveFinal)) ? 'bg-gray-400 text-gray-200 cursor-not-allowed' : 'bg-green-600 text-white hover:bg-green-700'
+                }`}
+                title={editId && currentStep === 4 && !canSaveFinal ? "Hanya Leader Surveyor yang dapat menyimpan data" : ""}
+              >
+                {isSavingDraft ? 'Menyimpan...' : 'Simpan Survey'}
+                <Check className="w-4 h-4 ml-1" />
+              </button>
+              )
+            )}
+          </div>
         </div>
       </div>
     </div>

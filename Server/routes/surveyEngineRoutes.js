@@ -372,8 +372,9 @@ export default function (pool) {
                no_inquiry = $13,
                tujuan_survey = $14,
                status = $15,
+               created_by = COALESCE(survey_product_data.created_by, $16),
                updated_at = CURRENT_TIMESTAMP
-           WHERE id = $16`,
+           WHERE id = $17`,
           [
             data.nama_client || null,
             data.plant_area || null,
@@ -390,6 +391,7 @@ export default function (pool) {
             data.no_inquiry || null,
             data.tujuan_survey || null,
             normalizedStatus,
+            data.created_by || req.user?.id || req.user?.name || null,
             surveyId
           ]
         );
@@ -420,7 +422,7 @@ export default function (pool) {
               data.no_inquiry || null,
               data.tujuan_survey || null,
               normalizedStatus,
-              data.created_by || null
+              data.created_by || req.user?.id || req.user?.name || null
             ]
           );
         surveyId = inserted.rows[0].id;
@@ -508,7 +510,7 @@ export default function (pool) {
                OR (spd.anggota_surveyor::jsonb @> $4::jsonb)
                OR (spd.created_by::text = $5::text)
                OR (spd.created_by::text = $6::text)
-            ) AND LOWER(COALESCE(spd.status, '')) != 'draft'
+            )
           `;
           queryParams.push(
             divisiId || 0,
@@ -528,7 +530,7 @@ export default function (pool) {
                OR (spd.anggota_surveyor::jsonb @> $3::jsonb)
                OR (spd.created_by::text = $4::text)
                OR (spd.created_by::text = $5::text)
-            ) AND LOWER(COALESCE(spd.status, '')) != 'draft'
+            )
           `;
           queryParams.push(
             userId,
@@ -539,7 +541,7 @@ export default function (pool) {
           );
         }
       } else {
-        whereClause = "WHERE LOWER(COALESCE(spd.status, '')) != 'draft'";
+        whereClause = '';
       }
 
       const result = await pool.query(`

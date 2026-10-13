@@ -77,9 +77,10 @@ export default function SurveyProductList() {
 
   const getStatusColor = (status) => {
     const normalized = (status || '').toLowerCase();
-    if (normalized === 'selesai') return 'text-green-700 bg-green-50 border-green-200';
-    if (normalized === 'lapangan') return 'text-blue-700 bg-blue-50 border-blue-200';
-    if (normalized === 'persiapan') return 'text-purple-700 bg-purple-50 border-purple-200';
+    if (['selesai', 'completed', 'complited', 'closed'].includes(normalized)) return 'text-green-700 bg-green-50 border-green-200';
+    if (['lapangan', 'on progress'].includes(normalized)) return 'text-blue-700 bg-blue-50 border-blue-200';
+    if (['persiapan', 'open'].includes(normalized)) return 'text-purple-700 bg-purple-50 border-purple-200';
+    if (normalized === 'draft') return 'text-amber-700 bg-amber-50 border-amber-200';
     if (normalized === 'batal') return 'text-red-700 bg-red-50 border-red-200';
     return 'text-amber-700 bg-amber-50 border-amber-200';
   };
