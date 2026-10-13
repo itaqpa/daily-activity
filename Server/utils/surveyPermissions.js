@@ -44,9 +44,10 @@ export const syncSurveyPermissionsForUsers = async (pool, affectedUserIds = []) 
         // Grant permissions as auto-assigned (if not already granted manually)
         for (const permId of permIds) {
           await client.query(
-            `INSERT INTO user_permissions (user_id, permission_id, is_auto_assigned)
-             VALUES ($1, $2, true)
-             ON CONFLICT (user_id, permission_id) DO NOTHING`,
+            `INSERT INTO user_permissions (user_id, permission_id, data_scope, is_auto_assigned)
+             VALUES ($1, $2, 'OWN', true)
+             ON CONFLICT (user_id, permission_id) 
+             DO UPDATE SET data_scope = 'OWN' WHERE user_permissions.is_auto_assigned = true`,
             [userId, permId]
           );
         }
