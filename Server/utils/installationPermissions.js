@@ -102,9 +102,10 @@ export const syncInstallationProjectPermissionsForUsers = async (pool, affectedU
         // Berikan permission secara otomatis (is_auto_assigned = true)
         for (const permId of permIds) {
           await client.query(
-            `INSERT INTO user_permissions (user_id, permission_id, is_auto_assigned)
-             VALUES ($1, $2, true)
-             ON CONFLICT (user_id, permission_id) DO NOTHING`,
+            `INSERT INTO user_permissions (user_id, permission_id, data_scope, is_auto_assigned)
+             VALUES ($1, $2, 'OWN', true)
+             ON CONFLICT (user_id, permission_id) 
+             DO UPDATE SET data_scope = 'OWN' WHERE user_permissions.is_auto_assigned = true`,
             [userId, permId]
           );
         }
