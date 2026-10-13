@@ -1,18 +1,44 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import MainLayout from '../../../components/layouts/MainLayout';
 import { apiUrl } from '../../../api';
-import { Download, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, Clock } from 'lucide-react';
+import { Download, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, Clock, ChevronDown, X, Check, ExternalLink } from 'lucide-react';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  PointElement,
+  LineElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend
+} from 'chart.js';
+import { Bar, Doughnut, Chart } from 'react-chartjs-2';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useAuth } from '../../../context/AuthContext';
 
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  PointElement,
+  LineElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend
+);
+
 const ACTIVITY_TYPES = [
-  { key: "Kunjungan (Promote)", label: "Kunjungan (Promote)", color: "#3b82f6", short: "Kunjungan" },
-  { key: "Survey Potensial Order / Tender", label: "Survey / Potensial", color: "#6366f1", short: "Survey/Potensial" },
-  { key: "Submit Quotation", label: "Submit Quotation", color: "#f59e0b", short: "Sub. Quotation" },
-  { key: "Meeting Tender", label: "Meeting Tender", color: "#8b5cf6", short: "Meet Tender" },
-  { key: "Meeting / Survey PO Diterima", label: "PO Diterima", color: "#10b981", short: "PO Diterima" },
-  { key: "Say Hello (Telp / WhatsApp)", label: "Say Hello (Telp/WA)", color: "#14b8a6", short: "Say Hello" }
+  { key: "Kunjungan (Promote)", label: "Kunjungan (Promote)", color: "#2563EB", short: "Kunjungan", bg: "#EFF6FF" },
+  { key: "Survey Potensial Order / Tender", label: "Survey / Potensial", color: "#8B5CF6", short: "Survey/Potensial", bg: "#F5F3FF" },
+  { key: "Submit Quotation", label: "Submit Quotation", color: "#F59E0B", short: "Sub. Quotation", bg: "#FFFBEB" },
+  { key: "Meeting Tender", label: "Meeting Tender", color: "#E11D48", short: "Meet Tender", bg: "#FFF1F2" },
+  { key: "Meeting / Survey PO Diterima", label: "PO Diterima", color: "#10B981", short: "PO Diterima", bg: "#ECFDF5" },
+  { key: "Say Hello (Telp / WhatsApp)", label: "Say Hello (Telp/WA)", color: "#06B6D4", short: "Say Hello", bg: "#ECFEFF" }
 ];
 
 export default function Laporan() {
@@ -22,7 +48,7 @@ export default function Laporan() {
   const getVisibilityRoles = (jabatan) => {
     if (!jabatan) return [];
     const jName = jabatan.toLowerCase();
-    
+
     if (jName.includes('super admin') || jName.includes('admin') || user.role === 'admin') {
       return ['Super Admin', 'Admin', 'Manager', 'Spv', 'Supervisor', 'Leader', 'Staff'];
     }
@@ -52,12 +78,65 @@ export default function Laporan() {
   // Filters
   const [period, setPeriod] = useState('monthly');
   const [periodRef, setPeriodRef] = useState(new Date().toISOString().substring(0, 7));
-  
+
   const [reportScope, setReportScope] = useState('all');
+  const [salesSearch, setSalesSearch] = useState('');
+  const [isSalesDropdownOpen, setIsSalesDropdownOpen] = useState(false);
+  const salesDropdownRef = useRef(null);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: 'tanggal', direction: 'desc' });
   const [filters, setFilters] = useState({});
   const [openFilter, setOpenFilter] = useState(null);
+  const [filterSearch, setFilterSearch] = useState('');
+  const [filterPopupPosition, setFilterPopupPosition] = useState({ top: 0, left: 0 });
+  const filterPopupRef = useRef(null);
+  const filterButtonRefs = useRef({});
+
+  // Tutup dropdown filter jika klik di luar, menekan Esc, atau tabel di-scroll.
+  // Portal membuat dropdown tidak terpotong oleh overflow-x-auto pada tabel.
+  useEffect(() => {
+    if (!openFilter) return;
+
+    const handleOutsideClick = (event) => {
+      if (filterPopupRef.current?.contains(event.target)) return;
+      if (filterButtonRefs.current[openFilter]?.contains(event.target)) return;
+      setOpenFilter(null);
+    };
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') setOpenFilter(null);
+    };
+    const handleExternalScroll = (event) => {
+      if (filterPopupRef.current?.contains(event.target)) return;
+      setOpenFilter(null);
+    };
+
+    document.addEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('keydown', handleEscape);
+    window.addEventListener('resize', handleExternalScroll);
+    window.addEventListener('scroll', handleExternalScroll, true);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('keydown', handleEscape);
+      window.removeEventListener('resize', handleExternalScroll);
+      window.removeEventListener('scroll', handleExternalScroll, true);
+    };
+  }, [openFilter]);
+
+  // Chart & Customer Modal States (matching Dashboard)
+  const [chartViewMode, setChartViewMode] = useState('trend'); // 'trend' | 'summary'
+  const [customerModal, setCustomerModal] = useState(false);
+  const [customerModalSearch, setCustomerModalSearch] = useState('');
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (salesDropdownRef.current && !salesDropdownRef.current.contains(event.target)) {
+        setIsSalesDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     fetchActivities();
@@ -203,39 +282,43 @@ export default function Laporan() {
       ditemui: new Set(),
       catatan: new Set(),
     };
-    
+
     const baseActs = activities.filter(act => {
       let matchPeriod = false;
       const actDateStr = getLocalDateStr(act.tanggal);
-      if (period === 'monthly') {
+      if (period === 'daily') {
+        matchPeriod = actDateStr === periodRef;
+      } else if (period === 'weekly') {
+        matchPeriod = getWeekNumber(new Date(act.tanggal)) === periodRef;
+      } else if (period === 'monthly') {
         matchPeriod = actDateStr.substring(0, 7) === periodRef;
       } else if (period === 'yearly') {
         matchPeriod = actDateStr.substring(0, 4) === periodRef;
       }
-      const matchScope = canSeeAll ? (reportScope === 'all' || act.user_id.toString() === reportScope) : true;
+      const matchScope = canSeeAll ? (reportScope === 'all' || act.user_id?.toString() === reportScope) : true;
       return matchPeriod && matchScope;
     });
 
     baseActs.forEach(a => {
-      opts.tanggal.add(formatDate(a.tanggal));
+      if (a.tanggal) opts.tanggal.add(formatDate(a.tanggal));
       if (a.user_name) opts.user_name.add(a.user_name);
       if (a.nama_customer) opts.nama_customer.add(a.nama_customer);
       if (a.site_kota) opts.site_kota.add(a.site_kota);
       if (a.jenis_aktivitas) opts.jenis_aktivitas.add(a.jenis_aktivitas);
-      
+
       const dText = getDitemuiText(a);
       if (dText) opts.ditemui.add(dText);
       if (a.catatan) opts.catatan.add(a.catatan);
     });
 
     return {
-      tanggal: Array.from(opts.tanggal).sort(),
-      user_name: Array.from(opts.user_name).sort(),
-      nama_customer: Array.from(opts.nama_customer).sort(),
-      site_kota: Array.from(opts.site_kota).sort(),
-      jenis_aktivitas: Array.from(opts.jenis_aktivitas).sort(),
-      ditemui: Array.from(opts.ditemui).sort(),
-      catatan: Array.from(opts.catatan).sort(),
+      tanggal: Array.from(opts.tanggal).filter(Boolean).sort(),
+      user_name: Array.from(opts.user_name).filter(Boolean).sort(),
+      nama_customer: Array.from(opts.nama_customer).filter(Boolean).sort(),
+      site_kota: Array.from(opts.site_kota).filter(Boolean).sort(),
+      jenis_aktivitas: Array.from(opts.jenis_aktivitas).filter(Boolean).sort(),
+      ditemui: Array.from(opts.ditemui).filter(Boolean).sort(),
+      catatan: Array.from(opts.catatan).filter(Boolean).sort(),
     };
   }, [activities, period, periodRef, reportScope, canSeeAll]);
 
@@ -245,50 +328,54 @@ export default function Laporan() {
       let matchPeriod = false;
       const actDateStr = getLocalDateStr(act.tanggal);
 
-      if (period === 'monthly') {
+      if (period === 'daily') {
+        matchPeriod = actDateStr === periodRef;
+      } else if (period === 'weekly') {
+        matchPeriod = getWeekNumber(new Date(act.tanggal)) === periodRef;
+      } else if (period === 'monthly') {
         matchPeriod = actDateStr.substring(0, 7) === periodRef;
       } else if (period === 'yearly') {
         matchPeriod = actDateStr.substring(0, 4) === periodRef;
       }
 
       // 2. Scope filter (for Supervisor/Admin)
-      const matchScope = canSeeAll ? (reportScope === 'all' || act.user_id.toString() === reportScope) : true;
-      
+      const matchScope = canSeeAll ? (reportScope === 'all' || act.user_id?.toString() === reportScope) : true;
+
       return matchPeriod && matchScope;
     });
 
     if (searchTerm) {
       const s = searchTerm.toLowerCase();
-      result = result.filter(act => 
-         (act.nama_customer?.toLowerCase() || '').includes(s) ||
-         (act.catatan?.toLowerCase() || '').includes(s) ||
-         (getDitemuiText(act).toLowerCase()).includes(s)
+      result = result.filter(act =>
+        (act.nama_customer?.toLowerCase() || '').includes(s) ||
+        (act.catatan?.toLowerCase() || '').includes(s) ||
+        (getDitemuiText(act).toLowerCase()).includes(s)
       );
     }
-    
+
     result = result.filter(act => {
-      if (filters.tanggal && formatDate(act.tanggal) !== filters.tanggal) return false;
-      if (filters.user_name && act.user_name !== filters.user_name) return false;
-      if (filters.nama_customer && act.nama_customer !== filters.nama_customer) return false;
-      if (filters.site_kota && act.site_kota !== filters.site_kota) return false;
-      if (filters.jenis_aktivitas && act.jenis_aktivitas !== filters.jenis_aktivitas) return false;
-      if (filters.ditemui && getDitemuiText(act) !== filters.ditemui) return false;
-      if (filters.catatan && act.catatan !== filters.catatan) return false;
+      if (filters.tanggal && formatDate(act.tanggal).toLowerCase() !== filters.tanggal.toLowerCase()) return false;
+      if (filters.user_name && (act.user_name || '').toLowerCase() !== filters.user_name.toLowerCase()) return false;
+      if (filters.nama_customer && (act.nama_customer || '').toLowerCase() !== filters.nama_customer.toLowerCase()) return false;
+      if (filters.site_kota && (act.site_kota || '').toLowerCase() !== filters.site_kota.toLowerCase()) return false;
+      if (filters.jenis_aktivitas && (act.jenis_aktivitas || '').toLowerCase() !== filters.jenis_aktivitas.toLowerCase()) return false;
+      if (filters.ditemui && (getDitemuiText(act) || '').toLowerCase() !== filters.ditemui.toLowerCase()) return false;
+      if (filters.catatan && (act.catatan || '').toLowerCase() !== filters.catatan.toLowerCase()) return false;
       return true;
     });
 
     if (sortConfig) {
       result.sort((a, b) => {
         let aVal = '', bVal = '';
-        if (sortConfig.key === 'tanggal') { 
-          aVal = new Date(a.tanggal).getTime(); bVal = new Date(b.tanggal).getTime(); 
+        if (sortConfig.key === 'tanggal') {
+          aVal = new Date(a.tanggal).getTime(); bVal = new Date(b.tanggal).getTime();
         } else if (sortConfig.key === 'user_name') { aVal = a.user_name || ''; bVal = b.user_name || ''; }
         else if (sortConfig.key === 'nama_customer') { aVal = a.nama_customer || ''; bVal = b.nama_customer || ''; }
         else if (sortConfig.key === 'site_kota') { aVal = a.site_kota || ''; bVal = b.site_kota || ''; }
         else if (sortConfig.key === 'jenis_aktivitas') { aVal = a.jenis_aktivitas || ''; bVal = b.jenis_aktivitas || ''; }
         else if (sortConfig.key === 'ditemui') { aVal = getDitemuiText(a); bVal = getDitemuiText(b); }
         else if (sortConfig.key === 'catatan') { aVal = a.catatan || ''; bVal = b.catatan || ''; }
-        
+
         if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
         if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
@@ -308,7 +395,7 @@ export default function Laporan() {
     let filtered = customersData;
     if (canSeeAll) {
       if (reportScope !== 'all') {
-         filtered = filtered.filter(c => c.assigned_sales?.some(s => s.id.toString() === reportScope));
+        filtered = filtered.filter(c => c.assigned_sales?.some(s => s.id.toString() === reportScope));
       }
     } else {
       filtered = filtered.filter(c => c.assigned_sales?.some(s => s.id === user.id));
@@ -320,6 +407,24 @@ export default function Laporan() {
     return salesList.slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }, [salesList]);
 
+  const filteredSalesList = useMemo(() => {
+    if (!salesSearch.trim()) return uniqueSales;
+    const q = salesSearch.toLowerCase();
+    return uniqueSales.filter(s => (s.name || '').toLowerCase().includes(q));
+  }, [uniqueSales, salesSearch]);
+
+  const selectedSalesLabel = useMemo(() => {
+    if (reportScope === 'all') return 'Seluruh Tim Sales';
+    const found = uniqueSales.find(s => s.id.toString() === reportScope);
+    return found ? found.name : 'Pilih Sales';
+  }, [reportScope, uniqueSales]);
+
+  const handleSelectSales = (val) => {
+    setReportScope(val);
+    setIsSalesDropdownOpen(false);
+    setSalesSearch('');
+  };
+
   const uniqueCustomer = useMemo(() => {
     return [...new Set(filteredActs.map(a => a.nama_customer).filter(Boolean))].sort();
   }, [filteredActs]);
@@ -328,8 +433,8 @@ export default function Laporan() {
     return allScopeCustomers.filter(c => !uniqueCustomer.includes(c));
   }, [allScopeCustomers, uniqueCustomer]);
 
-  const coveragePercent = allScopeCustomers.length > 0 
-    ? Math.round((uniqueCustomer.length / allScopeCustomers.length) * 100) 
+  const coveragePercent = allScopeCustomers.length > 0
+    ? Math.round((uniqueCustomer.length / allScopeCustomers.length) * 100)
     : (uniqueCustomer.length > 0 ? 100 : 0);
 
   const statCounts = useMemo(() => {
@@ -343,11 +448,315 @@ export default function Laporan() {
     return counts;
   }, [filteredActs]);
 
+  // Chart Kategori Per Jenis (Bar Chart)
+  const chartData = {
+    labels: ACTIVITY_TYPES.map(t => t.short),
+    datasets: [{
+      data: ACTIVITY_TYPES.map(t => statCounts[t.key] || 0),
+      backgroundColor: ACTIVITY_TYPES.map(t => t.color),
+      borderRadius: 6,
+      maxBarThickness: 48,
+    }]
+  };
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      y: { beginAtZero: true, ticks: { precision: 0 } },
+      x: { grid: { display: false } }
+    }
+  };
+
+  // Timeline Trend Data (Stacked Bar + Line for Total)
+  const trendData = useMemo(() => {
+    if (!periodRef) return { labels: [], datasets: [] };
+
+    const dateList = [];
+    const isDaily = period === 'daily';
+    const isYearly = period === 'yearly';
+
+    if (isDaily) {
+      for (let h = 0; h < 24; h++) {
+        const padH = String(h).padStart(2, '0');
+        dateList.push({
+          key: padH,
+          label: `${padH}:00`
+        });
+      }
+    } else if (isYearly) {
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+      const y = parseInt(periodRef, 10) || new Date().getFullYear();
+      for (let m = 0; m < 12; m++) {
+        const padM = String(m + 1).padStart(2, '0');
+        dateList.push({
+          key: `${y}-${padM}`,
+          label: monthNames[m]
+        });
+      }
+    } else if (period === 'weekly') {
+      const match = periodRef.match(/^(\d{4})-W(\d{1,2})$/);
+      if (match) {
+        const year = parseInt(match[1], 10);
+        const week = parseInt(match[2], 10);
+        const simpleDate = new Date(year, 0, 1 + (week - 1) * 7);
+        const day = simpleDate.getDay();
+        const diff = simpleDate.getDate() - day + (day === 0 ? -6 : 1);
+        const mon = new Date(simpleDate.setDate(diff));
+        for (let i = 0; i < 7; i++) {
+          const d = new Date(mon);
+          d.setDate(mon.getDate() + i);
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, '0');
+          const dateStr = String(d.getDate()).padStart(2, '0');
+          const key = `${y}-${m}-${dateStr}`;
+          dateList.push({
+            key,
+            label: `${d.getDate()} ${d.toLocaleDateString('id-ID', { month: 'short' })}`
+          });
+        }
+      }
+    } else {
+      // Monthly
+      const parts = periodRef.split('-');
+      if (parts.length >= 2) {
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        const lastDay = new Date(y, m, 0).getDate();
+        for (let d = 1; d <= lastDay; d++) {
+          const padD = String(d).padStart(2, '0');
+          const padM = String(m).padStart(2, '0');
+          dateList.push({
+            key: `${y}-${padM}-${padD}`,
+            label: String(d)
+          });
+        }
+      }
+    }
+
+    const countsPerDate = {};
+    const totalPerDate = {};
+
+    dateList.forEach(item => {
+      countsPerDate[item.key] = {};
+      ACTIVITY_TYPES.forEach(t => {
+        countsPerDate[item.key][t.key] = 0;
+      });
+      totalPerDate[item.key] = 0;
+    });
+
+    filteredActs.forEach(a => {
+      let key = '';
+
+      if (isDaily) {
+        let hour = null;
+        if (a.created_at) {
+          const dt = new Date(a.created_at);
+          if (!isNaN(dt.getTime())) {
+            hour = String(dt.getHours()).padStart(2, '0');
+          }
+        }
+        if (hour === null && a.tanggal && typeof a.tanggal === 'string' && a.tanggal.includes('T')) {
+          const dt = new Date(a.tanggal);
+          if (!isNaN(dt.getTime())) {
+            hour = String(dt.getHours()).padStart(2, '0');
+          }
+        }
+        key = hour !== null ? hour : '09';
+      } else if (isYearly) {
+        let dateStr = '';
+        if (typeof a.tanggal === 'string') {
+          const m = a.tanggal.match(/^(\d{4})-(\d{2})/);
+          if (m) dateStr = m[0];
+        }
+        if (!dateStr) {
+          const localDate = new Date(a.tanggal);
+          const pad = n => String(n).padStart(2, '0');
+          dateStr = isNaN(localDate)
+            ? (a.tanggal || '').substring(0, 7)
+            : `${localDate.getFullYear()}-${pad(localDate.getMonth() + 1)}`;
+        }
+        key = dateStr.substring(0, 7);
+      } else {
+        let dateStr = '';
+        if (typeof a.tanggal === 'string') {
+          const m = a.tanggal.match(/^(\d{4})-(\d{2})-(\d{2})/);
+          if (m) dateStr = m[0];
+        }
+        if (!dateStr) {
+          const localDate = new Date(a.tanggal);
+          const pad = n => String(n).padStart(2, '0');
+          dateStr = isNaN(localDate)
+            ? (a.tanggal || '').split('T')[0]
+            : `${localDate.getFullYear()}-${pad(localDate.getMonth() + 1)}-${pad(localDate.getDate())}`;
+        }
+        key = dateStr;
+      }
+
+      if (countsPerDate[key]) {
+        if (countsPerDate[key][a.jenis_aktivitas] !== undefined) {
+          countsPerDate[key][a.jenis_aktivitas]++;
+          totalPerDate[key]++;
+        }
+      }
+    });
+
+    const datasets = ACTIVITY_TYPES.map(t => ({
+      type: 'bar',
+      label: t.short,
+      data: dateList.map(item => countsPerDate[item.key]?.[t.key] || 0),
+      backgroundColor: t.color,
+      stack: 'activityStack',
+      borderRadius: 4,
+      maxBarThickness: 32,
+    }));
+
+    datasets.push({
+      type: 'line',
+      label: 'Total Aktivitas',
+      data: dateList.map(item => totalPerDate[item.key] || 0),
+      borderColor: '#94A3B8',
+      backgroundColor: '#94A3B8',
+      borderWidth: 2,
+      pointRadius: 4,
+      pointHoverRadius: 6,
+      pointBackgroundColor: '#FFFFFF',
+      pointBorderColor: '#94A3B8',
+      pointBorderWidth: 2,
+      tension: 0.2,
+      fill: false,
+    });
+
+    return {
+      labels: dateList.map(item => item.label),
+      datasets
+    };
+  }, [periodRef, filteredActs, period]);
+
+  const trendOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: {
+      mode: 'index',
+      intersect: false,
+    },
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: {
+          usePointStyle: true,
+          boxWidth: 8,
+          boxHeight: 8,
+          padding: 16,
+          font: { size: 11, weight: '500' }
+        }
+      },
+      tooltip: {
+        backgroundColor: '#1E293B',
+        titleFont: { size: 12, weight: 'bold' },
+        bodyFont: { size: 12 },
+        padding: 10,
+        cornerRadius: 8,
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        stacked: true,
+        ticks: { precision: 0, font: { size: 11 } },
+        grid: { color: '#F1F5F9' }
+      },
+      x: {
+        stacked: true,
+        grid: { display: false },
+        ticks: { font: { size: 10 } }
+      }
+    }
+  };
+
+  // Pie / Donut Chart Cakupan Customer (matching Dashboard)
+  const customerPieData = {
+    labels: ['Terprogress', 'Belum Ada Aktivitas'],
+    datasets: [{
+      data: [uniqueCustomer.length, customersTanpaAktivitas.length],
+      backgroundColor: ['#10B981', '#EF4444'],
+      hoverBackgroundColor: ['#059669', '#DC2626'],
+      borderWidth: 2,
+      borderColor: '#ffffff',
+    }]
+  };
+
+  const customerPieOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: {
+          usePointStyle: true,
+          boxWidth: 8,
+          boxHeight: 8,
+          padding: 12,
+          font: { size: 11 }
+        }
+      },
+      tooltip: {
+        callbacks: {
+          label: (context) => {
+            const val = context.raw || 0;
+            const total = allScopeCustomers.length || 1;
+            const pct = Math.round((val / total) * 100);
+            return ` ${context.label}: ${val} (${pct}%)`;
+          }
+        }
+      }
+    },
+    cutout: '62%'
+  };
+
+  const getFormattedPeriodTitle = (p, ref) => {
+    if (!ref) return '';
+    if (p === 'daily') {
+      const parts = ref.split('-');
+      if (parts.length === 3) {
+        const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+      }
+      return ref;
+    }
+    if (p === 'weekly') {
+      const match = ref.match(/^(\d{4})-W(\d{1,2})$/);
+      if (match) {
+        return `Minggu ke-${parseInt(match[2], 10)}, ${match[1]}`;
+      }
+      return ref;
+    }
+    if (p === 'monthly') {
+      const parts = ref.split('-');
+      if (parts.length >= 2) {
+        const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1);
+        return d.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+      }
+      return ref;
+    }
+    return `Tahun ${ref}`;
+  };
+
+  const getPeriodLabelText = (p) => {
+    switch (p) {
+      case 'daily': return 'Harian';
+      case 'weekly': return 'Mingguan';
+      case 'monthly': return 'Bulanan';
+      case 'yearly': return 'Tahunan';
+      default: return 'Aktivitas';
+    }
+  };
+
   const handleDownloadCoveragePdf = () => {
     const doc = new jsPDF();
     let scopeName = canSeeAll ? (reportScope === 'all' ? "Seluruh Tim Sales" : uniqueSales.find(s => s.id.toString() === reportScope)?.name || "") : user.name;
-    const dateObj = new Date(periodRef + "-01");
-    const periodStr = period === 'monthly' ? dateObj.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }) : periodRef;
+    const periodStr = getFormattedPeriodTitle(period, periodRef);
 
     // Top Header Bar
     doc.setFillColor(31, 62, 124);
@@ -365,7 +774,7 @@ export default function Laporan() {
     doc.setTextColor(30, 40, 50);
     doc.text(`Cakupan Customer — ${periodStr}`, 14, currY);
     currY += 5;
-    
+
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100, 100, 100);
@@ -385,7 +794,7 @@ export default function Laporan() {
     currY += 4;
 
     const coverageRowsSudah = uniqueCustomer.length > 0 ? uniqueCustomer.map(c => [c]) : [["Tidak ada customer pada kelompok ini"]];
-      
+
     autoTable(doc, {
       startY: currY,
       head: [["Nama Customer"]],
@@ -395,7 +804,7 @@ export default function Laporan() {
       headStyles: { fillColor: [209, 250, 229], textColor: [4, 120, 87], fontStyle: 'bold' },
       alternateRowStyles: { fillColor: [255, 255, 255] }
     });
-    
+
     currY = doc.lastAutoTable.finalY + 10;
 
     // Table: Belum Ada Aktivitas (Red Header)
@@ -424,8 +833,7 @@ export default function Laporan() {
     const doc = new jsPDF();
     const showSalesCol = showDropdown && reportScope === 'all';
     let scopeName = showDropdown ? (reportScope === 'all' ? "Seluruh Tim Sales" : uniqueSales.find(s => s.id.toString() === reportScope)?.name || "") : user.name;
-    const dateObj = new Date(periodRef + "-01");
-    const periodStr = period === 'monthly' ? dateObj.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }) : periodRef;
+    const periodStr = getFormattedPeriodTitle(period, periodRef);
 
     // Top Header Bar
     doc.setFillColor(31, 62, 124);
@@ -442,37 +850,37 @@ export default function Laporan() {
     doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(31, 62, 124);
-    doc.text(`Laporan ${period === 'monthly' ? 'Bulanan' : 'Tahunan'}`, 14, currY);
-    
+    doc.text(`Laporan ${getPeriodLabelText(period)}`, 14, currY);
+
     currY += 7;
 
     doc.setFontSize(11);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100, 100, 100);
     doc.text(`${scopeName} · ${periodStr}`, 14, currY);
-    
+
     currY += 4;
     doc.setDrawColor(230, 230, 230);
     doc.line(14, currY, 196, currY);
-    
+
     currY += 5;
-    
+
     const drawCard = (label, value, colIndex, rowIndex) => {
       const cardWidth = 42.5;
       const cardHeight = 16;
       const gap = 4;
       const x = 14 + (colIndex * (cardWidth + gap));
       const y = currY + (rowIndex * (cardHeight + gap));
-      
+
       doc.setFillColor(248, 250, 252);
       doc.setDrawColor(226, 232, 240);
       doc.roundedRect(x, y, cardWidth, cardHeight, 2, 2, 'FD');
-      
+
       doc.setFontSize(8);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(100, 113, 128);
       doc.text(label, x + 4, y + 6);
-      
+
       doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(30, 58, 138);
@@ -487,8 +895,8 @@ export default function Laporan() {
     drawCard("PO DITERIMA", statCounts["Meeting / Survey PO Diterima"] || 0, 1, 1);
     drawCard("SAY HELLO", statCounts["Say Hello (Telp / WhatsApp)"] || 0, 2, 1);
 
-    currY += 50; 
-    
+    currY += 50;
+
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(30, 40, 50);
@@ -504,7 +912,7 @@ export default function Laporan() {
       "Detail",
       "Catatan"
     ];
-    
+
     const tableRows = filteredActs.map(a => [
       formatDate(a.tanggal),
       ...(showSalesCol ? [a.user_name || '-'] : []),
@@ -520,21 +928,21 @@ export default function Laporan() {
       head: [tableColumns],
       body: tableRows,
       theme: 'grid',
-      styles: { 
-        fontSize: 9, 
-        cellPadding: 4, 
+      styles: {
+        fontSize: 9,
+        cellPadding: 4,
         textColor: [51, 65, 85],
         lineColor: [226, 232, 240],
         lineWidth: 0.1
       },
-      headStyles: { 
-        fillColor: [241, 245, 249], 
+      headStyles: {
+        fillColor: [241, 245, 249],
         textColor: [15, 23, 42],
         fontStyle: 'bold'
       },
       alternateRowStyles: { fillColor: [250, 251, 252] }
     });
-    
+
     doc.save(`Laporan-Aktivitas-${periodRef}.pdf`);
   };
 
@@ -542,66 +950,85 @@ export default function Laporan() {
     const newPeriod = e.target.value;
     setPeriod(newPeriod);
     const d = new Date();
-    if (newPeriod === 'monthly') setPeriodRef(d.toISOString().substring(0, 7));
+    if (newPeriod === 'daily') setPeriodRef(getLocalDateStr(d));
+    else if (newPeriod === 'weekly') setPeriodRef(getWeekNumber(d));
+    else if (newPeriod === 'monthly') setPeriodRef(d.toISOString().substring(0, 7));
     else if (newPeriod === 'yearly') setPeriodRef(d.getFullYear().toString());
   };
 
   // UI variables for formatting period
-  const dateObjUI = new Date(periodRef + "-01");
-  const periodStrUI = period === 'monthly' 
-    ? dateObjUI.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })
-    : periodRef;
+  const periodStrUI = getFormattedPeriodTitle(period, periodRef);
 
   const SortIcon = ({ columnKey }) => {
     if (sortConfig?.key !== columnKey) return <ArrowUpDown className="w-3 h-3 ml-1 opacity-40 inline" />;
     return sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 ml-1 inline text-blue-600" /> : <ArrowDown className="w-3 h-3 ml-1 inline text-blue-600" />;
   };
 
+  const filterColumnLabels = {
+    tanggal: 'Tanggal',
+    user_name: 'Sales',
+    nama_customer: 'Customer',
+    site_kota: 'Site',
+    jenis_aktivitas: 'Jenis',
+    ditemui: 'Detail',
+    catatan: 'Catatan',
+  };
+
+  const handleToggleTableFilter = (columnKey, event) => {
+    event.stopPropagation();
+    if (openFilter === columnKey) {
+      setOpenFilter(null);
+      return;
+    }
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const width = 256;
+    const menuHeight = 310;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const shouldOpenUp = spaceBelow < menuHeight && rect.top > spaceBelow;
+    const top = shouldOpenUp
+      ? Math.max(8, rect.top - menuHeight - 6)
+      : Math.min(rect.bottom + 6, window.innerHeight - 80);
+    const anchorLeft = columnKey === 'catatan' ? rect.right - width : rect.left;
+    const left = Math.max(8, Math.min(anchorLeft, window.innerWidth - width - 8));
+
+    setFilterPopupPosition({ top, left });
+    setFilterSearch('');
+    setOpenFilter(columnKey);
+  };
+
   const FilterHeader = ({ columnKey, label }) => {
     const isActive = !!filters[columnKey];
     return (
-      <th className="py-3 px-4 font-semibold text-sm text-gray-700 relative whitespace-nowrap group align-middle">
+      <th className="py-3 px-4 font-semibold text-sm text-gray-700 relative whitespace-nowrap group align-middle select-none">
         <div className="flex items-center justify-between gap-2">
-          <div className="flex-1 cursor-pointer hover:text-gray-900 flex items-center gap-1" onClick={() => requestSort(columnKey)}>
+          <div
+            className="flex-1 cursor-pointer hover:text-gray-900 flex items-center gap-1"
+            onClick={() => requestSort(columnKey)}
+          >
             {label} <SortIcon columnKey={columnKey} />
           </div>
-          <div 
-            className={`cursor-pointer p-1.5 rounded transition-colors ${isActive ? 'text-blue-600 bg-blue-50' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-200'}`}
-            onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === columnKey ? null : columnKey); }}
+          <button
+            ref={(element) => { filterButtonRefs.current[columnKey] = element; }}
+            type="button"
+            title={`Filter ${label}`}
+            aria-label={`Filter ${label}`}
+            aria-expanded={openFilter === columnKey}
+            className={`cursor-pointer p-1.5 rounded transition-colors ${isActive ? 'text-blue-600 bg-blue-50' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
+            onClick={(event) => handleToggleTableFilter(columnKey, event)}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill={isActive ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-            </svg>
-          </div>
+            <Filter size={16} fill={isActive ? 'currentColor' : 'none'} />
+          </button>
         </div>
-        {openFilter === columnKey && (
-          <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 shadow-xl rounded-md z-[60] w-48 font-normal normal-case text-gray-700">
-            <div className="px-3 py-2 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-md">
-              <span className="font-semibold text-xs text-gray-600">Filter {label}</span>
-              <button onClick={(e) => { e.stopPropagation(); setOpenFilter(null); }} className="text-gray-400 hover:text-gray-600 text-lg leading-none">&times;</button>
-            </div>
-            <div className="max-h-48 overflow-y-auto">
-              <div 
-                className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${!isActive ? 'bg-blue-50 text-blue-600 font-medium' : ''}`}
-                onClick={(e) => { e.stopPropagation(); handleFilterChange(columnKey, ''); setOpenFilter(null); }}
-              >
-                Semua
-              </div>
-              {uniqueOptions[columnKey].map(o => (
-                <div 
-                  key={o}
-                  className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${filters[columnKey] === o ? 'bg-blue-50 text-blue-600 font-medium' : ''}`}
-                  onClick={(e) => { e.stopPropagation(); handleFilterChange(columnKey, o); setOpenFilter(null); }}
-                >
-                  {o}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </th>
     );
   };
+
+  const currentFilterOptions = openFilter ? (uniqueOptions[openFilter] || []) : [];
+  const visibleFilterOptions = currentFilterOptions.filter(option =>
+    String(option).toLowerCase().includes(filterSearch.trim().toLowerCase())
+  );
+  const activeColumnFilterValue = openFilter ? filters[openFilter] : undefined;
 
   return (
     <MainLayout>
@@ -609,9 +1036,9 @@ export default function Laporan() {
         <div>
           <h2 className="text-2xl font-bold text-gray-800">Laporan Aktivitas</h2>
           <p className="text-gray-600 mt-1">
-            {showDropdown 
-              ? 'Analisis aktivitas seluruh tim atau individu.' 
-              : 'Laporan kinerja bulanan Anda.'}
+            {showDropdown
+              ? 'Analisis aktivitas seluruh tim atau individu.'
+              : 'Laporan kinerja aktivitas Anda.'}
           </p>
         </div>
       </div>
@@ -621,23 +1048,96 @@ export default function Laporan() {
           <label className="text-sm font-semibold text-gray-600 mb-1">Periode Laporan</label>
           <div className="flex flex-col sm:flex-row gap-2">
             <select className="border border-gray-300 rounded px-3 py-1.5 focus:outline-none focus:border-blue-500 w-full sm:w-auto" value={period} onChange={handlePeriodChange}>
+              <option value="daily">Harian</option>
+              <option value="weekly">Mingguan</option>
               <option value="monthly">Bulanan</option>
               <option value="yearly">Tahunan</option>
             </select>
+            {period === 'daily' && <input type="date" className="border border-gray-300 rounded px-3 py-1.5 focus:outline-none w-full sm:w-auto" value={periodRef} onChange={e => setPeriodRef(e.target.value)} />}
+            {period === 'weekly' && <input type="week" className="border border-gray-300 rounded px-3 py-1.5 focus:outline-none w-full sm:w-auto" value={periodRef} onChange={e => setPeriodRef(e.target.value)} />}
             {period === 'monthly' && <input type="month" className="border border-gray-300 rounded px-3 py-1.5 focus:outline-none w-full sm:w-auto" value={periodRef} onChange={e => setPeriodRef(e.target.value)} />}
             {period === 'yearly' && <input type="number" min="2000" max="2100" className="border border-gray-300 rounded px-3 py-1.5 focus:outline-none w-full sm:w-24" value={periodRef} onChange={e => setPeriodRef(e.target.value)} />}
           </div>
         </div>
 
         {showDropdown && (
-          <div className="flex flex-col md:border-l md:border-gray-200 md:pl-4 pt-4 md:pt-0 border-t md:border-t-0 border-gray-100 w-full md:w-auto mt-2 md:mt-0">
+          <div className="flex flex-col md:border-l md:border-gray-200 md:pl-4 pt-4 md:pt-0 border-t md:border-t-0 border-gray-100 w-full md:w-auto mt-2 md:mt-0 relative" ref={salesDropdownRef}>
             <label className="text-sm font-semibold text-gray-600 mb-1">Cakupan Sales</label>
-            <select className="border border-gray-300 rounded px-3 py-1.5 focus:outline-none focus:border-blue-500 w-full md:min-w-[180px]" value={reportScope} onChange={e => setReportScope(e.target.value)}>
-              <option value="all">Seluruh Tim Sales</option>
-              {uniqueSales.map(s => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
+            <div className="relative w-full md:w-60">
+              <button
+                type="button"
+                onClick={() => setIsSalesDropdownOpen(!isSalesDropdownOpen)}
+                className="w-full flex items-center justify-between border border-gray-300 rounded px-3 py-1.5 bg-white text-sm text-left hover:border-gray-400 focus:outline-none focus:border-blue-500 shadow-sm"
+              >
+                <span className="truncate text-gray-800 font-medium">{selectedSalesLabel}</span>
+                <ChevronDown size={16} className={`text-gray-400 transition-transform flex-shrink-0 ml-1.5 ${isSalesDropdownOpen ? 'rotate-180 text-blue-600' : ''}`} />
+              </button>
+
+              {isSalesDropdownOpen && (
+                <div className="absolute left-0 top-full mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden flex flex-col">
+                  {/* Search Input Box */}
+                  <div className="p-2 border-b border-gray-100 bg-gray-50 flex items-center gap-1.5">
+                    <Search size={14} className="text-gray-400 flex-shrink-0" />
+                    <input
+                      type="text"
+                      value={salesSearch}
+                      onChange={(e) => setSalesSearch(e.target.value)}
+                      placeholder="Cari sales..."
+                      className="w-full text-xs bg-transparent focus:outline-none text-gray-800 placeholder-gray-400"
+                      autoFocus
+                    />
+                    {salesSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setSalesSearch('')}
+                        className="text-gray-400 hover:text-gray-600 p-0.5 rounded"
+                      >
+                        <X size={12} />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Options List */}
+                  <div className="max-h-56 overflow-y-auto divide-y divide-gray-50">
+                    <button
+                      type="button"
+                      onClick={() => handleSelectSales('all')}
+                      className={`w-full px-3 py-2 text-xs text-left flex items-center justify-between transition-colors ${reportScope === 'all'
+                          ? 'bg-blue-50 text-blue-600 font-semibold'
+                          : 'text-gray-700 hover:bg-gray-50'
+                        }`}
+                    >
+                      <span>Seluruh Tim Sales</span>
+                      {reportScope === 'all' && <Check size={14} className="text-blue-600" />}
+                    </button>
+
+                    {filteredSalesList.length > 0 ? (
+                      filteredSalesList.map(s => {
+                        const isSelected = reportScope === s.id.toString();
+                        return (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => handleSelectSales(s.id.toString())}
+                            className={`w-full px-3 py-2 text-xs text-left flex items-center justify-between transition-colors ${isSelected
+                                ? 'bg-blue-50 text-blue-600 font-semibold'
+                                : 'text-gray-700 hover:bg-gray-50'
+                              }`}
+                          >
+                            <span className="truncate">{s.name}</span>
+                            {isSelected && <Check size={14} className="text-blue-600 flex-shrink-0 ml-1.5" />}
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <div className="px-3 py-4 text-xs text-center text-gray-400 italic">
+                        Tidak ada sales yang cocok
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -656,81 +1156,190 @@ export default function Laporan() {
         ))}
       </div>
 
-      {/* CAKUPAN CUSTOMER UI */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-6">
-        <div className="flex flex-col md:flex-row md:justify-between items-start md:items-center mb-4 gap-4">
-          <h3 className="font-bold text-lg text-gray-800">Cakupan Customer — {periodStrUI}</h3>
-          {canExport && (
-            <button onClick={handleDownloadCoveragePdf} className="flex items-center justify-center gap-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-1.5 rounded text-sm font-medium transition-colors shadow-sm whitespace-nowrap w-fit">
-              <Download size={16} /> Unduh PDF
-            </button>
-          )}
+      {/* SECTION CHARTS: SAMA PERSIS SEPERTI DASHBOARD */}
+      <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 mb-6">
+        {/* Kolom 1 & 2: Chart Timeline / Kategori Aktivitas */}
+        <div className="lg:col-span-7 bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
+            <div>
+              <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider">
+                {chartViewMode === 'trend' ? 'Tren Aktivitas Penjualan' : 'Ringkasan Jenis Aktivitas'}
+              </h3>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {chartViewMode === 'trend'
+                  ? (period === 'daily'
+                    ? 'Distribusi waktu aktivitas sales dari jam 00:00 s.d 23:00'
+                    : 'Visualisasi distribusi aktivitas kumulatif & total aktivitas sepanjang periode')
+                  : 'Total volume aktivitas berdasarkan kategori jenis aktivitas'}
+              </p>
+            </div>
+
+            {/* Tab Pilihan Mode Chart */}
+            <div className="inline-flex bg-gray-100 p-1 rounded-lg border border-gray-200 text-xs font-semibold shrink-0">
+              <button
+                type="button"
+                onClick={() => setChartViewMode('trend')}
+                className={`px-3 py-1.5 rounded-md transition-all ${chartViewMode === 'trend'
+                  ? 'bg-white text-blue-600 shadow-xs font-bold'
+                  : 'text-gray-600 hover:text-gray-900'
+                  }`}
+              >
+                Tren Timeline
+              </button>
+              <button
+                type="button"
+                onClick={() => setChartViewMode('summary')}
+                className={`px-3 py-1.5 rounded-md transition-all ${chartViewMode === 'summary'
+                  ? 'bg-white text-blue-600 shadow-xs font-bold'
+                  : 'text-gray-600 hover:text-gray-900'
+                  }`}
+              >
+                Kategori Per Jenis
+              </button>
+            </div>
+          </div>
+
+          <div className="h-72 w-full mt-2">
+            {chartViewMode === 'trend' ? (
+              <Chart type="bar" data={trendData} options={trendOptions} />
+            ) : (
+              <Bar data={chartData} options={chartOptions} />
+            )}
+          </div>
         </div>
 
-        <div className="flex flex-col md:flex-row gap-6 items-center mb-6">
-          <div className="w-full md:w-auto text-center md:text-left">
-            <div className="text-4xl font-bold text-emerald-700">{coveragePercent}%</div>
-            <div className="text-sm text-gray-500 font-medium mt-1">Terprogress</div>
-          </div>
-          <div className="flex-1 w-full">
-            <div className="h-4 w-full bg-red-100 rounded-full overflow-hidden flex relative">
-              <div 
-                className="h-full bg-emerald-600 transition-all duration-500 ease-out" 
-                style={{ width: `${coveragePercent}%` }}
-              ></div>
+        {/* Kolom 3: Pie / Donut Chart Cakupan Customer */}
+        <div className="lg:col-span-3 bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider">Cakupan Customer</h3>
+              <p className="text-xs text-gray-500 mt-0.5">{periodStrUI}</p>
             </div>
-            <div className="flex flex-col sm:flex-row justify-between mt-3 text-sm gap-2">
-              <span className="text-emerald-700 font-medium flex items-start sm:items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-600 block mt-1.5 sm:mt-0 flex-shrink-0"></span>
-                Terprogress: {uniqueCustomer.length} dari {allScopeCustomers.length} customer
-              </span>
-              <span className="text-red-700 font-medium flex items-start sm:items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-red-500 block mt-1.5 sm:mt-0 flex-shrink-0"></span>
-                Belum Ada Aktivitas: {customersTanpaAktivitas.length} customer
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Sudah Ada Aktivitas */}
-          <div>
-            <h4 className="text-sm font-bold text-emerald-700 mb-2 uppercase">Sudah Ada Aktivitas ({uniqueCustomer.length})</h4>
-            <div className="border border-emerald-100 rounded-lg overflow-hidden bg-white max-h-[300px] overflow-y-auto">
-              <table className="w-full text-left text-sm">
-                <tbody>
-                  {uniqueCustomer.length > 0 ? (
-                    uniqueCustomer.map((c, i) => (
-                      <tr key={i} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
-                        <td className="py-2.5 px-4 font-medium text-gray-700">{c}</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr><td className="py-3 px-4 text-gray-500 italic text-center">Tidak ada.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+            {canExport && (
+              <button
+                type="button"
+                onClick={handleDownloadCoveragePdf}
+                title="Unduh PDF Cakupan Customer"
+                className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-gray-200"
+              >
+                <Download size={14} />
+              </button>
+            )}
           </div>
 
-          {/* Belum Ada Aktivitas */}
-          <div>
-            <h4 className="text-sm font-bold text-red-700 mb-2 uppercase">Belum Ada Aktivitas ({customersTanpaAktivitas.length})</h4>
-            <div className="border border-red-100 rounded-lg overflow-hidden bg-white max-h-[300px] overflow-y-auto">
-              <table className="w-full text-left text-sm">
-                <tbody>
-                  {customersTanpaAktivitas.length > 0 ? (
-                    customersTanpaAktivitas.map((c, i) => (
-                      <tr key={i} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
-                        <td className="py-2.5 px-4 font-medium text-gray-700">{c}</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr><td className="py-3 px-4 text-gray-500 italic text-center">Tidak ada.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+          <div className="relative flex-1 flex flex-col items-center justify-center min-h-[220px]">
+            {allScopeCustomers.length === 0 ? (
+              <div className="text-xs text-gray-400 py-12 text-center">Belum ada customer pada cakupan ini.</div>
+            ) : (
+              <>
+                <div className="h-48 w-full relative flex items-center justify-center">
+                  <Doughnut data={customerPieData} options={customerPieOptions} />
+                  {/* Angka Persentase di Tengah Donut */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-5">
+                    <span className="text-2xl font-bold text-gray-800 font-mono">
+                      {coveragePercent}%
+                    </span>
+                    <span className="text-[10px] uppercase font-semibold text-gray-400 tracking-wider">
+                      Terprogress
+                    </span>
+                  </div>
+                </div>
+
+                {/* Ringkasan Angka Bawah */}
+                <div className="w-full pt-3 mt-1 border-t border-gray-100 grid grid-cols-2 gap-2 text-center">
+                  <button
+                    type="button"
+                    onClick={() => { setCustomerModal('progressed'); setCustomerModalSearch(''); }}
+                    className="bg-emerald-50/70 hover:bg-emerald-100/80 p-2 rounded-lg border border-emerald-200 transition-colors text-left flex flex-col justify-between group"
+                  >
+                    <div className="flex items-center justify-between w-full">
+                      <span className="text-[11px] text-emerald-700 font-semibold">Terprogress</span>
+                      <ExternalLink className="w-3 h-3 text-emerald-600 opacity-60 group-hover:opacity-100" />
+                    </div>
+                    <div className="text-base font-bold text-emerald-800 mt-1">{uniqueCustomer.length}</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setCustomerModal('notProgressed'); setCustomerModalSearch(''); }}
+                    className="bg-rose-50/70 hover:bg-rose-100/80 p-2 rounded-lg border border-rose-200 transition-colors text-left flex flex-col justify-between group"
+                  >
+                    <div className="flex items-center justify-between w-full">
+                      <span className="text-[11px] text-rose-700 font-semibold">Belum Ada</span>
+                      <ExternalLink className="w-3 h-3 text-rose-600 opacity-60 group-hover:opacity-100" />
+                    </div>
+                    <div className="text-base font-bold text-rose-800 mt-1">{customersTanpaAktivitas.length}</div>
+                  </button>
+                </div>
+
+                {/* 3 Data Terbaru & 3 Data Belum Terprogress */}
+                <div className="w-full mt-4 space-y-3 pt-3 border-t border-gray-100">
+                  {/* Data Terprogress */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[11px] font-bold text-emerald-700 tracking-wide">
+                        TERPROGRESS ({uniqueCustomer.length})
+                      </span>
+                      {uniqueCustomer.length > 3 && (
+                        <button
+                          type="button"
+                          onClick={() => { setCustomerModal('progressed'); setCustomerModalSearch(''); }}
+                          className="text-[10px] text-blue-600 hover:underline font-semibold"
+                        >
+                          Lihat Semua
+                        </button>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      {uniqueCustomer.slice(0, 3).map((c, idx) => (
+                        <div
+                          key={idx}
+                          onClick={() => { setCustomerModal('progressed'); setCustomerModalSearch(c); }}
+                          className="flex items-center justify-between p-1.5 rounded-md hover:bg-emerald-50/60 transition-colors text-xs cursor-pointer border border-transparent hover:border-emerald-100"
+                        >
+                          <span className="font-medium text-gray-800 truncate mr-2">{c}</span>
+                        </div>
+                      ))}
+                      {!uniqueCustomer.length && (
+                        <div className="text-[11px] text-gray-400 italic py-1">Belum ada data.</div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Data Belum Ada Progres */}
+                  <div className="pt-2 border-t border-dashed border-gray-100">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[11px] font-bold text-rose-700 tracking-wide">
+                        BELUM ADA AKTIVITAS ({customersTanpaAktivitas.length})
+                      </span>
+                      {customersTanpaAktivitas.length > 3 && (
+                        <button
+                          type="button"
+                          onClick={() => { setCustomerModal('notProgressed'); setCustomerModalSearch(''); }}
+                          className="text-[10px] text-blue-600 hover:underline font-semibold"
+                        >
+                          Lihat Semua
+                        </button>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      {customersTanpaAktivitas.slice(0, 3).map((c, idx) => (
+                        <div
+                          key={idx}
+                          onClick={() => { setCustomerModal('notProgressed'); setCustomerModalSearch(c); }}
+                          className="flex items-center justify-between p-1.5 rounded-md hover:bg-rose-50/60 transition-colors text-xs cursor-pointer border border-transparent hover:border-rose-100"
+                        >
+                          <span className="font-medium text-gray-800 truncate mr-2">{c}</span>
+                        </div>
+                      ))}
+                      {!customersTanpaAktivitas.length && (
+                        <div className="text-[11px] text-gray-400 italic py-1">Semua customer terprogress!</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -749,27 +1358,70 @@ export default function Laporan() {
         )}
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden relative">
-        {openFilter && (
-          <div className="fixed inset-0 z-50" onClick={() => setOpenFilter(null)} />
-        )}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 relative">
         <div className="p-4 border-b border-gray-100 flex flex-wrap gap-4 items-center justify-between bg-gray-50">
-           <div className="flex gap-2 w-full max-w-md">
-             <div className="relative w-full">
-               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Search size={16} className="text-gray-400" />
-               </div>
-               <input 
-                 type="text" 
-                 value={searchTerm}
-                 onChange={(e) => setSearchTerm(e.target.value)}
-                 placeholder="Cari customer, ditemui, atau catatan..." 
-                 className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-               />
-             </div>
-           </div>
-           <span className="text-xs text-gray-500 font-medium">{filteredActs.length} aktivitas</span>
+          <div className="flex gap-2 w-full max-w-md">
+            <div className="relative w-full">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search size={16} className="text-gray-400" />
+              </div>
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Cari customer, ditemui, atau catatan..."
+                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            {Object.values(filters).some(Boolean) && (
+              <button
+                onClick={() => setFilters({})}
+                className="text-xs text-red-600 hover:text-red-700 hover:underline font-medium flex items-center gap-1"
+              >
+                <X size={13} /> Reset Filter Tabel
+              </button>
+            )}
+            <span className="text-xs text-gray-500 font-medium">{filteredActs.length} aktivitas</span>
+          </div>
         </div>
+
+        {/* Active Filter Badges */}
+        {Object.entries(filters).some(([_, val]) => !!val) && (
+          <div className="px-4 py-2 bg-blue-50/50 border-b border-blue-100/60 flex flex-wrap items-center gap-2">
+            <span className="text-xs text-blue-700 font-medium">Filter Aktif:</span>
+            {Object.entries(filters).map(([k, v]) => {
+              if (!v) return null;
+              const labelsMap = {
+                tanggal: 'Tanggal',
+                user_name: 'Sales',
+                nama_customer: 'Customer',
+                site_kota: 'Site',
+                jenis_aktivitas: 'Jenis',
+                ditemui: 'Detail',
+                catatan: 'Catatan'
+              };
+              return (
+                <span
+                  key={k}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white text-blue-800 border border-blue-200 rounded-md text-xs font-medium shadow-sm"
+                >
+                  <span className="text-gray-500">{labelsMap[k] || k}:</span>
+                  <span>{v}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleFilterChange(k, '')}
+                    className="text-gray-400 hover:text-red-600 ml-0.5"
+                    title={`Hapus filter ${labelsMap[k] || k}`}
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              );
+            })}
+          </div>
+        )}
 
         {/* Table Desktop */}
         <div className="hidden md:block overflow-x-auto min-h-[400px]">
@@ -784,7 +1436,7 @@ export default function Laporan() {
                 <FilterHeader columnKey="site_kota" label="Site" />
                 <FilterHeader columnKey="jenis_aktivitas" label="Jenis" />
                 <FilterHeader columnKey="ditemui" label="Detail" />
-                <FilterHeader columnKey="catatan" label="Catatan" />
+                <FilterHeader columnKey="catatan" label="Catatan" alignRight={true} />
               </tr>
             </thead>
             <tbody className="text-sm text-gray-700">
@@ -822,7 +1474,7 @@ export default function Laporan() {
         {/* Card Mobile */}
         <div className="md:hidden flex flex-col gap-3 p-4 bg-gray-50/30">
           {loading ? (
-             <div className="py-8 text-center text-gray-500 bg-white rounded-xl border border-gray-100 text-sm">Memuat data...</div>
+            <div className="py-8 text-center text-gray-500 bg-white rounded-xl border border-gray-100 text-sm">Memuat data...</div>
           ) : filteredActs.length > 0 ? (
             filteredActs.map(act => (
               <div key={act.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm flex flex-col gap-2 relative">
@@ -837,13 +1489,13 @@ export default function Laporan() {
                     </p>
                   </div>
                 </div>
-                
+
                 <div className="absolute top-4 right-4">
                   <span className={`px-2.5 py-1 rounded-md text-[10px] font-medium border ${typePillClass(act.jenis_aktivitas)}`}>
                     {act.jenis_aktivitas}
                   </span>
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-3 mt-2 text-xs">
                   <div>
                     <span className="text-gray-400 block text-[10px] uppercase font-semibold mb-0.5">Site/Kota</span>
@@ -870,6 +1522,216 @@ export default function Laporan() {
           )}
         </div>
       </div>
+
+      {/* Dropdown filter table: portal ke body agar tidak tertutup overlay/overflow tabel. */}
+      {openFilter && typeof document !== 'undefined' && createPortal(
+        <div
+          ref={filterPopupRef}
+          role="dialog"
+          aria-label={`Filter ${filterColumnLabels[openFilter] || openFilter}`}
+          style={{ top: filterPopupPosition.top, left: filterPopupPosition.left, width: 256 }}
+          className="fixed z-[9999] bg-white border border-gray-200 shadow-2xl rounded-lg font-normal normal-case text-gray-700 overflow-hidden"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="px-3 py-2 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+            <span className="font-semibold text-xs text-gray-700">
+              Filter {filterColumnLabels[openFilter] || openFilter}
+            </span>
+            <button
+              type="button"
+              aria-label="Tutup filter"
+              onClick={() => setOpenFilter(null)}
+              className="text-gray-400 hover:text-gray-600 text-lg leading-none p-0.5 rounded"
+            >
+              &times;
+            </button>
+          </div>
+          {currentFilterOptions.length > 5 && (
+            <div className="p-2 border-b border-gray-100 bg-white">
+              <input
+                type="text"
+                placeholder={`Cari ${(filterColumnLabels[openFilter] || openFilter).toLowerCase()}...`}
+                value={filterSearch}
+                onChange={(event) => setFilterSearch(event.target.value)}
+                className="w-full text-xs px-2.5 py-1.5 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+          )}
+          <div className="max-h-52 overflow-y-auto divide-y divide-gray-50">
+            <button
+              type="button"
+              className={`w-full px-3 py-2 text-xs text-left cursor-pointer hover:bg-blue-50 transition-colors flex items-center justify-between ${!activeColumnFilterValue ? 'bg-blue-50/80 text-blue-600 font-semibold' : 'text-gray-600'}`}
+              onClick={() => { handleFilterChange(openFilter, ''); setOpenFilter(null); }}
+            >
+              <span>Semua</span>
+              {!activeColumnFilterValue && <Check size={14} className="text-blue-600" />}
+            </button>
+            {visibleFilterOptions.length > 0 ? (
+              visibleFilterOptions.map(option => {
+                const selected = activeColumnFilterValue === option;
+                return (
+                  <button
+                    type="button"
+                    key={option}
+                    className={`w-full px-3 py-2 text-xs text-left cursor-pointer hover:bg-blue-50 transition-colors flex items-center justify-between ${selected ? 'bg-blue-50/80 text-blue-600 font-semibold' : 'text-gray-700'}`}
+                    onClick={() => { handleFilterChange(openFilter, option); setOpenFilter(null); }}
+                  >
+                    <span className="truncate pr-2" title={String(option)}>{option}</span>
+                    {selected && <Check size={14} className="text-blue-600 flex-shrink-0" />}
+                  </button>
+                );
+              })
+            ) : (
+              <div className="px-3 py-3 text-xs text-gray-400 text-center italic">
+                Tidak ada pilihan
+              </div>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* MODAL LIHAT SEMUA CUSTOMER (SAMA DENGAN DASHBOARD) */}
+      {customerModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-4xl max-h-[88vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="p-4 sm:px-6 border-b border-gray-100 flex items-center justify-between bg-white shrink-0">
+              <div>
+                <h3 className="text-base sm:text-lg font-bold text-gray-900">
+                  Daftar Cakupan Customer
+                </h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Periode: {periodStrUI} · {selectedSalesLabel}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCustomerModal(false)}
+                className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Search Input */}
+            <div className="p-3 sm:px-6 border-b border-gray-100 bg-gray-50/70">
+              <div className="relative max-w-md">
+                <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Cari nama customer..."
+                  value={customerModalSearch}
+                  onChange={(e) => setCustomerModalSearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            {/* Modal Body: 2 Kolom (Kiri Hijau, Kanan Merah) */}
+            <div className="flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-200">
+              {/* Kolom KIRI: Hijau (Sudah Ada Aktivitas / Terprogress) */}
+              <div className="flex flex-col h-full overflow-hidden bg-emerald-50/20">
+                <div className="p-3 sm:px-5 border-b border-emerald-100 bg-emerald-50/60 flex items-center justify-between shrink-0">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                    <span className="text-xs sm:text-sm font-bold text-emerald-800 uppercase tracking-wide">
+                      Sudah Ada Aktivitas
+                    </span>
+                  </div>
+                  <span className="bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-0.5 rounded-full">
+                    {uniqueCustomer.length} Customer
+                  </span>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-3 sm:p-5 divide-y divide-emerald-100/60">
+                  {(() => {
+                    const q = customerModalSearch.toLowerCase();
+                    const list = uniqueCustomer.filter(c => c.toLowerCase().includes(q));
+
+                    if (list.length === 0) {
+                      return (
+                        <div className="py-12 text-center text-xs text-gray-400">
+                          {customerModalSearch ? 'Tidak ditemukan customer yang cocok.' : 'Belum ada customer terprogress.'}
+                        </div>
+                      );
+                    }
+
+                    return list.map((c, idx) => (
+                      <div key={idx} className="py-2.5 px-2 flex items-center justify-between hover:bg-emerald-50/60 rounded-lg transition-colors">
+                        <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                          <span className="text-xs font-semibold text-emerald-600/70 w-6 shrink-0 text-right">{idx + 1}.</span>
+                          <span className="text-sm font-semibold text-gray-900 truncate">{c}</span>
+                        </div>
+                        <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100/70 border border-emerald-200/60 px-2 py-0.5 rounded shrink-0">
+                          Aktif
+                        </span>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              </div>
+
+              {/* Kolom KANAN: Merah (Belum Ada Aktivitas) */}
+              <div className="flex flex-col h-full overflow-hidden bg-rose-50/20">
+                <div className="p-3 sm:px-5 border-b border-rose-100 bg-rose-50/60 flex items-center justify-between shrink-0">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+                    <span className="text-xs sm:text-sm font-bold text-rose-800 uppercase tracking-wide">
+                      Belum Ada Aktivitas
+                    </span>
+                  </div>
+                  <span className="bg-rose-100 text-rose-800 text-xs font-bold px-2.5 py-0.5 rounded-full">
+                    {customersTanpaAktivitas.length} Customer
+                  </span>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-3 sm:p-5 divide-y divide-rose-100/60">
+                  {(() => {
+                    const q = customerModalSearch.toLowerCase();
+                    const list = customersTanpaAktivitas.filter(c => c.toLowerCase().includes(q));
+
+                    if (list.length === 0) {
+                      return (
+                        <div className="py-12 text-center text-xs text-gray-400">
+                          {customerModalSearch ? 'Tidak ditemukan customer yang cocok.' : 'Semua customer telah memiliki aktivitas.'}
+                        </div>
+                      );
+                    }
+
+                    return list.map((c, idx) => (
+                      <div key={idx} className="py-2.5 px-2 flex items-center justify-between hover:bg-rose-50/60 rounded-lg transition-colors">
+                        <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                          <span className="text-xs font-semibold text-rose-500/70 w-6 shrink-0 text-right">{idx + 1}.</span>
+                          <span className="text-sm font-semibold text-gray-900 truncate">{c}</span>
+                        </div>
+                        <span className="text-[10px] font-semibold text-rose-700 bg-rose-100/70 border border-rose-200/60 px-2 py-0.5 rounded shrink-0">
+                          Pending
+                        </span>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-3 sm:px-6 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
+              <div className="text-xs text-gray-500">
+                Menampilkan total {allScopeCustomers.length} customer
+              </div>
+              <button
+                type="button"
+                onClick={() => setCustomerModal(false)}
+                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-xs font-semibold transition-colors"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </MainLayout>
   );
 }
