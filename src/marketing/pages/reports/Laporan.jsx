@@ -104,9 +104,17 @@ export default function Laporan() {
     const qPeriod = searchParams.get('period');
     const qPeriodRef = searchParams.get('periodRef');
     const qJenis = searchParams.get('jenis');
+    const qSalesId = searchParams.get('salesId');
+    const qSalesName = searchParams.get('salesName');
 
     if (qPeriod) setPeriod(qPeriod);
     if (qPeriodRef) setPeriodRef(qPeriodRef);
+    if (qSalesId) {
+      setReportScope(qSalesId);
+    } else if (qSalesName) {
+      setFilters(prev => ({ ...prev, user_name: qSalesName }));
+    }
+
     if (qJenis !== null) {
       if (qJenis) {
         setFilters(prev => ({ ...prev, jenis_aktivitas: qJenis }));
@@ -119,7 +127,7 @@ export default function Laporan() {
       }
     }
 
-    if (qPeriod || qPeriodRef || qJenis) {
+    if (qPeriod || qPeriodRef || qJenis || qSalesId || qSalesName) {
       setTimeout(() => {
         const tableSection = document.getElementById('table-aktivitas-laporan');
         if (tableSection) {
