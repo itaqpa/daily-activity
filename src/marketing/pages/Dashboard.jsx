@@ -501,16 +501,19 @@ export default function Dashboard() {
       let key = '';
 
       if (isDaily) {
-        // Ekstrak jam dari created_at atau tanggal
+        // Ekstrak jam langsung dari created_at
         let hour = null;
-        if (a.created_at) {
-          const dt = new Date(a.created_at);
-          if (!isNaN(dt.getTime())) {
-            hour = String(dt.getHours()).padStart(2, '0');
+        if (a.created_at && typeof a.created_at === 'string') {
+          // Jika format string seperti "2026-10-13 09:33:36" atau "2026-10-13T09:33:36"
+          const match = a.created_at.match(/[T\s](\d{2}):/);
+          if (match) {
+            hour = match[1];
           }
         }
-        if (hour === null && a.tanggal && typeof a.tanggal === 'string' && a.tanggal.includes('T')) {
-          const dt = new Date(a.tanggal);
+        
+        // Fallback jika berupa Date object asli
+        if (hour === null && a.created_at) {
+          const dt = new Date(a.created_at);
           if (!isNaN(dt.getTime())) {
             hour = String(dt.getHours()).padStart(2, '0');
           }
