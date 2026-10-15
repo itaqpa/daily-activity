@@ -65,8 +65,20 @@ export default function CatatAktivitas() {
 
       const response = await fetch(url);
       if (response.ok) {
-        const data = await response.json();
-        setCustomers(data);
+        const rawData = await response.json();
+        const normalizedData = rawData.map(c => {
+          let sk = c.site_kota;
+          if (typeof sk === 'string') {
+            try {
+              sk = JSON.parse(sk);
+            } catch (e) {
+              sk = sk.split(/[;,]/).map(s => s.trim()).filter(Boolean);
+            }
+          }
+          if (!Array.isArray(sk)) sk = [];
+          return { ...c, site_kota: sk };
+        });
+        setCustomers(normalizedData);
       }
     } catch (error) {
       console.error('Error fetching customers:', error);
@@ -80,23 +92,46 @@ export default function CatatAktivitas() {
 
   const [selectedCustomerName, setSelectedCustomerName] = useState('');
 
-  const uniqueCustomerNames = Array.from(new Set(customers.map(c => c.nama_customer))).filter(Boolean);
+  // Helper untuk normalisasi string nama customer (abaikan koma, titik, spasi berlebih)
+  const normalizeName = (name) => {
+    return (name || '')
+      .toLowerCase()
+      .replace(/[.,]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
+  // Kumpulkan nama customer unik berdasarkan nama yang sudah dinormalisasi
+  // Ambil label nama tampilan yang paling rapi
+  const uniqueCustomerMap = new Map();
+  customers.forEach(c => {
+    if (!c.nama_customer) return;
+    const key = normalizeName(c.nama_customer);
+    if (!uniqueCustomerMap.has(key)) {
+      uniqueCustomerMap.set(key, c.nama_customer);
+    }
+  });
+  const customerSelectOptions = Array.from(uniqueCustomerMap.entries()).map(([key, label]) => ({
+    value: key,
+    label: label
+  }));
 
   const handleCustomerNameChange = (e) => {
-    const custName = e.target.value;
-    setSelectedCustomerName(custName);
+    const custKey = e.target.value; // normalized key
+    const displayLabel = custKey ? uniqueCustomerMap.get(custKey) || '' : '';
+    setSelectedCustomerName(displayLabel);
     
-    if (!custName) {
+    if (!custKey) {
       setFormData(prev => ({ ...prev, customer_id: '', site_kota: '' }));
       return;
     }
 
-    const rows = customers.filter(c => c.nama_customer === custName);
+    const rows = customers.filter(c => normalizeName(c.nama_customer) === custKey);
     let allSites = [];
     rows.forEach(r => {
       if (Array.isArray(r.site_kota)) {
         r.site_kota.forEach(site => {
-          allSites.push({ site, id: r.id });
+          allSites.push({ site, id: r.id, no_akun: r.no_akun });
         });
       }
     });
@@ -118,7 +153,8 @@ export default function CatatAktivitas() {
 
   const handleSiteChange = (e) => {
     const selectedSite = e.target.value;
-    const rows = customers.filter(c => c.nama_customer === selectedCustomerName);
+    const custKey = normalizeName(selectedCustomerName);
+    const rows = customers.filter(c => normalizeName(c.nama_customer) === custKey);
     let matchedId = formData.customer_id;
     
     if (selectedSite !== 'Lainnya') {
@@ -225,7 +261,8 @@ export default function CatatAktivitas() {
   const currentCustomerRow = customers.find(c => c.id.toString() === formData.customer_id);
   const currentKodeCsr = currentCustomerRow ? currentCustomerRow.no_akun : '';
 
-  const rowsForSelectedCustomer = customers.filter(c => c.nama_customer === selectedCustomerName);
+  const custKeySelected = normalizeName(selectedCustomerName);
+  const rowsForSelectedCustomer = customers.filter(c => normalizeName(c.nama_customer) === custKeySelected);
   let allAvailableSites = [];
   rowsForSelectedCustomer.forEach(r => {
     if (Array.isArray(r.site_kota)) {
@@ -303,8 +340,8 @@ export default function CatatAktivitas() {
                   <span className="text-red-500">*</span>
                 </label>
                 <Select 
-                  options={uniqueCustomerNames.map(name => ({ value: name, label: name }))}
-                  value={selectedCustomerName ? { value: selectedCustomerName, label: selectedCustomerName } : null}
+                  options={customerSelectOptions}
+                  value={selectedCustomerName ? { value: custKeySelected, label: selectedCustomerName } : null}
                   onChange={(selected) => handleCustomerNameChange({ target: { value: selected ? selected.value : '' } })}
                   placeholder="-- Cari / Pilih Customer --"
                   isClearable
