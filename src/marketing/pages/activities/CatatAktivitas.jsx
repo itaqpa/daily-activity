@@ -280,7 +280,7 @@ export default function CatatAktivitas() {
   let allAvailableSites = [];
   rowsForSelectedCustomer.forEach(r => {
     const hasKode = r.no_akun && r.no_akun !== '-';
-    const kodeLabel = hasKode ? `(${r.no_akun})` : '(Tanpa Kode)';
+    const kodeLabel = hasKode ? `(${r.no_akun})` : '(-)';
     const cId = r.id.toString();
 
     if (Array.isArray(r.site_kota) && r.site_kota.length > 0) {
