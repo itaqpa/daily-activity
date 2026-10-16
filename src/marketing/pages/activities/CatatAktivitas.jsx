@@ -129,17 +129,26 @@ export default function CatatAktivitas() {
     const rows = customers.filter(c => normalizeName(c.nama_customer) === custKey);
     let allSites = [];
     rows.forEach(r => {
-      if (Array.isArray(r.site_kota)) {
+      if (Array.isArray(r.site_kota) && r.site_kota.length > 0) {
         r.site_kota.forEach(site => {
-          allSites.push({ site, id: r.id, no_akun: r.no_akun });
+          allSites.push({ site, id: r.id.toString(), no_akun: r.no_akun });
         });
+      } else {
+        allSites.push({ site: 'Umum / tidak spesifik', id: r.id.toString(), no_akun: r.no_akun });
       }
+    });
+
+    // Prioritaskan baris yang memiliki no_akun valid dibanding yang '-' atau kosong
+    allSites.sort((a, b) => {
+      const hasA = a.no_akun && a.no_akun !== '-' ? 1 : 0;
+      const hasB = b.no_akun && b.no_akun !== '-' ? 1 : 0;
+      return hasB - hasA;
     });
 
     if (allSites.length > 0) {
       setFormData(prev => ({
         ...prev,
-        customer_id: allSites[0].id.toString(),
+        customer_id: allSites[0].id,
         site_kota: allSites[0].site
       }));
     } else {
@@ -152,25 +161,30 @@ export default function CatatAktivitas() {
   };
 
   const handleSiteChange = (e) => {
-    const selectedSite = e.target.value;
-    const custKey = normalizeName(selectedCustomerName);
-    const rows = customers.filter(c => normalizeName(c.nama_customer) === custKey);
-    let matchedId = formData.customer_id;
-    
-    if (selectedSite !== 'Lainnya') {
-       for (const r of rows) {
-          if (Array.isArray(r.site_kota) && r.site_kota.includes(selectedSite)) {
-             matchedId = r.id.toString();
-             break;
-          }
-       }
+    const selectedVal = e.target.value;
+
+    if (selectedVal === 'Lainnya') {
+      setFormData(prev => ({
+        ...prev,
+        site_kota: 'Lainnya'
+      }));
+      return;
     }
 
-    setFormData(prev => ({
-      ...prev,
-      site_kota: selectedSite,
-      customer_id: matchedId
-    }));
+    if (selectedVal.includes(':')) {
+      const [cId, ...siteParts] = selectedVal.split(':');
+      const siteName = siteParts.join(':');
+      setFormData(prev => ({
+        ...prev,
+        customer_id: cId,
+        site_kota: siteName
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        site_kota: selectedVal
+      }));
+    }
   };
 
   const handleCheckboxChange = (option) => {
@@ -265,12 +279,33 @@ export default function CatatAktivitas() {
   const rowsForSelectedCustomer = customers.filter(c => normalizeName(c.nama_customer) === custKeySelected);
   let allAvailableSites = [];
   rowsForSelectedCustomer.forEach(r => {
-    if (Array.isArray(r.site_kota)) {
+    const hasKode = r.no_akun && r.no_akun !== '-';
+    const kodeLabel = hasKode ? `(${r.no_akun})` : '(Tanpa Kode)';
+    const cId = r.id.toString();
+
+    if (Array.isArray(r.site_kota) && r.site_kota.length > 0) {
       r.site_kota.forEach(site => {
-        if (!allAvailableSites.includes(site)) allAvailableSites.push(site);
+        allAvailableSites.push({
+          key: `${cId}:${site}`,
+          customerId: cId,
+          site: site,
+          label: `${site} ${kodeLabel}`,
+          hasKode: hasKode
+        });
+      });
+    } else {
+      allAvailableSites.push({
+        key: `${cId}:Umum / tidak spesifik`,
+        customerId: cId,
+        site: 'Umum / tidak spesifik',
+        label: `Umum / tidak spesifik ${kodeLabel}`,
+        hasKode: hasKode
       });
     }
   });
+
+  // Sort agar yang memiliki kode akun berada di urutan atas
+  allAvailableSites.sort((a, b) => (b.hasKode ? 1 : 0) - (a.hasKode ? 1 : 0));
 
   return (
     <MainLayout>
@@ -404,12 +439,12 @@ export default function CatatAktivitas() {
                 {allAvailableSites.length > 0 ? (
                   <select 
                     name="site_kota"
-                    value={formData.site_kota}
+                    value={formData.site_kota === 'Lainnya' ? 'Lainnya' : `${formData.customer_id}:${formData.site_kota}`}
                     onChange={handleSiteChange}
                     className="w-full h-11 px-3.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white font-medium text-gray-800 transition-colors cursor-pointer"
                   >
-                    {allAvailableSites.map((site, i) => (
-                      <option key={i} value={site}>{site}</option>
+                    {allAvailableSites.map((opt) => (
+                      <option key={opt.key} value={opt.key}>{opt.label}</option>
                     ))}
                     <option value="Lainnya">Lainnya...</option>
                   </select>
