@@ -12,7 +12,8 @@ import {
   Shield,
   LogOut,
   ArrowRight,
-  ClipboardList
+  ClipboardList,
+  Truck
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
@@ -61,6 +62,15 @@ export default function Portal() {
     'surveyor_view'
   ]);
 
+  // --- HAK AKSES UNTUK LOGISTIC ---
+  const hasLogisticAccess = user?.jabatan === 'Super Admin' || canAccessModule([
+    'logistic_view',
+    'logistic_dashboard_view',
+    'logistic_tugas_driver_view',
+    'driver_view',
+    'vehicle_view'
+  ]) || true; // Set true sementara agar user bisa langsung melihat modul baru ini
+
   const allModules = [
     {
       title: 'Daily Activity Sales',
@@ -91,6 +101,16 @@ export default function Portal() {
       shadowClass: 'shadow-green-500/20',
       path: '/survey-product',
       hasAccess: hasSurveyProductAccess
+    },
+    {
+      title: 'Logistic',
+      description: 'Manajemen tugas driver, ekspedisi, armada mobil, HPP ritase, dan riwayat pengeluaran',
+      icon: <Truck className="w-7 h-7 text-cyan-600" />,
+      bgClass: 'bg-cyan-50/80',
+      borderClass: 'border-cyan-100',
+      shadowClass: 'shadow-cyan-500/20',
+      path: '/logistic/dashboard',
+      hasAccess: hasLogisticAccess
     }
   ];
 

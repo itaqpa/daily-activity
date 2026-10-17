@@ -17,6 +17,7 @@ import costProjectRoutes from './routes/costProjectRoutes.js';
 import reportRoutes from './routes/reportRoutes.js';
 import activityLogsRoutes from './routes/activityLogsRoutes.js';
 import surveyEngineRoutes from './routes/surveyEngineRoutes.js';
+import akurasiApiRoutes from './API/AkurasiAPI.js';
 import { createAuthLogMiddleware } from './middleware/authLogMiddleware.js';
 import { getUserPermissionScope } from './utils/dataScopeHelper.js';
 
@@ -1047,6 +1048,7 @@ app.use('/api/cost-project', costProjectRoutes(pool));
 app.use('/api/report', reportRoutes(pool));
 app.use('/api/activity-logs', activityLogsRoutes);
 app.use('/api/survey-engine', surveyEngineRoutes(pool));
+app.use('/api/akurasi', akurasiApiRoutes);
 
 // Start Server
 app.listen(port, () => {

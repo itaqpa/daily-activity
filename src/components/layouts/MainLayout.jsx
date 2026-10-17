@@ -35,6 +35,9 @@ export default function MainLayout({ children }) {
       if (path.startsWith('/survey-product')) {
         localStorage.setItem('activeAppModule', 'Survey Product');
         setCurrentModule('Survey Product');
+      } else if (path.startsWith('/logistic')) {
+        localStorage.setItem('activeAppModule', 'Logistic');
+        setCurrentModule('Logistic');
       } else if (path.startsWith('/installation-project') || path.startsWith('/data-pengeluaran')) {
         localStorage.setItem('activeAppModule', 'Dinas Luar');
         setCurrentModule('Dinas Luar');

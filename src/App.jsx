@@ -58,6 +58,16 @@ import SurveyProductShow from './survey-product/SurveyProductShow';
 import SurveyProductReports from './survey-product/SurveyProductReports';
 import DataSurveyor from './master-admin/surveyor/DataSurveyor';
 import FormSurveyProductPage from './survey-product/formsurveyproduct/FormSurveyProductPage';
+import LogisticDashboardPage from './logistic/dashboard/LogisticDashboardPage';
+import TugasDriverPage from './logistic/tugas-driver/TugasDriverPage';
+import EkspedisiPage from './logistic/ekspedisi/EkspedisiPage';
+import PenugasanDriverPage from './logistic/penugasan-driver/PenugasanDriverPage';
+import PackingPage from './logistic/packing/PackingPage';
+import HppRitasePage from './logistic/hpp-ritase/HppRitasePage';
+import LaporanLogistikPage from './logistic/laporan/LaporanLogistikPage';
+import RiwayatPengeluaranPage from './logistic/riwayat-pengeluaran/RiwayatPengeluaranPage';
+import MasterDriverPage from './logistic/master-data/driver/MasterDriverPage';
+import MasterMobilPage from './logistic/master-data/mobil/MasterMobilPage';
 
 function ProtectedRoute() {
   const token = localStorage.getItem('token');
@@ -134,6 +144,21 @@ function App() {
               <Route path="master-data/surveyor" element={<DataSurveyor />} />
               <Route path=":id" element={<SurveyProductShow />} />
             </Route>
+          </Route>
+
+          {/* Modul Logistik */}
+          <Route path="/logistic" element={<ProtectedRoute />}>
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<LogisticDashboardPage />} />
+            <Route path="tugas-driver" element={<TugasDriverPage />} />
+            <Route path="ekspedisi" element={<EkspedisiPage />} />
+            <Route path="penugasan-driver" element={<PenugasanDriverPage />} />
+            <Route path="packing" element={<PackingPage />} />
+            <Route path="hpp-ritase" element={<HppRitasePage />} />
+            <Route path="laporan" element={<LaporanLogistikPage />} />
+            <Route path="riwayat-pengeluaran" element={<RiwayatPengeluaranPage />} />
+            <Route path="master-data/driver" element={<MasterDriverPage />} />
+            <Route path="master-data/mobil" element={<MasterMobilPage />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

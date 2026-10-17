@@ -5,6 +5,7 @@ import SidebarMarketing from "./commons/SidebarMarketing";
 import SidebarInstallation from "./commons/SidebarInstallation";
 import SidebarMasterData from "./commons/SidebarMasterData";
 import SidebarSurveyProduct from "./commons/SidebarSurveyProduct";
+import SidebarLogistik from "./commons/SidebarLogistik";
 
 export default function Sidebar({ isOpen, setIsOpen, currentModule }) {
   const location = useLocation();
@@ -25,6 +26,7 @@ export default function Sidebar({ isOpen, setIsOpen, currentModule }) {
   const isMarketing = currentModule === 'Daily Activity Sales';
   const isInstallation = currentModule === 'Dinas Luar' || currentModule === 'Installation Project';
   const isSurveyProduct = currentModule === 'Survey Product';
+  const isLogistic = currentModule === 'Logistic';
 
   return (
     <>
@@ -61,6 +63,7 @@ export default function Sidebar({ isOpen, setIsOpen, currentModule }) {
             {isMarketing && <SidebarMarketing isActive={isActive} />}
             {isInstallation && <SidebarInstallation isActive={isActive} />}
             {isSurveyProduct && <SidebarSurveyProduct isActive={isActive} />}
+            {isLogistic && <SidebarLogistik isActive={isActive} />}
             
             {/* Master Data is shown if it's Marketing (since the routes are under /marketing), 
                 but we could also show it everywhere if needed. Based on current paths, 
