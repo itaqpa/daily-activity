@@ -740,6 +740,131 @@ export default function logisticRoutes(pool, driverPool = pool) {
   });
 
   // =========================================================================
+  // 5. MANIFEST PENUGASAN (GET & POST)
+  // =========================================================================
+  router.get('/manifests', async (req, res) => {
+    try {
+      const manifestsQuery = `
+        SELECT m.*,
+               d.name as driver_name,
+               d.phone_number as driver_phone,
+               cd.name as co_driver_name,
+               cd.phone_number as co_driver_phone,
+               COALESCE(m.vehicle_plate, v.license_plate) as vehicle_plate,
+               v.vehicle_name,
+               COALESCE(
+                 json_agg(
+                   json_build_object(
+                     'id', t.id,
+                     'ref', t.reference_number,
+                     'type', t.task_type,
+                     'customer', COALESCE(t.destination_name, t.origin_name, 'Pelanggan'),
+                     'dest', COALESCE(t.destination_address, t.destination_name, ''),
+                     'qty', CASE 
+                              WHEN t.total_items_unit IS NOT NULL AND t.total_items_unit != '' 
+                              THEN t.total_items_count || ' ' || t.total_items_unit 
+                              ELSE t.total_items_count::text 
+                            END,
+                     'status', t.status
+                   ) ORDER BY t.created_at ASC
+                 ) FILTER (WHERE t.id IS NOT NULL), '[]'::json
+               ) as tasks
+        FROM logistic_manifests m
+        LEFT JOIN logistic_drivers d ON d.id = m.driver_id
+        LEFT JOIN logistic_drivers cd ON cd.id = m.co_driver_id
+        LEFT JOIN logistic_vehicles v ON v.id = m.vehicle_id
+        LEFT JOIN logistic_tasks t ON t.manifest_id = m.id
+        GROUP BY m.id, d.name, d.phone_number, cd.name, cd.phone_number, v.license_plate, v.vehicle_name
+        ORDER BY m.assigned_date DESC NULLS LAST, m.created_at DESC
+      `;
+      const result = await pool.query(manifestsQuery);
+      res.json(result.rows);
+    } catch (err) {
+      console.error('Error fetching manifests:', err);
+      res.status(500).json({ error: 'Gagal memuat manifest: ' + err.message });
+    }
+  });
+
+  router.post('/manifests', async (req, res) => {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const {
+        manifest_number,
+        driver_id,
+        co_driver_id,
+        vehicle_id,
+        vehicle_plate,
+        dispatch_date,
+        is_out_of_city,
+        notes,
+        task_ids = []
+      } = req.body;
+
+      let vPlate = vehicle_plate;
+      if (!vPlate && vehicle_id) {
+        const vRes = await client.query('SELECT license_plate FROM logistic_vehicles WHERE id = $1', [vehicle_id]);
+        if (vRes.rows.length > 0) vPlate = vRes.rows[0].license_plate;
+      }
+
+      const mRes = await client.query(`
+        INSERT INTO logistic_manifests (
+          manifest_number, assigned_date, manifest_date,
+          driver_id, co_driver_id, vehicle_id, vehicle_plate,
+          status, is_out_of_city, notes, total_tasks
+        ) VALUES (
+          $1, $2, $2,
+          $3, $4, $5, $6,
+          'assigned', $7, $8, $9
+        ) RETURNING *
+      `, [
+        manifest_number || `MNF-${Date.now()}`,
+        dispatch_date || new Date(),
+        driver_id || null,
+        co_driver_id || null,
+        vehicle_id || null,
+        vPlate || null,
+        Boolean(is_out_of_city),
+        notes || 'Penugasan Baru',
+        task_ids.length
+      ]);
+
+      const newManifest = mRes.rows[0];
+
+      if (Array.isArray(task_ids) && task_ids.length > 0) {
+        await client.query(`
+          UPDATE logistic_tasks
+          SET manifest_id = $1,
+              driver_id = COALESCE($2, driver_id),
+              vehicle_id = COALESCE($3, vehicle_id),
+              status = 'assigned',
+              dispatch_date = COALESCE($4, dispatch_date),
+              updated_at = CURRENT_TIMESTAMP
+          WHERE id = ANY($5::uuid[])
+        `, [
+          newManifest.id,
+          driver_id || null,
+          vehicle_id || null,
+          dispatch_date || new Date(),
+          task_ids
+        ]);
+      }
+
+      await client.query('COMMIT');
+      res.status(201).json({
+        message: 'Manifest berhasil dibuat',
+        manifest: newManifest
+      });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      console.error('Error creating manifest:', err);
+      res.status(500).json({ error: 'Gagal membuat manifest: ' + err.message });
+    } finally {
+      client.release();
+    }
+  });
+
+  // =========================================================================
   // 6. SINKRONISASI DATA DARI DATABASE driver_apps KE db_aqpa_indonesia
   // =========================================================================
   router.post('/sync-driver-apps', async (req, res) => {
@@ -764,19 +889,20 @@ export default function logisticRoutes(pool, driverPool = pool) {
       const dVehicles = (await dPool.query('SELECT * FROM vehicles')).rows;
       let vCount = 0;
       for (const v of dVehicles) {
-        const cleanPlate = (v.plate_number || '').trim().toUpperCase();
+        const cleanPlate = (v.plate_number || '').trim().toUpperCase().slice(0, 30);
         if (!cleanPlate) continue;
-        const vName = v.name || 'Kendaraan Armada';
+        const assetNo = (v.asset_number || `AST-${cleanPlate.replace(/\s+/g, '')}`).slice(0, 50);
+        const vName = (v.name || 'Kendaraan Armada').slice(0, 150);
         const kmRatio = parseFloat(v.km_per_liter) || 10;
-        const loc = v.location || 'Bekasi';
-        const oper = v.operational || 'LOG AQPA';
+        const loc = (v.location || 'Bekasi').slice(0, 100);
+        const oper = (v.operational || 'LOG AQPA').slice(0, 100);
 
         await pool.query(
           `INSERT INTO logistic_vehicles (asset_number, license_plate, vehicle_name, vehicle_type, location, operational_division, fuel_ratio_km_per_liter, status)
            VALUES ($1, $2, $3, 'car', $4, $5, $6, 'active')
            ON CONFLICT (license_plate) 
            DO UPDATE SET vehicle_name = EXCLUDED.vehicle_name, fuel_ratio_km_per_liter = EXCLUDED.fuel_ratio_km_per_liter, updated_at = CURRENT_TIMESTAMP`,
-          [`AST-\${cleanPlate.replace(/\\s+/g, '')}`, cleanPlate, vName, loc, oper, kmRatio]
+          [assetNo, cleanPlate, vName, loc, oper, kmRatio]
         );
         vCount++;
       }
@@ -785,14 +911,16 @@ export default function logisticRoutes(pool, driverPool = pool) {
       const dUsers = (await dPool.query("SELECT * FROM users WHERE role = 'driver' OR role LIKE '%driver%'")).rows;
       let dCount = 0;
       for (const u of dUsers) {
-        const dName = u.full_name || u.name || u.username;
-        const code = `DRV-\${(u.username || 'USR').toUpperCase().slice(0, 5)}`;
+        const dName = (u.full_name || u.name || u.username || 'Driver').slice(0, 150);
+        const usernameClean = (u.username || 'USR').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
+        const code = `DRV-${usernameClean}`;
+        const phone = (u.phone || u.phone_number || '08123456789').slice(0, 50);
         await pool.query(
           `INSERT INTO logistic_drivers (driver_code, name, phone_number, license_type, status, division)
-           VALUES ($1, $2, '08123456789', 'SIM B1 Umum', 'Aktif', 'Driver')
+           VALUES ($1, $2, $3, 'SIM B1 Umum', 'Aktif', 'Driver')
            ON CONFLICT (driver_code)
            DO UPDATE SET name = EXCLUDED.name, updated_at = CURRENT_TIMESTAMP`,
-          [code, dName]
+          [code, dName, phone]
         );
         dCount++;
       }
@@ -808,7 +936,95 @@ export default function logisticRoutes(pool, driverPool = pool) {
       const defaultDriverId = currentDrivers[0]?.id || null;
       const defaultVehicleId = currentVehicles[0]?.id || null;
 
-      // 4. Sync Deliveries
+      // 4. Sync Task Manifests (Daftar Penugasan Driver)
+      const dManifests = (await dPool.query(`
+        SELECT tm.*, 
+               u.full_name as driver_name, u.username as driver_uname,
+               co.full_name as co_driver_name, co.username as co_driver_uname,
+               v.plate_number as vehicle_plate
+        FROM task_manifests tm
+        LEFT JOIN users u ON u.id = tm.driver_id
+        LEFT JOIN users co ON co.id = tm.co_driver_id
+        LEFT JOIN vehicles v ON v.id = tm.vehicle_id
+        ORDER BY tm.created_at ASC
+      `)).rows;
+
+      let mCount = 0;
+      for (const tm of dManifests) {
+        let drvId = null;
+        if (tm.driver_name || tm.driver_uname) {
+          const match = currentDrivers.find(cd =>
+            cd.name.toLowerCase().includes((tm.driver_name || tm.driver_uname).toLowerCase())
+          );
+          if (match) drvId = match.id;
+        }
+        if (!drvId) drvId = defaultDriverId;
+
+        let coDrvId = null;
+        if (tm.co_driver_name || tm.co_driver_uname) {
+          const match = currentDrivers.find(cd =>
+            cd.name.toLowerCase().includes((tm.co_driver_name || tm.co_driver_uname).toLowerCase())
+          );
+          if (match) coDrvId = match.id;
+        }
+
+        let vehId = tm.vehicle_plate ? plateToId[tm.vehicle_plate.trim().toUpperCase()] : null;
+        if (!vehId) vehId = defaultVehicleId;
+
+        let mappedStatus = 'assigned';
+        if (tm.deleted_at) {
+          mappedStatus = 'cancelled';
+        } else if (tm.status === 'delivered' || tm.status === 'completed') {
+          mappedStatus = 'completed';
+        } else if (tm.status === 'on_route' || tm.status === 'in_progress') {
+          mappedStatus = 'on_route';
+        }
+
+        const notes = tm.deleted_at ? 'Penugasan telah dihapus (TERHAPUS)' : 'Penugasan dari Driver Apps';
+
+        await pool.query(`
+          INSERT INTO logistic_manifests (
+            id, manifest_number, assigned_date, manifest_date,
+            driver_id, co_driver_id, vehicle_id, vehicle_plate,
+            status, is_out_of_city, notes, created_at, updated_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP)
+          ON CONFLICT (id) DO UPDATE SET
+            manifest_number = EXCLUDED.manifest_number,
+            assigned_date = EXCLUDED.assigned_date,
+            manifest_date = EXCLUDED.manifest_date,
+            driver_id = EXCLUDED.driver_id,
+            co_driver_id = EXCLUDED.co_driver_id,
+            vehicle_id = EXCLUDED.vehicle_id,
+            vehicle_plate = EXCLUDED.vehicle_plate,
+            status = EXCLUDED.status,
+            is_out_of_city = EXCLUDED.is_out_of_city,
+            notes = EXCLUDED.notes,
+            updated_at = CURRENT_TIMESTAMP
+        `, [
+          tm.id,
+          tm.manifest_number,
+          tm.dispatch_date || tm.created_at,
+          tm.dispatch_date || tm.created_at,
+          drvId,
+          coDrvId,
+          vehId,
+          tm.vehicle_plate || null,
+          mappedStatus,
+          Boolean(tm.is_out_of_city),
+          notes,
+          tm.created_at
+        ]);
+        mCount++;
+      }
+
+      // Build tasks_manifest_history mapping
+      const histRows = (await dPool.query('SELECT manifest_id, task_id, task_type FROM tasks_manifest_history')).rows;
+      const taskToManifest = {};
+      histRows.forEach(h => {
+        taskToManifest[h.task_id] = h.manifest_id;
+      });
+
+      // 5. Sync Deliveries
       const deliveries = (await dPool.query(`
         SELECT da.*, so.so_number, so.customer_name, so.source_data, so.ordered_quantity,
                v.plate_number as v_plate,
@@ -821,9 +1037,9 @@ export default function logisticRoutes(pool, driverPool = pool) {
 
       let deliverySynced = 0;
       for (const d of deliveries) {
-        const refNum = d.so_number || `SO-DA-\${d.id.slice(0, 8)}`;
-        const destName = d.customer_name || d.delivery_target_point || 'Customer AQPA';
-        const originName = d.pickup_name || d.delivery_origin_point || 'Gudang AQPA';
+        const refNum = (d.so_number || `SO-DA-${String(d.id).slice(0, 8)}`).slice(0, 100);
+        const destName = (d.customer_name || d.delivery_target_point || 'Customer AQPA').slice(0, 255);
+        const originName = (d.pickup_name || d.delivery_origin_point || 'Gudang AQPA').slice(0, 255);
         const originAddr = d.pickup_location || 'Bekasi';
         const destAddr = d.delivery_target_point || 'Alamat Customer';
 
@@ -834,7 +1050,7 @@ export default function logisticRoutes(pool, driverPool = pool) {
             const parsed = JSON.parse(d.source_data);
             if (parsed.items && Array.isArray(parsed.items) && parsed.items.length > 0) {
               totalItems = parsed.items.reduce((s, it) => s + (parseFloat(it.quantity) || 0), 0);
-              unit = parsed.items[0].unit || 'Pcs';
+              unit = String(parsed.items[0].unit || 'Pcs').slice(0, 50);
             }
           } catch (e) {}
         }
@@ -859,68 +1075,81 @@ export default function logisticRoutes(pool, driverPool = pool) {
         else if (d.status === 'failed') mappedStatus = 'failed';
         else if (d.status === 'cancelled') mappedStatus = 'cancelled';
 
-        const checkTask = await pool.query('SELECT id FROM logistic_tasks WHERE reference_number = $1', [refNum]);
-        let taskId = null;
-        if (checkTask.rows.length > 0) {
-          taskId = checkTask.rows[0].id;
-          await pool.query(`
-            UPDATE logistic_tasks
-            SET status = $1, origin_name = $2, origin_address = $3,
-                destination_name = $4, destination_address = $5,
-                total_items_count = $6, total_items_unit = $7,
-                driver_id = $8, vehicle_id = $9,
-                completed_odometer = $10, started_at = $11, completed_at = $12,
-                do_easy = $13, updated_at = CURRENT_TIMESTAMP
-            WHERE id = $14
-          `, [
-            mappedStatus, originName, originAddr,
-            destName, destAddr,
-            totalItems, unit,
-            drvId, vehId,
-            d.completed_odometer || null, d.started_at || null, d.completed_at || null,
-            d.do_easy || null, taskId
-          ]);
-        } else {
-          const insRes = await pool.query(`
-            INSERT INTO logistic_tasks (
-              task_type, status, reference_number, do_easy,
-              origin_name, origin_address,
-              destination_name, destination_address,
-              total_items_count, total_items_unit,
-              driver_id, vehicle_id, dispatch_date,
-              completed_odometer, started_at, completed_at
-            ) VALUES (
-              'delivery', $1, $2, $3,
-              $4, $5,
-              $6, $7,
-              $8, $9,
-              $10, $11, $12,
-              $13, $14, $15
-            ) RETURNING id
-          `, [
-            mappedStatus, refNum, d.do_easy || null,
-            originName, originAddr,
-            destName, destAddr,
-            totalItems, unit,
-            drvId, vehId, d.dispatch_date || new Date(),
-            d.completed_odometer || null, d.started_at || null, d.completed_at || null
-          ]);
-          taskId = insRes.rows[0].id;
+        // Tautkan manifest jika ada dan manifest tidak terhapus
+        let targetManifestId = d.manifest_id || taskToManifest[d.id] || null;
+        if (targetManifestId) {
+          const mCheck = dManifests.find(m => m.id === targetManifestId);
+          if (mCheck && mCheck.deleted_at) {
+            targetManifestId = null; // Unlink deleted manifest agar tetap 0 tugas sesuai driver_apps
+          }
         }
 
+        const doEasyVal = d.do_easy ? String(d.do_easy).slice(0, 100) : null;
+
+        await pool.query(`
+          INSERT INTO logistic_tasks (
+            id, task_type, status, reference_number, do_easy,
+            origin_name, origin_address,
+            destination_name, destination_address,
+            total_items_count, total_items_unit,
+            driver_id, vehicle_id, dispatch_date,
+            completed_odometer, started_at, completed_at,
+            manifest_id
+          ) VALUES (
+            $1, 'delivery', $2, $3, $4,
+            $5, $6,
+            $7, $8,
+            $9, $10,
+            $11, $12, $13,
+            $14, $15, $16,
+            $17
+          )
+          ON CONFLICT (id) DO UPDATE SET
+            status = EXCLUDED.status,
+            reference_number = EXCLUDED.reference_number,
+            do_easy = EXCLUDED.do_easy,
+            origin_name = EXCLUDED.origin_name,
+            origin_address = EXCLUDED.origin_address,
+            destination_name = EXCLUDED.destination_name,
+            destination_address = EXCLUDED.destination_address,
+            total_items_count = EXCLUDED.total_items_count,
+            total_items_unit = EXCLUDED.total_items_unit,
+            driver_id = EXCLUDED.driver_id,
+            vehicle_id = EXCLUDED.vehicle_id,
+            dispatch_date = EXCLUDED.dispatch_date,
+            completed_odometer = EXCLUDED.completed_odometer,
+            started_at = EXCLUDED.started_at,
+            completed_at = EXCLUDED.completed_at,
+            manifest_id = EXCLUDED.manifest_id,
+            updated_at = CURRENT_TIMESTAMP
+        `, [
+          d.id, mappedStatus, refNum, doEasyVal,
+          originName, originAddr,
+          destName, destAddr,
+          totalItems, unit,
+          drvId, vehId, d.dispatch_date || new Date(),
+          d.completed_odometer || null, d.started_at || null, d.completed_at || null,
+          targetManifestId
+        ]);
+
         if (d.status === 'delivered' && d.receiver_name) {
-          const chkProof = await pool.query('SELECT id FROM logistic_task_proofs WHERE task_id = $1', [taskId]);
+          const chkProof = await pool.query('SELECT id FROM logistic_task_proofs WHERE task_id = $1', [d.id]);
           if (chkProof.rows.length === 0) {
             await pool.query(`
               INSERT INTO logistic_task_proofs (task_id, receiver_name, receiver_role, item_condition)
               VALUES ($1, $2, $3, $4)
-            `, [taskId, d.receiver_name, d.receiver_role || 'Penerima', d.item_condition || 'Baik']);
+            `, [
+              d.id,
+              String(d.receiver_name).slice(0, 150),
+              String(d.receiver_role || 'Penerima').slice(0, 100),
+              String(d.item_condition || 'Baik').slice(0, 50)
+            ]);
           }
         }
         deliverySynced++;
       }
 
-      // 5. Sync Pickups
+      // 6. Sync Pickups
       const pickups = (await dPool.query(`
         SELECT pt.*,
                v.plate_number as v_plate,
@@ -932,14 +1161,14 @@ export default function logisticRoutes(pool, driverPool = pool) {
 
       let pickupSynced = 0;
       for (const p of pickups) {
-        const refNum = p.reference_number || `PO-PU-\${p.id.slice(0, 8)}`;
-        const originName = p.pickup_name || 'Vendor AQPA';
+        const refNum = (p.reference_number || `PO-PU-${String(p.id).slice(0, 8)}`).slice(0, 100);
+        const originName = (p.pickup_name || 'Vendor AQPA').slice(0, 255);
         const originAddr = p.pickup_location || 'Alamat Vendor';
-        const destName = p.destination_name || 'Gudang AQPA';
+        const destName = (p.destination_name || 'Gudang AQPA').slice(0, 255);
         const destAddr = p.destination || 'Kawasan Delta Silicon, Bekasi';
 
         let totalItems = parseFloat(p.quantity) || 1;
-        let unit = p.unit || 'Pcs';
+        let unit = String(p.unit || 'Pcs').slice(0, 50);
 
         let vehId = p.v_plate ? plateToId[p.v_plate.trim().toUpperCase()] : null;
         if (!vehId) vehId = defaultVehicleId;
@@ -961,71 +1190,92 @@ export default function logisticRoutes(pool, driverPool = pool) {
         else if (p.status === 'failed') mappedStatus = 'failed';
         else if (p.status === 'cancelled') mappedStatus = 'cancelled';
 
-        const checkTask = await pool.query('SELECT id FROM logistic_tasks WHERE reference_number = $1', [refNum]);
-        let taskId = null;
-        if (checkTask.rows.length > 0) {
-          taskId = checkTask.rows[0].id;
-          await pool.query(`
-            UPDATE logistic_tasks
-            SET status = $1, origin_name = $2, origin_address = $3,
-                destination_name = $4, destination_address = $5,
-                total_items_count = $6, total_items_unit = $7,
-                driver_id = $8, vehicle_id = $9,
-                completed_odometer = $10, started_at = $11, completed_at = $12,
-                do_easy = $13, updated_at = CURRENT_TIMESTAMP
-            WHERE id = $14
-          `, [
-            mappedStatus, originName, originAddr,
-            destName, destAddr,
-            totalItems, unit,
-            drvId, vehId,
-            p.completed_odometer || null, p.started_at || null, p.completed_at || null,
-            p.do_easy || null, taskId
-          ]);
-        } else {
-          const insRes = await pool.query(`
-            INSERT INTO logistic_tasks (
-              task_type, status, reference_number, do_easy,
-              origin_name, origin_address,
-              destination_name, destination_address,
-              total_items_count, total_items_unit,
-              driver_id, vehicle_id, dispatch_date,
-              completed_odometer, started_at, completed_at
-            ) VALUES (
-              'pickup', $1, $2, $3,
-              $4, $5,
-              $6, $7,
-              $8, $9,
-              $10, $11, $12,
-              $13, $14, $15
-            ) RETURNING id
-          `, [
-            mappedStatus, refNum, p.do_easy || null,
-            originName, originAddr,
-            destName, destAddr,
-            totalItems, unit,
-            drvId, vehId, p.dispatch_date || new Date(),
-            p.completed_odometer || null, p.started_at || null, p.completed_at || null
-          ]);
-          taskId = insRes.rows[0].id;
+        let targetManifestId = p.manifest_id || taskToManifest[p.id] || null;
+        if (targetManifestId) {
+          const mCheck = dManifests.find(m => m.id === targetManifestId);
+          if (mCheck && mCheck.deleted_at) {
+            targetManifestId = null;
+          }
         }
 
+        const doEasyVal = p.do_easy ? String(p.do_easy).slice(0, 100) : null;
+
+        await pool.query(`
+          INSERT INTO logistic_tasks (
+            id, task_type, status, reference_number, do_easy,
+            origin_name, origin_address,
+            destination_name, destination_address,
+            total_items_count, total_items_unit,
+            driver_id, vehicle_id, dispatch_date,
+            completed_odometer, started_at, completed_at,
+            manifest_id
+          ) VALUES (
+            $1, 'pickup', $2, $3, $4,
+            $5, $6,
+            $7, $8,
+            $9, $10,
+            $11, $12, $13,
+            $14, $15, $16,
+            $17
+          )
+          ON CONFLICT (id) DO UPDATE SET
+            status = EXCLUDED.status,
+            reference_number = EXCLUDED.reference_number,
+            do_easy = EXCLUDED.do_easy,
+            origin_name = EXCLUDED.origin_name,
+            origin_address = EXCLUDED.origin_address,
+            destination_name = EXCLUDED.destination_name,
+            destination_address = EXCLUDED.destination_address,
+            total_items_count = EXCLUDED.total_items_count,
+            total_items_unit = EXCLUDED.total_items_unit,
+            driver_id = EXCLUDED.driver_id,
+            vehicle_id = EXCLUDED.vehicle_id,
+            dispatch_date = EXCLUDED.dispatch_date,
+            completed_odometer = EXCLUDED.completed_odometer,
+            started_at = EXCLUDED.started_at,
+            completed_at = EXCLUDED.completed_at,
+            manifest_id = EXCLUDED.manifest_id,
+            updated_at = CURRENT_TIMESTAMP
+        `, [
+          p.id, mappedStatus, refNum, doEasyVal,
+          originName, originAddr,
+          destName, destAddr,
+          totalItems, unit,
+          drvId, vehId, p.dispatch_date || new Date(),
+          p.completed_odometer || null, p.started_at || null, p.completed_at || null,
+          targetManifestId
+        ]);
+
         if ((p.status === 'delivered' || p.status === 'completed') && p.receiver_name) {
-          const chkProof = await pool.query('SELECT id FROM logistic_task_proofs WHERE task_id = $1', [taskId]);
+          const chkProof = await pool.query('SELECT id FROM logistic_task_proofs WHERE task_id = $1', [p.id]);
           if (chkProof.rows.length === 0) {
             await pool.query(`
               INSERT INTO logistic_task_proofs (task_id, receiver_name, receiver_role, item_condition)
               VALUES ($1, $2, $3, $4)
-            `, [taskId, p.receiver_name, p.receiver_role || 'Penerima', p.item_condition || 'Baik']);
+            `, [
+              p.id,
+              String(p.receiver_name).slice(0, 150),
+              String(p.receiver_role || 'Penerima').slice(0, 100),
+              String(p.item_condition || 'Baik').slice(0, 50)
+            ]);
           }
         }
         pickupSynced++;
       }
 
+      // 7. Update total_tasks count on logistic_manifests
+      await pool.query(`
+        UPDATE logistic_manifests m
+        SET total_tasks = (
+          SELECT count(*) FROM logistic_tasks t WHERE t.manifest_id = m.id
+        )
+      `);
+
       res.json({
         success: true,
-        message: `Sinkronisasi berhasil! \${deliverySynced + pickupSynced} Tugas (\${deliverySynced} Delivery, \${pickupSynced} Pickup), \${vCount} Kendaraan, dan \${dCount} Driver tersinkronkan.`,
+        message: `Sinkronisasi berhasil! ${mCount} Manifest Penugasan, ${deliverySynced + pickupSynced} Tugas (${deliverySynced} Delivery, ${pickupSynced} Pickup), ${vCount} Kendaraan, dan ${dCount} Driver tersinkronkan.`,
         data: {
+          manifests: mCount,
           vehicles: vCount,
           drivers: dCount,
           deliveries: deliverySynced,

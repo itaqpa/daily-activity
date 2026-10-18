@@ -95,5 +95,39 @@ export const logisticApi = {
       throw new Error(err.error || 'Gagal melakukan sinkronisasi dengan database driver_apps');
     }
     return res.json();
+  },
+
+  // 8. Master Kendaraan & Driver
+  getVehicles: async () => {
+    const res = await fetch(`${API_BASE}/logistic/vehicles`);
+    if (!res.ok) throw new Error('Gagal mengambil daftar kendaraan');
+    return res.json();
+  },
+
+  getDrivers: async () => {
+    const res = await fetch(`${API_BASE}/logistic/drivers`);
+    if (!res.ok) throw new Error('Gagal mengambil daftar driver');
+    return res.json();
+  },
+
+  // 9. Manifest Penugasan Driver
+  getManifests: async () => {
+    const res = await fetch(`${API_BASE}/logistic/manifests`);
+    if (!res.ok) throw new Error('Gagal mengambil daftar manifest penugasan');
+    return res.json();
+  },
+
+  createManifest: async (payload) => {
+    const res = await fetch(`${API_BASE}/logistic/manifests`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Gagal membuat manifest penugasan');
+    }
+    return res.json();
   }
 };
+

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import MainLayout from '../../components/layouts/MainLayout';
 import {
   UserCheck,
@@ -19,9 +19,11 @@ import {
   CheckCircle,
   AlertCircle,
   Calendar,
-  Phone
+  Phone,
+  RefreshCw
 } from 'lucide-react';
 import ModalPlottingDriver from './components/ModalPlottingDriver';
+import { logisticApi } from '../services/logisticApi';
 
 export default function PenugasanDriverPage() {
   // Pool DO yang belum di-plot
@@ -186,7 +188,7 @@ export default function PenugasanDriverPage() {
   ]);
 
   // Master Driver (Sesuai 11 Personil Driver Master & Akun Mobile)
-  const [drivers] = useState([
+  const [drivers, setDrivers] = useState([
     { id: 'DRV-001', name: 'ABDUL KARIM', phone: '0812-9911-2201', status: 'Available', role: 'DRIVER', vehicle: 'B 2257 KIO' },
     { id: 'DRV-002', name: 'ALDI YUSUF', phone: '0857-8822-3302', status: 'Available', role: 'DRIVER', vehicle: 'B 9819 KRW' },
     { id: 'DRV-003', name: 'ARIE SANJAYA', phone: '0813-7733-4403', status: 'Available', role: 'DRIVER', vehicle: 'B 9726 KCI' },
@@ -201,7 +203,7 @@ export default function PenugasanDriverPage() {
   ]);
 
   // Master Kendaraan Armada (Sesuai Data Master 14 Aset Kendaraan)
-  const [vehicles] = useState([
+  const [vehicles, setVehicles] = useState([
     { id: 'v-1', asset_number: 'A/1/0001', plate_number: 'B 5563 KIU', name: 'VARIO 125 HITAM MERAH', location: 'Bekasi', division: 'LOG AQPA', fuel_ratio: 40.0, rate: 100000 },
     { id: 'v-2', asset_number: 'A/2/0001', plate_number: 'B 2235 KYB', name: 'GRANDMAX HITAM', location: 'Bekasi', division: 'HRGA', fuel_ratio: 12.0, rate: 250000 },
     { id: 'v-3', asset_number: 'A/2/0002', plate_number: 'B 9819 KRW', name: 'L300', location: 'Bekasi', division: 'LOG AQPA', fuel_ratio: 10.0, rate: 250000 },
@@ -217,6 +219,128 @@ export default function PenugasanDriverPage() {
     { id: 'v-13', asset_number: 'A/2/0003', plate_number: 'B 9412 KUF', name: 'CARRY PUTIH', location: 'Surabaya', division: 'LOG AQPA SBY', fuel_ratio: 12.0, rate: 250000 },
     { id: 'v-14', asset_number: 'A/2/0005', plate_number: 'B 2969 KYC', name: 'GRANDMAX SILVER', location: 'Surabaya', division: 'LOG AQPA SBY', fuel_ratio: 12.0, rate: 250000 }
   ]);
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncSuccessMsg, setSyncSuccessMsg] = useState(null);
+
+  // Fungsi Fetch Real Data dari API Database
+  const fetchData = async () => {
+    try {
+      setIsLoading(true);
+      const [apiManifestsRes, apiTasksRes, apiDriversRes, apiVehiclesRes] = await Promise.allSettled([
+        logisticApi.getManifests(),
+        logisticApi.getDriverTasks(),
+        logisticApi.getDrivers(),
+        logisticApi.getVehicles()
+      ]);
+
+      if (apiDriversRes.status === 'fulfilled' && Array.isArray(apiDriversRes.value) && apiDriversRes.value.length > 0) {
+        setDrivers(apiDriversRes.value.map(d => ({
+          id: d.id,
+          name: d.name,
+          phone: d.phone_number || d.phone || '-',
+          status: d.status === 'Aktif' ? 'Available' : (d.status || 'Available'),
+          role: 'DRIVER',
+          vehicle: d.default_vehicle_plate || '-'
+        })));
+      }
+
+      if (apiVehiclesRes.status === 'fulfilled' && Array.isArray(apiVehiclesRes.value) && apiVehiclesRes.value.length > 0) {
+        setVehicles(apiVehiclesRes.value.map(v => ({
+          id: v.id,
+          asset_number: v.asset_number || '-',
+          plate_number: v.license_plate,
+          name: v.vehicle_name || v.vehicle_type || v.license_plate,
+          location: 'Bekasi',
+          division: 'LOGISTIK',
+          fuel_ratio: parseFloat(v.fuel_ratio_km_per_liter) || 10,
+          rate: 250000
+        })));
+      }
+
+      // 1. Load Real Manifests dari Database
+      if (apiManifestsRes.status === 'fulfilled' && Array.isArray(apiManifestsRes.value) && apiManifestsRes.value.length > 0) {
+        const loadedManifests = apiManifestsRes.value.map(m => ({
+          id: m.manifest_number || m.id,
+          real_id: m.id,
+          driver_name: m.driver_name || 'Driver',
+          driver_phone: m.driver_phone || '-',
+          co_driver_name: m.co_driver_name || null,
+          vehicle_plate: m.vehicle_plate || '-',
+          vehicle_name: m.vehicle_name || '-',
+          dispatch_date: m.assigned_date ? String(m.assigned_date).slice(0, 10) : (m.created_at ? String(m.created_at).slice(0, 10) : '-'),
+          end_date: null,
+          is_out_of_city: Boolean(m.is_out_of_city),
+          status: m.status || 'assigned',
+          notes: m.notes || '-',
+          created_at: m.created_at ? String(m.created_at).slice(0, 16).replace('T', ' ') : '',
+          tasks: (m.tasks || []).map(t => ({
+            id: t.id,
+            ref: t.ref,
+            type: t.type,
+            customer: t.customer,
+            dest: t.dest,
+            qty: t.qty,
+            status: t.status
+          }))
+        }));
+
+        setManifestList(loadedManifests);
+        if (loadedManifests.length > 0) {
+          setExpandedRows(prev => ({ ...prev, [loadedManifests[0].id]: true }));
+        }
+      }
+
+      // 2. Load Unassigned Pool DO (Tugas yang belum memiliki manifest)
+      if (apiTasksRes.status === 'fulfilled' && Array.isArray(apiTasksRes.value) && apiTasksRes.value.length > 0) {
+        const allTasks = apiTasksRes.value;
+
+        const unassigned = allTasks
+          .filter(t => !t.manifest_id && (!t.driver_id || t.status === 'draft' || t.status === 'pending'))
+          .map(t => ({
+            id: t.id,
+            ref: t.reference_number || `TSK-${t.id}`,
+            type: t.task_type || 'delivery',
+            customer: t.destination_name || t.origin_name || 'Pelanggan',
+            qty: t.total_items_unit ? `${parseFloat(t.total_items_count) || 1} ${t.total_items_unit}` : `${parseFloat(t.total_items_count) || 1}`,
+            item_name: t.item_description || (t.task_type === 'delivery' ? 'Pengiriman Barang' : 'Pengambilan Barang'),
+            origin: t.origin_address || t.origin_name || '',
+            dest: t.destination_address || t.destination_name || '',
+            out_of_city: Boolean(t.is_out_of_city),
+            created_at: t.created_at ? String(t.created_at).slice(0, 16).replace('T', ' ') : ''
+          }));
+
+        setUnassignedPoolTasks(unassigned);
+      }
+    } catch (err) {
+      console.warn('Gagal memuat data dari API:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  // Handler Sinkronisasi Data dari Driver Apps
+  const handleSyncDriverApps = async () => {
+    try {
+      setIsSyncing(true);
+      setSyncSuccessMsg(null);
+      const res = await logisticApi.syncDriverApps();
+      setSyncSuccessMsg(res.message);
+      await fetchData();
+      setTimeout(() => {
+        setSyncSuccessMsg(null);
+      }, 7000);
+    } catch (err) {
+      alert('Gagal melakukan sinkronisasi dengan driver_apps: ' + err.message);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   // State Modal, Filter & Accordion
   const [isModalPlotOpen, setIsModalPlotOpen] = useState(false);
@@ -288,38 +412,56 @@ export default function PenugasanDriverPage() {
   }, [manifestList, vehicles, drivers, unassignedPoolTasks]);
 
   // Handler Submit Penugasan Baru
-  const handleCreateManifest = (payload) => {
-    const selectedDriver = drivers.find(d => d.id === payload.driver_id);
-    const selectedCoDriver = drivers.find(d => d.id === payload.co_driver_id);
-    const selectedVeh = vehicles.find(v => v.id === payload.vehicle_id);
+  const handleCreateManifest = async (payload) => {
+    try {
+      setIsLoading(true);
+      await logisticApi.createManifest({
+        manifest_number: payload.manifest_number,
+        driver_id: payload.driver_id,
+        co_driver_id: payload.co_driver_id,
+        vehicle_id: payload.vehicle_id,
+        dispatch_date: payload.dispatch_date,
+        is_out_of_city: payload.is_out_of_city,
+        notes: payload.notes,
+        task_ids: payload.task_ids
+      });
+      await fetchData();
+    } catch (err) {
+      console.error('Gagal membuat manifest:', err);
+      const selectedDriver = drivers.find(d => d.id === payload.driver_id);
+      const selectedCoDriver = drivers.find(d => d.id === payload.co_driver_id);
+      const selectedVeh = vehicles.find(v => v.id === payload.vehicle_id);
 
-    const newManifest = {
-      id: payload.manifest_number,
-      driver_name: selectedDriver?.name || 'Driver',
-      driver_phone: selectedDriver?.phone || '-',
-      co_driver_name: selectedCoDriver?.name || null,
-      vehicle_plate: selectedVeh?.plate_number || '-',
-      vehicle_name: selectedVeh?.name || '-',
-      dispatch_date: payload.dispatch_date,
-      end_date: payload.end_date || null,
-      is_out_of_city: payload.is_out_of_city,
-      status: 'assigned',
-      notes: payload.notes || '-',
-      created_at: new Date().toISOString().slice(0, 16).replace('T', ' '),
-      tasks: payload.selected_tasks.map(t => ({
-        id: `TSK-${t.id}`,
-        ref: t.ref || t.nomor_ref,
-        type: t.type || 'delivery',
-        customer: t.customer || t.customer_vendor,
-        dest: t.dest || t.lokasi_tujuan,
-        qty: t.qty || t.jumlah_barang,
-        status: 'assigned'
-      }))
-    };
+      const newManifest = {
+        id: payload.manifest_number,
+        driver_name: selectedDriver?.name || 'Driver',
+        driver_phone: selectedDriver?.phone || '-',
+        co_driver_name: selectedCoDriver?.name || null,
+        vehicle_plate: selectedVeh?.plate_number || '-',
+        vehicle_name: selectedVeh?.name || '-',
+        dispatch_date: payload.dispatch_date,
+        end_date: payload.end_date || null,
+        is_out_of_city: payload.is_out_of_city,
+        status: 'assigned',
+        notes: payload.notes || '-',
+        created_at: new Date().toISOString().slice(0, 16).replace('T', ' '),
+        tasks: (payload.selected_tasks || []).map(t => ({
+          id: `TSK-${t.id}`,
+          ref: t.ref || t.nomor_ref,
+          type: t.type || 'delivery',
+          customer: t.customer || t.customer_vendor,
+          dest: t.dest || t.lokasi_tujuan,
+          qty: t.qty || t.jumlah_barang,
+          status: 'assigned'
+        }))
+      };
 
-    setManifestList(prev => [newManifest, ...prev]);
-    setExpandedRows(prev => ({ ...prev, [newManifest.id]: true }));
-    setUnassignedPoolTasks(prev => prev.filter(t => !payload.task_ids.includes(t.id)));
+      setManifestList(prev => [newManifest, ...prev]);
+      setExpandedRows(prev => ({ ...prev, [newManifest.id]: true }));
+      setUnassignedPoolTasks(prev => prev.filter(t => !payload.task_ids.includes(t.id)));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const getStatusBadge = (status) => {
@@ -340,6 +482,12 @@ export default function PenugasanDriverPage() {
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
             <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Selesai
+          </span>
+        );
+      case 'cancelled':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
+            <AlertCircle className="w-3 h-3 text-rose-600" /> Terhapus
           </span>
         );
       default:
@@ -369,7 +517,22 @@ export default function PenugasanDriverPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={handleSyncDriverApps}
+              disabled={isSyncing}
+              className={`inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm font-bold shadow-sm transition-all ${
+                isSyncing
+                  ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                  : 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 active:scale-95'
+              }`}
+              title="Sinkronkan data kendaraan, driver, dan delivery/pickup dari database driver_apps"
+            >
+              <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+              <span>{isSyncing ? 'Menyinkronkan...' : 'Sync Driver Apps'}</span>
+            </button>
+
             <button
               type="button"
               onClick={() => setIsModalPlotOpen(true)}
@@ -385,6 +548,23 @@ export default function PenugasanDriverPage() {
             </button>
           </div>
         </div>
+
+        {/* SYNC NOTIFICATION BANNER */}
+        {syncSuccessMsg && (
+          <div className="flex items-center justify-between p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs sm:text-sm animate-fade-in shadow-sm">
+            <div className="flex items-center gap-2 font-medium">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+              <span>{syncSuccessMsg}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSyncSuccessMsg(null)}
+              className="text-emerald-700 hover:text-emerald-900 font-bold text-xs"
+            >
+              Tutup
+            </button>
+          </div>
+        )}
 
         {/* KPI MONITORING CARDS */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -519,6 +699,7 @@ export default function PenugasanDriverPage() {
                 <option value="assigned">Ditugaskan</option>
                 <option value="on_route">Di Perjalanan</option>
                 <option value="completed">Selesai</option>
+                <option value="cancelled">Terhapus</option>
               </select>
             </div>
 
