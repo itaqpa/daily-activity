@@ -160,7 +160,7 @@ CREATE TABLE IF NOT EXISTS logistic_tasks (
     do_easy VARCHAR(100) NULL,                   -- Surat Jalan DO Easy / Accurate
     
     -- ---------------------------------------------------------------------
-    -- DETAIL LOKASI AWAL (Origin: Vendor / Pabrik / Gudang AQPA)
+    -- DETAIL LOKASI AWAL (Origin)
     -- ---------------------------------------------------------------------
     origin_name VARCHAR(255) NOT NULL,           -- Nama Gudang / Pabrik / Vendor Awal
     origin_pic_name VARCHAR(150) NULL,           -- Nama PIC di lokasi awal
@@ -202,7 +202,7 @@ CREATE TABLE IF NOT EXISTS logistic_tasks (
     completed_at TIMESTAMP NULL,                 -- Waktu serah terima barang selesai
     
     -- Cache Bukti / Alasan Cepat (Langsung terbaca di List Task tanpa join)
-    proof_photo TEXT NULL,                       -- URL foto bukti serah terima (sama dengan mobile apps)
+    proof_attachment_id UUID NULL,               -- ID Attachment bukti serah terima (ke logistic_attachments)
     failure_reason TEXT NULL,                    -- Alasan jika status failed/batal (sama dengan mobile apps)
     
     -- Audit Timestamps & Soft Delete
@@ -231,8 +231,9 @@ CREATE TABLE IF NOT EXISTS logistic_task_proofs (
     receiver_phone VARCHAR(50) NULL,             -- No telp penerima jika ada
     item_condition VARCHAR(50) NOT NULL DEFAULT 'Baik', -- Kondisi barang (Baik, Sebagian Rusak, dll)
     
-    proof_photo TEXT NOT NULL,                   -- Path/URL foto surat jalan bertanda tangan / foto barang
-    signature_photo TEXT NULL,                   -- Path/URL tanda tangan digital penerima (jika ada)
+    -- Referensi ID Attachment (Tidak ada path file lokal/cloud di tabel ini)
+    proof_attachment_id UUID NULL,               -- ID foto surat jalan bertanda tangan / foto barang
+    signature_attachment_id UUID NULL,           -- ID tanda tangan digital penerima
     
     actual_lat DECIMAL(10, 8) NULL,              -- Titik GPS aktual saat driver submit serah terima
     actual_lng DECIMAL(11, 8) NULL,
@@ -254,7 +255,7 @@ CREATE TABLE IF NOT EXISTS logistic_task_issues (
     
     issue_type VARCHAR(50) NOT NULL,             -- Jenis: 'ban_bocor', 'gudang_tutup', 'barang_rusak', 'selisih_qty', 'macet_total', 'lainnya'
     issue_note TEXT NOT NULL,                    -- Keterangan rinci kendala
-    issue_photo TEXT NULL,                       -- Bukti foto kendala lapangan
+    issue_attachment_id UUID NULL,               -- ID foto bukti kendala (ke logistic_attachments)
     reported_lat DECIMAL(10, 8) NULL,            -- Koordinat GPS saat kendala dilaporkan
     reported_lng DECIMAL(11, 8) NULL,
     
@@ -378,5 +379,164 @@ CREATE INDEX IF NOT EXISTS idx_logistic_expeditions_vendor ON logistic_expeditio
 CREATE INDEX IF NOT EXISTS idx_logistic_expeditions_ref ON logistic_expeditions(reference_number);
 CREATE INDEX IF NOT EXISTS idx_logistic_expeditions_tracking ON logistic_expeditions(tracking_number);
 CREATE INDEX IF NOT EXISTS idx_logistic_expeditions_shipping_date ON logistic_expeditions(shipping_date);
+
+-- =========================================================================
+-- 8. TABEL SENTRALISASI DOKUMEN & FOTO (LOGISTIC ATTACHMENTS)
+-- =========================================================================
+-- Menyimpan seluruh file berkas, foto fisik, dan struk secara terpusat
+-- sehingga tabel transaksi lain HANYA menyimpan ID (UUID) tanpa path/URL panjang.
+CREATE TABLE IF NOT EXISTS logistic_attachments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    
+    -- Pemilik File & Entitas Terkait (Polymorphic Relation)
+    entity_type VARCHAR(50) NOT NULL, -- 'shift_start_odo', 'shift_end_odo', 'shift_damage', 'shift_condition', 'task_pod', 'task_signature', 'task_issue', 'expense_receipt', 'expedition_pod'
+    entity_id UUID NOT NULL,          -- ID dari baris tabel terkait (shift_id, task_id, expense_id, dll)
+    
+    -- Metadata Berkas / Storage
+    file_name VARCHAR(255) NOT NULL,  -- Nama berkas fisik di server/bucket (cth: "odo_20261017_85420.webp")
+    original_name VARCHAR(255) NULL,  -- Nama berkas asli saat diupload
+    file_path TEXT NOT NULL,          -- Lokasi folder penyimpanan / CDN / Cloud Storage URL
+    file_type VARCHAR(100) NULL,      -- image/jpeg, image/png, image/webp, application/pdf
+    file_size_bytes BIGINT NULL,      -- Ukuran berkas (bytes)
+    
+    -- Metadata Lokasi GPS & Catatan Tambahan Lapangan
+    latitude DECIMAL(10, 8) NULL,     -- Titik GPS saat foto diambil
+    longitude DECIMAL(11, 8) NULL,
+    caption TEXT NULL,                -- Keterangan singkat foto
+    
+    -- Audit User Pengunggah
+    uploaded_by UUID NULL,            -- User / Driver yang mengunggah
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_attachments_entity ON logistic_attachments(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_attachments_uploader ON logistic_attachments(uploaded_by);
+
+-- -------------------------------------------------------------------------
+-- 9. TABEL SHIFT & ABSENSI OPERASIONAL DRIVER (LOGISTIC DRIVER SHIFTS)
+-- -------------------------------------------------------------------------
+-- Mendata jam awal shift, odometer awal, cek kondisi awal kendaraan,
+-- serta jam selesai shift, odometer akhir, dan rekap total pengeluaran
+-- Foto Speedometer & Kondisi Mobil cukup mereferensikan ID ke logistic_attachments
+CREATE TABLE IF NOT EXISTS logistic_driver_shifts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    shift_number VARCHAR(100) NOT NULL UNIQUE,       -- Cth: SFT-20261017-001
+    shift_date DATE NOT NULL DEFAULT CURRENT_DATE,   -- Tanggal dinas shift
+    
+    -- Relasi Pengemudi & Armada Kendaraan
+    driver_id UUID NOT NULL,                         -- Relasi ke logistic_drivers(id)
+    driver_name VARCHAR(150) NOT NULL,               -- Cache nama sopir
+    vehicle_id UUID NOT NULL,                        -- Relasi ke logistic_vehicles(id)
+    vehicle_plate VARCHAR(30) NOT NULL,              -- Plat nomor armada (cth: B 9481 KXZ)
+    
+    -- Status Shift ('active', 'completed', 'cancelled')
+    status VARCHAR(30) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed', 'cancelled')),
+
+    -- ---------------------------------------------------------------------
+    -- A. DATA SHIFT AWAL (CHECK-IN / BERANGKAT)
+    -- ---------------------------------------------------------------------
+    start_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, -- Jam mulai shift
+    start_odometer INTEGER NOT NULL,                         -- Angka KM Odometer awal
+    start_odometer_attachment_id UUID NULL REFERENCES logistic_attachments(id) ON DELETE SET NULL, -- ID foto KM awal
+    start_fuel_level VARCHAR(100) NULL,                      -- Keterangan BBM awal (cth: "Full", "3/4", "35 Liter")
+    start_fuel_attachment_id UUID NULL REFERENCES logistic_attachments(id) ON DELETE SET NULL,     -- ID foto indikator bensin awal
+    
+    -- Geolocation Saat Absen Awal
+    start_latitude DECIMAL(10, 8) NULL,
+    start_longitude DECIMAL(11, 8) NULL,
+    start_location_name VARCHAR(255) NULL,
+    
+    -- Checklist Kondisi Kendaraan (Pengecekan Shift Awal)
+    is_engine_oil_ok BOOLEAN DEFAULT TRUE,          -- Kondisi oli mesin (Cukup/Bagus)
+    is_brake_fluid_ok BOOLEAN DEFAULT TRUE,         -- Minyak rem & fungsi rem
+    is_tire_pressure_ok BOOLEAN DEFAULT TRUE,       -- Tekanan angin & kondisi ban
+    is_lights_ok BOOLEAN DEFAULT TRUE,              -- Lampu utama, sein, rem
+    is_cleanliness_ok BOOLEAN DEFAULT TRUE,         -- Kebersihan kabin & bak mobil
+    vehicle_condition_notes TEXT NULL,              -- Catatan keluhan mesin/kondisi fisik awal
+
+    -- ---------------------------------------------------------------------
+    -- B. DATA SHIFT AKHIR (CHECK-OUT / SELESAI / BALIK POOL)
+    -- ---------------------------------------------------------------------
+    end_time TIMESTAMP NULL,                                 -- Jam selesai shift
+    end_odometer INTEGER NULL,                               -- Angka KM Odometer akhir
+    end_odometer_attachment_id UUID NULL REFERENCES logistic_attachments(id) ON DELETE SET NULL, -- ID foto KM akhir
+    end_fuel_level VARCHAR(100) NULL,                        -- Keterangan BBM akhir
+    end_fuel_attachment_id UUID NULL REFERENCES logistic_attachments(id) ON DELETE SET NULL,       -- ID foto indikator bensin akhir
+    
+    -- Geolocation Saat Selesai Shift
+    end_latitude DECIMAL(10, 8) NULL,
+    end_longitude DECIMAL(11, 8) NULL,
+    end_location_name VARCHAR(255) NULL,
+    
+    -- Kalkulasi Otomatis Jarak & Durasi
+    total_distance_km INTEGER GENERATED ALWAYS AS (
+        CASE WHEN end_odometer IS NOT NULL AND end_odometer >= start_odometer 
+             THEN end_odometer - start_odometer 
+             ELSE 0 
+        END
+    ) STORED,                                                -- Total KM tempuh seharian
+    
+    total_shift_minutes INTEGER NULL,                        -- Durasi total menit shift berjalan
+    total_driving_minutes INTEGER NULL,                      -- Estimasi total jam bergerak/kemudi
+    
+    -- Pengecekan Kondisi Kendaraan di Akhir
+    is_vehicle_damaged BOOLEAN DEFAULT FALSE,                -- Apakah ada benturan/baret baru hari ini?
+    damage_notes TEXT NULL,                                  -- Keterangan jika ada kerusakan baru (foto disimpan di attachments)
+    
+    -- ---------------------------------------------------------------------
+    -- C. REKAP TOTAL PENGELUARAN JALAN (BBM, TOL, PARKIR, DLL)
+    -- ---------------------------------------------------------------------
+    total_expense_amount DECIMAL(14,2) DEFAULT 0,            -- Total semua biaya (Rp)
+    total_fuel_amount DECIMAL(14,2) DEFAULT 0,               -- Total BBM Solar/Dexlite (Rp)
+    total_toll_amount DECIMAL(14,2) DEFAULT 0,               -- Total Tol (Rp)
+    total_parking_amount DECIMAL(14,2) DEFAULT 0,            -- Total Parkir/Retribusi (Rp)
+    total_other_amount DECIMAL(14,2) DEFAULT 0,              -- Biaya lain-lain (Rp)
+    
+    -- Catatan Penutup Shift
+    handover_notes TEXT NULL,                                -- Catatan serah terima kunci/mobil ke pool/driver berikutnya
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_driver_shifts_driver ON logistic_driver_shifts(driver_id);
+CREATE INDEX IF NOT EXISTS idx_driver_shifts_vehicle ON logistic_driver_shifts(vehicle_id);
+CREATE INDEX IF NOT EXISTS idx_driver_shifts_date ON logistic_driver_shifts(shift_date);
+CREATE INDEX IF NOT EXISTS idx_driver_shifts_status ON logistic_driver_shifts(status);
+
+-- -------------------------------------------------------------------------
+-- 10. TABEL RINCIAN PENGELUARAN PER SHIFT (SHIFT EXPENSES)
+-- -------------------------------------------------------------------------
+-- Driver mencatat rincian transaksi pengeluaran (BBM, Tol, Parkir, dll) pada shift tersebut
+-- Foto struk cukup mereferensikan receipt_attachment_id ke logistic_attachments
+CREATE TABLE IF NOT EXISTS logistic_driver_shift_expenses (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    shift_id UUID NOT NULL REFERENCES logistic_driver_shifts(id) ON DELETE CASCADE,
+    
+    -- Kategori Pengeluaran
+    category VARCHAR(50) NOT NULL CHECK (category IN ('fuel', 'toll', 'parking', 'retribution', 'tire_repair', 'maintenance_emergency', 'other')),
+    amount DECIMAL(12,2) NOT NULL DEFAULT 0,         -- Nominal rupiah (Rp)
+    
+    -- Detail Transaksi
+    expense_name VARCHAR(150) NOT NULL,              -- Cth: "SPBU Pertamina Cikarang", "Tol Cikampek Utama", "Parkir Kawasan"
+    notes TEXT NULL,                                 -- Keterangan tambahan (cth: "Isi Bio Solar 35 Liter")
+    receipt_attachment_id UUID NULL REFERENCES logistic_attachments(id) ON DELETE SET NULL, -- ID foto struk
+    
+    -- Audit Waktu & GPS Pengeluaran
+    expense_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    latitude DECIMAL(10, 8) NULL,
+    longitude DECIMAL(11, 8) NULL,
+    
+    -- Verifikasi Admin / Finance
+    is_verified BOOLEAN DEFAULT FALSE,               -- Apakah struk sudah diverifikasi admin
+    verified_by UUID NULL,                           -- Admin yang memeriksa
+    verified_at TIMESTAMP NULL,
+    
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_shift_expenses_shift ON logistic_driver_shift_expenses(shift_id);
+CREATE INDEX IF NOT EXISTS idx_shift_expenses_category ON logistic_driver_shift_expenses(category);
+
+
 
 

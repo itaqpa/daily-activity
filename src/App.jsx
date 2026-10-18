@@ -68,6 +68,7 @@ import LaporanLogistikPage from './logistic/laporan/LaporanLogistikPage';
 import RiwayatPengeluaranPage from './logistic/riwayat-pengeluaran/RiwayatPengeluaranPage';
 import MasterDriverPage from './logistic/master-data/driver/MasterDriverPage';
 import MasterMobilPage from './logistic/master-data/mobil/MasterMobilPage';
+import DriverAppPage from './logistic/driver-app/DriverAppPage';
 
 function ProtectedRoute() {
   const token = localStorage.getItem('token');
@@ -151,6 +152,7 @@ function App() {
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<LogisticDashboardPage />} />
             <Route path="tugas-driver" element={<TugasDriverPage />} />
+            <Route path="driver-app" element={<DriverAppPage />} />
             <Route path="ekspedisi" element={<EkspedisiPage />} />
             <Route path="penugasan-driver" element={<PenugasanDriverPage />} />
             <Route path="packing" element={<PackingPage />} />

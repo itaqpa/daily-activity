@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import MainLayout from '../../../components/layouts/MainLayout';
 import { 
   Users, 
@@ -13,9 +13,12 @@ import {
   Trash2,
   Truck,
   UserCheck,
+  UserPlus,
   Tag
 } from 'lucide-react';
+import { apiUrl } from '../../../api';
 import FormDriverModal from './components/FormDriverModal';
+import ModalCreateDriverUser from './components/ModalCreateDriverUser';
 
 export default function MasterDriverPage() {
   // Data Master Driver sesuai rekap acuan pengguna (11 Driver)
@@ -179,10 +182,48 @@ export default function MasterDriverPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterKeterangan, setFilterKeterangan] = useState('ALL');
 
-  // Modal State
+  // Modal State Master Driver
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDriver, setSelectedDriver] = useState(null);
   const [isDeleteMode, setIsDeleteMode] = useState(false);
+
+  // Modal State Buat / Kelola User Akun Driver
+  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+  const [userDriverTarget, setUserDriverTarget] = useState(null);
+
+  // Load Driver dari Database jika tersedia
+  useEffect(() => {
+    const fetchBackendDrivers = async () => {
+      try {
+        const res = await fetch(apiUrl('/logistic/drivers'));
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            setDrivers(data.map((d, index) => ({
+              id: d.id,
+              driver_code: d.driver_code,
+              no: index + 1,
+              nama: d.name,
+              keterangan: d.role_type || 'DRIVER',
+              no_hp: d.phone_number || '-',
+              sim_tipe: d.license_type || 'SIM B1 Umum',
+              no_sim: d.license_number || '-',
+              default_mobil: d.default_mobil || '-',
+              username: d.username,
+              divisi: d.nama_divisi || 'Logistik',
+              jabatan: d.nama_jabatan || 'Driver',
+              user_id: d.user_id,
+              status: d.status || 'Aktif',
+              email: d.email
+            })));
+          }
+        }
+      } catch (e) {
+        console.warn('Menggunakan fallback data driver local:', e);
+      }
+    };
+    fetchBackendDrivers();
+  }, []);
 
   // Filter Drivers
   const filteredDrivers = useMemo(() => {
@@ -220,6 +261,21 @@ export default function MasterDriverPage() {
     setSelectedDriver(item);
     setIsDeleteMode(true);
     setIsModalOpen(true);
+  };
+
+  // Handler Buka Modal Buat User Driver
+  const handleOpenCreateUser = (item) => {
+    setUserDriverTarget(item);
+    setIsUserModalOpen(true);
+  };
+
+  // Callback Sukses Buat User
+  const handleUserSuccess = (updatedData) => {
+    setDrivers(prev =>
+      prev.map(d =>
+        d.id === updatedData.id ? { ...d, ...updatedData } : d
+      )
+    );
   };
 
   // Simpan Data Driver & Buat Akun
@@ -399,17 +455,24 @@ export default function MasterDriverPage() {
 
                       <td className="py-3 px-4">
                         {d.username ? (
-                          <div className="space-y-0.5">
+                          <div className="space-y-1">
                             <span className="font-mono font-bold text-indigo-700 flex items-center gap-1">
-                              <KeyRound className="w-3 h-3 text-indigo-500" />
+                              <KeyRound className="w-3.5 h-3.5 text-indigo-500" />
                               {d.username}
                             </span>
-                            <span className="text-[10px] font-extrabold text-blue-800 bg-blue-50 px-1.5 py-0.2 rounded border border-blue-200 inline-block">
-                              Divisi: {d.divisi || 'Driver'}
-                            </span>
+                            <div className="flex flex-wrap items-center gap-1">
+                              <span className="text-[9px] font-extrabold text-blue-800 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 inline-block">
+                                Divisi: Logistik
+                              </span>
+                              <span className="text-[9px] font-extrabold text-indigo-800 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200 inline-block">
+                                Posisi: Driver
+                              </span>
+                            </div>
                           </div>
                         ) : (
-                          <span className="text-slate-400 italic text-[11px]">Belum terhubung akun</span>
+                          <span className="text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full font-bold text-[10px] inline-flex items-center gap-1">
+                            Belum Ada Akun
+                          </span>
                         )}
                       </td>
 
@@ -428,9 +491,26 @@ export default function MasterDriverPage() {
                         </span>
                       </td>
 
-                      {/* KOLOM AKSI: EDIT & DELETE */}
+                      {/* KOLOM AKSI: USER ACCOUNT, EDIT & DELETE */}
                       <td className="py-3 px-4 text-center">
                         <div className="flex items-center justify-center gap-1.5">
+                          {/* TOMBOL JADIKAN USER / BUAT AKUN DRIVER */}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenCreateUser(d)}
+                            className={`p-1.5 rounded-lg transition-all flex items-center gap-1 text-[11px] font-bold ${
+                              d.username
+                                ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200'
+                                : 'bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 shadow-sm animate-pulse'
+                            }`}
+                            title={d.username ? `Kelola Akun Driver (${d.username})` : 'Jadikan User / Buat Akun Driver'}
+                          >
+                            <UserPlus className="w-3.5 h-3.5 shrink-0" />
+                            <span className="hidden xl:inline">
+                              {d.username ? 'Akun' : 'Buat User'}
+                            </span>
+                          </button>
+
                           <button
                             type="button"
                             onClick={() => handleOpenEdit(d)}
@@ -469,6 +549,17 @@ export default function MasterDriverPage() {
           }}
           onSubmit={handleSaveDriver}
           onDelete={handleDeleteDriver}
+        />
+
+        {/* MODAL KHUSUS BUAT / KELOLA USER AKUN DRIVER */}
+        <ModalCreateDriverUser
+          isOpen={isUserModalOpen}
+          driver={userDriverTarget}
+          onClose={() => {
+            setIsUserModalOpen(false);
+            setUserDriverTarget(null);
+          }}
+          onSuccess={handleUserSuccess}
         />
 
       </div>

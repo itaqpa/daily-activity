@@ -10,6 +10,11 @@ services:
       DB_DATABASE: ${DB_DATABASE:-db_aqpa_indonesia}
       DB_USERNAME: ${DB_USERNAME:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_DRIVER_HOST: ${DB_DRIVER_HOST:-postgres}
+      DB_DRIVER_PORT: 5432
+      DB_DRIVER_DATABASE: ${DB_DRIVER_DATABASE:-driver_apps}
+      DB_DRIVER_USERNAME: ${DB_DRIVER_USERNAME:-postgres}
+      DB_DRIVER_PASSWORD: ${DB_DRIVER_PASSWORD:-postgres}
       JWT_SECRET: ${JWT_SECRET:-change-this-secret}
     volumes:
       - .:/app

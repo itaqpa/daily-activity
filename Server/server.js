@@ -18,6 +18,7 @@ import reportRoutes from './routes/reportRoutes.js';
 import activityLogsRoutes from './routes/activityLogsRoutes.js';
 import surveyEngineRoutes from './routes/surveyEngineRoutes.js';
 import akurasiApiRoutes from './API/AkurasiAPI.js';
+import logisticRoutes from './routes/logisticRoutes.js';
 import { createAuthLogMiddleware } from './middleware/authLogMiddleware.js';
 import { getUserPermissionScope } from './utils/dataScopeHelper.js';
 
@@ -39,6 +40,25 @@ const pool = new Pool({
   database: process.env.DB_DATABASE || 'db_aqpa_indonesia',
   user: process.env.DB_USERNAME || 'postgres',
   password: String(process.env.DB_PASSWORD || 'postgres'),
+});
+
+// Database configuration 2: Driver Apps / Logistik
+const driverPool = new Pool({
+  host: process.env.DB_DRIVER_HOST || process.env.DB_HOST || '127.0.0.1',
+  port: process.env.DB_DRIVER_PORT || process.env.DB_PORT || 5432,
+  database: process.env.DB_DRIVER_DATABASE || 'driver_apps',
+  user: process.env.DB_DRIVER_USERNAME || process.env.DB_USERNAME || 'postgres',
+  password: String(process.env.DB_DRIVER_PASSWORD || process.env.DB_PASSWORD || 'postgres'),
+});
+
+// Test DB Connection driver_apps
+driverPool.connect((err, client, release) => {
+  if (err) {
+    console.warn('Peringatan: Belum dapat terhubung ke database driver_apps:', err.message);
+  } else {
+    console.log('Berhasil terhubung ke database PostgreSQL (driver_apps)!');
+    release();
+  }
 });
 
 // Test DB Connection
@@ -1049,6 +1069,7 @@ app.use('/api/report', reportRoutes(pool));
 app.use('/api/activity-logs', activityLogsRoutes);
 app.use('/api/survey-engine', surveyEngineRoutes(pool));
 app.use('/api/akurasi', akurasiApiRoutes);
+app.use('/api/logistic', logisticRoutes(pool, driverPool));
 
 // Start Server
 app.listen(port, () => {

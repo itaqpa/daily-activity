@@ -13,7 +13,8 @@ import {
   LogOut,
   ArrowRight,
   ClipboardList,
-  Truck
+  Truck,
+  Smartphone
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
@@ -62,14 +63,21 @@ export default function Portal() {
     'surveyor_view'
   ]);
 
-  // --- HAK AKSES UNTUK LOGISTIC ---
-  const hasLogisticAccess = user?.jabatan === 'Super Admin' || canAccessModule([
+  // --- HAK AKSES UNTUK LOGISTIC (ADMIN / SPV) ---
+  const isDriverUser = user?.jabatan?.toLowerCase().includes('driver') || user?.divisi?.toLowerCase().includes('driver');
+
+  const hasLogisticAdminAccess = user?.jabatan === 'Super Admin' || canAccessModule([
     'logistic_view',
     'logistic_dashboard_view',
     'logistic_tugas_driver_view',
-    'driver_view',
     'vehicle_view'
-  ]) || true; // Set true sementara agar user bisa langsung melihat modul baru ini
+  ]) || (!isDriverUser); // Jika bukan driver murni, tampilkan modul admin logistik
+
+  // --- HAK AKSES UNTUK DRIVER APP (MOBILE / PWA) ---
+  const hasDriverAppAccess = user?.jabatan === 'Super Admin' || isDriverUser || canAccessModule([
+    'driver_view',
+    'logistic_view'
+  ]) || true; // Aktif agar admin/driver bisa testing tampilan mobile
 
   const allModules = [
     {
@@ -103,14 +111,24 @@ export default function Portal() {
       hasAccess: hasSurveyProductAccess
     },
     {
-      title: 'Logistic',
+      title: 'Logistic (Web Admin)',
       description: 'Manajemen tugas driver, ekspedisi, armada mobil, HPP ritase, dan riwayat pengeluaran',
       icon: <Truck className="w-7 h-7 text-cyan-600" />,
       bgClass: 'bg-cyan-50/80',
       borderClass: 'border-cyan-100',
       shadowClass: 'shadow-cyan-500/20',
       path: '/logistic/dashboard',
-      hasAccess: hasLogisticAccess
+      hasAccess: hasLogisticAdminAccess
+    },
+    {
+      title: 'Driver Apps (Mobile)',
+      description: 'Khusus sopir lapangan: daftar tugas SO/PO hari ini, peta navigasi Google Maps, dan foto bukti serah terima (POD)',
+      icon: <Smartphone className="w-7 h-7 text-emerald-600" />,
+      bgClass: 'bg-emerald-50/80',
+      borderClass: 'border-emerald-100',
+      shadowClass: 'shadow-emerald-500/20',
+      path: '/logistic/driver-app',
+      hasAccess: hasDriverAppAccess
     }
   ];
 

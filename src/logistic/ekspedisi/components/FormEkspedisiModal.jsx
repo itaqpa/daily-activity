@@ -19,6 +19,7 @@ import {
   ArrowUpRight,
   ArrowDownLeft
 } from 'lucide-react';
+import { apiUrl } from '../../../api';
 
 export default function FormEkspedisiModal({ isOpen, onClose, onSubmit, initialData = null }) {
   const [isSearchingAkurasi, setIsSearchingAkurasi] = useState(false);
@@ -35,10 +36,10 @@ export default function FormEkspedisiModal({ isOpen, onClose, onSubmit, initialD
     service_type: 'Cargo Darat',
     
     // Rute Asal
-    origin_name: 'Gudang Logistik AQPA Cikarang',
-    origin_address: 'Kawasan Industri GIIC Cikarang Pusat, Bekasi, Jawa Barat',
-    origin_pic_name: 'Staff Gudang Logistik',
-    origin_pic_phone: '0812-3456-7890',
+    origin_name: '',
+    origin_address: '',
+    origin_pic_name: '',
+    origin_pic_phone: '',
     
     // Rute Tujuan
     destination_name: '',
@@ -82,12 +83,32 @@ export default function FormEkspedisiModal({ isOpen, onClose, onSubmit, initialD
 
     try {
       const isSO = formData.task_type === 'delivery';
-      const endpoint = isSO 
-        ? `/api/akurasi/sales-orders?ref=${encodeURIComponent(ref)}` 
-        : `/api/akurasi/pembelian?ref=${encodeURIComponent(ref)}`;
+      const primaryUrl = isSO 
+        ? apiUrl(`akurasi/sales-orders?ref=${encodeURIComponent(ref)}`)
+        : apiUrl(`akurasi/pembelian?ref=${encodeURIComponent(ref)}`);
 
-      const res = await fetch(endpoint);
-      const json = await res.json().catch(() => null);
+      let res = await fetch(primaryUrl);
+      let json = await res.json().catch(() => null);
+      let activeIsSO = isSO;
+
+      // Smart Fallback jika user salah memilih tipe SO/PO
+      if ((!res.ok || !json?.success || !json?.data?.length) && ref.length >= 3) {
+        const fallbackUrl = isSO
+          ? apiUrl(`akurasi/pembelian?ref=${encodeURIComponent(ref)}`)
+          : apiUrl(`akurasi/sales-orders?ref=${encodeURIComponent(ref)}`);
+
+        try {
+          const fallbackRes = await fetch(fallbackUrl);
+          const fallbackJson = await fallbackRes.json().catch(() => null);
+          if (fallbackRes.ok && fallbackJson?.success && fallbackJson?.data?.length > 0) {
+            res = fallbackRes;
+            json = fallbackJson;
+            activeIsSO = !isSO;
+          }
+        } catch {
+          // fallback silent
+        }
+      }
 
       if (res.ok && json?.success && json?.data?.length > 0) {
         const result = json.data[0];
@@ -97,9 +118,11 @@ export default function FormEkspedisiModal({ isOpen, onClose, onSubmit, initialD
           .map(i => `${i.deskripsi_barang || i.item_name} (${i.sisa_kirim > 0 ? i.sisa_kirim : i.qty} ${i.uom || 'Pcs'})`)
           .join(', ');
 
-        if (isSO) {
+        if (activeIsSO) {
           setFormData(prev => ({
             ...prev,
+            task_type: 'delivery',
+            reference_number: result.no_so || prev.reference_number,
             customer_vendor_name: result.nama_pelanggan || prev.customer_vendor_name,
             destination_name: result.nama_pelanggan || prev.destination_name,
             destination_address: result.shipto || prev.destination_address,
@@ -107,27 +130,31 @@ export default function FormEkspedisiModal({ isOpen, onClose, onSubmit, initialD
             item_description: itemsSummary || prev.item_description,
             total_colli: result.items?.length || prev.total_colli
           }));
-          setSearchFeedback({ type: 'success', message: `Data SO [${result.no_so}] ditemukan! Alamat & Barang termuat otomatis.` });
+          const switchNote = !isSO ? ' (Tipe dialihkan otomatis ke Delivery)' : '';
+          setSearchFeedback({ type: 'success', message: `Data SO [${result.no_so}] ditemukan! Alamat & Barang termuat otomatis.${switchNote}` });
         } else {
           setFormData(prev => ({
             ...prev,
+            task_type: 'pickup',
+            reference_number: result.no_po || prev.reference_number,
             customer_vendor_name: result.nama_pemasok || prev.customer_vendor_name,
             origin_name: result.nama_pemasok || prev.origin_name,
             origin_address: result.alamat_pemasok || prev.origin_address,
             item_description: itemsSummary || prev.item_description,
             total_colli: result.items?.length || prev.total_colli
           }));
-          setSearchFeedback({ type: 'success', message: `Data PO [${result.no_po}] ditemukan! Alamat Vendor & Barang termuat otomatis.` });
+          const switchNote = isSO ? ' (Tipe dialihkan otomatis ke Pickup)' : '';
+          setSearchFeedback({ type: 'success', message: `Data PO [${result.no_po}] ditemukan! Alamat Vendor & Barang termuat otomatis.${switchNote}` });
         }
       } else {
         setSearchFeedback({
           type: 'error',
-          message: json?.message || `Data ${isSO ? 'SO' : 'PO'} "${ref}" tidak ditemukan di Akurasi API.`
+          message: json?.message || `Data "${ref}" tidak ditemukan di Akurasi API (SO maupun PO).`
         });
       }
     } catch (err) {
       console.error('Error lookup akurasi:', err);
-      setSearchFeedback({ type: 'error', message: 'Gagal terhubung ke endpoint /api/akurasi.' });
+      setSearchFeedback({ type: 'error', message: 'Gagal terhubung ke endpoint Akurasi API.' });
     } finally {
       setIsSearchingAkurasi(false);
     }
@@ -376,11 +403,12 @@ export default function FormEkspedisiModal({ isOpen, onClose, onSubmit, initialD
             <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 space-y-2">
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
                 <Building2 className="w-3.5 h-3.5 text-amber-600" />
-                Tujuan Asal (Pengirim) <span className="text-red-500">*</span>
+                Lokasi Asal (Pengirim) <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
-                placeholder="Nama Tempat / Pabrik Asal"
+                required
+                placeholder="Nama Tempat / Pabrik / Gudang Asal"
                 value={formData.origin_name}
                 onChange={(e) => handleChange('origin_name', e.target.value)}
                 className="w-full px-3 py-1.5 rounded-lg border border-slate-200 bg-white font-semibold text-xs"
@@ -388,7 +416,7 @@ export default function FormEkspedisiModal({ isOpen, onClose, onSubmit, initialD
               <textarea
                 rows={2}
                 required
-                placeholder="Alamat lengkap asal..."
+                placeholder="Alamat lengkap asal muat barang..."
                 value={formData.origin_address}
                 onChange={(e) => handleChange('origin_address', e.target.value)}
                 className="w-full px-3 py-1.5 rounded-lg border border-slate-200 bg-white font-medium text-xs focus:ring-2 focus:ring-indigo-500"

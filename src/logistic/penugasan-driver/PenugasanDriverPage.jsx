@@ -33,7 +33,7 @@ export default function PenugasanDriverPage() {
       customer: 'PT Unilever Indonesia Tbk',
       qty: '80 Karton',
       item_name: 'Corrugated Box Export 40x30x25',
-      origin: 'Gudang AQPA Cikarang',
+      origin: '',
       dest: 'Rungkut Industri Surabaya',
       out_of_city: true,
       created_at: '2026-10-17 08:30'
@@ -45,7 +45,7 @@ export default function PenugasanDriverPage() {
       customer: 'PT Mayora Indah Tbk',
       qty: '150 Box',
       item_name: 'Folding Box Packaging Biskuit',
-      origin: 'Gudang AQPA Cikarang',
+      origin: '',
       dest: 'Daan Mogot KM 19 Jakarta Barat',
       out_of_city: false,
       created_at: '2026-10-17 09:15'
@@ -69,7 +69,7 @@ export default function PenugasanDriverPage() {
       customer: 'PT Astra Otoparts Tbk',
       qty: '200 Pcs',
       item_name: 'Wooden Pallet Heavy Duty',
-      origin: 'Gudang AQPA Cikarang',
+      origin: '',
       dest: 'Kawasan KIIC Karawang Barat',
       out_of_city: false,
       created_at: '2026-10-17 10:00'
@@ -81,7 +81,7 @@ export default function PenugasanDriverPage() {
       customer: 'PT Santos Jaya Abadi (Kapal Api)',
       qty: '110 Karton',
       item_name: 'Outer Carton Box Kopi Sachet',
-      origin: 'Gudang AQPA Cikarang',
+      origin: '',
       dest: 'Karawang Timur Plant',
       out_of_city: false,
       created_at: '2026-10-17 10:20'

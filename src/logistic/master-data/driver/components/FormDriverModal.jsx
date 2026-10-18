@@ -33,13 +33,14 @@ export default function FormDriverModal({
     default_mobil: '',
     status: 'Aktif',
     
-    // Hubungan ke Akun User (Divisi: Driver)
+    // Hubungan ke Akun User (Divisi: Logistik, Jabatan: Driver)
     is_create_account: true,
     user_id: '',
     username: '',
     email: '',
     password: '',
-    divisi: 'Driver'
+    divisi: 'Logistik',
+    jabatan: 'Driver'
   });
 
   React.useEffect(() => {
@@ -47,7 +48,8 @@ export default function FormDriverModal({
       setFormData({
         ...initialData,
         is_create_account: !!initialData.username,
-        divisi: initialData.divisi || 'Driver'
+        divisi: initialData.divisi || 'Logistik',
+        jabatan: initialData.jabatan || 'Driver'
       });
     } else {
       const randomCode = `DRV-${String(Math.floor(10 + Math.random() * 90))}`;
@@ -65,7 +67,8 @@ export default function FormDriverModal({
         username: '',
         email: '',
         password: '',
-        divisi: 'Driver'
+        divisi: 'Logistik',
+        jabatan: 'Driver'
       });
     }
   }, [initialData, isOpen]);
@@ -79,7 +82,7 @@ export default function FormDriverModal({
       if (field === 'nama' && !initialData && !prev.username) {
         const cleanUsername = value.toLowerCase().replace(/[^a-z0-9]/g, '');
         updated.username = cleanUsername;
-        updated.email = cleanUsername ? `${cleanUsername}@aqpa.id` : '';
+        updated.email = cleanUsername ? `${cleanUsername}@aqpa-indonesia.com` : '';
       }
       return updated;
     });
@@ -100,7 +103,8 @@ export default function FormDriverModal({
     if (onSubmit) {
       onSubmit({
         ...formData,
-        divisi: 'Driver'
+        divisi: 'Logistik',
+        jabatan: 'Driver'
       });
     }
     onClose();
@@ -267,7 +271,7 @@ export default function FormDriverModal({
 
 
 
-            {/* INTEGRASI HUBUNGKAN AKUN LOGIN USER (DIVISI: DRIVER) */}
+            {/* INTEGRASI HUBUNGKAN AKUN LOGIN USER (DIVISI: LOGISTIK, JABATAN: DRIVER) */}
             <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-200 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -278,12 +282,12 @@ export default function FormDriverModal({
                 </div>
                 <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 font-extrabold text-[11px] border border-blue-200">
                   <Link2 className="w-3.5 h-3.5" />
-                  Divisi: <strong>Driver</strong>
+                  Divisi: <strong>Logistik</strong> • Posisi: <strong>Driver</strong>
                 </div>
               </div>
 
               <p className="text-[11px] text-blue-700 font-medium">
-                Akun ini akan otomatis terdaftar di tabel <code className="font-mono bg-white px-1 rounded text-blue-900">users</code> dengan hak akses Divisi: <strong>Driver</strong> untuk login ke aplikasi mobile.
+                Akun ini akan otomatis terdaftar di tabel <code className="font-mono bg-white px-1 rounded text-blue-900">users</code> dengan hak akses Divisi: <strong>Logistik</strong>, Jabatan: <strong>Driver</strong> untuk login ke Driver App.
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">

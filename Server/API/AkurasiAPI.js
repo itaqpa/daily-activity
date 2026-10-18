@@ -11,9 +11,13 @@ const AKURASI_BASE_URL = process.env.AKURASI_BASE_URL || 'https://akurasi-api.aq
  */
 router.get('/sales-orders', async (req, res) => {
   try {
-    const { ref, offset = 0, limit = 50 } = req.query;
+    const { ref, search, keyword, offset = 0, limit = 50 } = req.query;
+    const queryTerm = (ref || search || keyword || '').trim();
 
     const url = new URL(`${AKURASI_BASE_URL}/penjualan-so`);
+    if (queryTerm) {
+      url.searchParams.append('search', queryTerm);
+    }
     url.searchParams.append('offset', offset);
     url.searchParams.append('limit', limit);
 
@@ -35,15 +39,20 @@ router.get('/sales-orders', async (req, res) => {
     const json = await response.json();
     let data = json.data || [];
 
-    // Jika ada parameter ref (nomor SO), filter secara case-insensitive
-    if (ref && typeof ref === 'string') {
-      const q = ref.trim().toLowerCase();
-      data = data.filter(item => {
+    // Jika ada parameter ref/search, filter tambahan secara case-insensitive & toleran terhadap spasi/tanda hubung
+    if (queryTerm) {
+      const q = queryTerm.toLowerCase().trim();
+      const qClean = q.replace(/[\s\-_]/g, '');
+      const filtered = data.filter(item => {
         const noSo = (item.no_so || '').toLowerCase();
+        const noSoClean = noSo.replace(/[\s\-_]/g, '');
         const customer = (item.nama_pelanggan || '').toLowerCase();
         const poCustomer = (item.no_po_customer || '').toLowerCase();
-        return noSo.includes(q) || customer.includes(q) || poCustomer.includes(q);
+        return noSo.includes(q) || noSoClean.includes(qClean) || customer.includes(q) || poCustomer.includes(q);
       });
+      if (filtered.length > 0) {
+        data = filtered;
+      }
     }
 
     // Kelompokkan data per no_so jika 1 SO memiliki banyak baris item
@@ -98,9 +107,13 @@ router.get('/sales-orders', async (req, res) => {
  */
 router.get('/pembelian', async (req, res) => {
   try {
-    const { ref, page = 1, limit = 50 } = req.query;
+    const { ref, search, keyword, page = 1, limit = 50 } = req.query;
+    const queryTerm = (ref || search || keyword || '').trim();
 
     const url = new URL(`${AKURASI_BASE_URL}/pembelian`);
+    if (queryTerm) {
+      url.searchParams.append('search', queryTerm);
+    }
     url.searchParams.append('page', page);
     url.searchParams.append('limit', limit);
 
@@ -122,27 +135,33 @@ router.get('/pembelian', async (req, res) => {
     const json = await response.json();
     let data = json.data || [];
 
-    // Filter jika dicari berdasarkan nomor PO atau nama Vendor
-    if (ref && typeof ref === 'string') {
-      const q = ref.trim().toLowerCase();
-      data = data.filter(item => {
-        const noPo = (item.no_po || item.po_number || '').toLowerCase();
+    // Filter jika dicari berdasarkan nomor PO atau nama Vendor (case-insensitive & toleran spasi/dash)
+    if (queryTerm) {
+      const q = queryTerm.toLowerCase().trim();
+      const qClean = q.replace(/[\s\-_]/g, '');
+      const filtered = data.filter(item => {
+        const rawNoPo = item.no_pembelian || item.no_po || item.po_number || item.no_permintaan || item.so_no || '';
+        const noPo = rawNoPo.toLowerCase();
+        const noPoClean = noPo.replace(/[\s\-_]/g, '');
         const vendor = (item.nama_pemasok || item.vendor_name || '').toLowerCase();
-        return noPo.includes(q) || vendor.includes(q);
+        return noPo.includes(q) || noPoClean.includes(qClean) || vendor.includes(q);
       });
+      if (filtered.length > 0) {
+        data = filtered;
+      }
     }
 
     // Kelompokkan data per no_po jika 1 PO memiliki banyak baris barang
     const grouped = {};
     for (const item of data) {
-      const poNum = item.no_po || item.po_number || 'UNKNOWN';
+      const poNum = item.no_pembelian || item.no_po || item.po_number || item.no_permintaan || 'UNKNOWN';
       if (!grouped[poNum]) {
         grouped[poNum] = {
           no_po: poNum,
-          tgl_po: item.tgl_po || item.po_date,
-          nama_pemasok: item.nama_pemasok || item.vendor_name,
-          alamat_pemasok: item.alamat_pemasok || item.vendor_address || item.shipto,
-          status: item.status,
+          tgl_po: item.tgl_pembelian || item.tgl_po || item.po_date || item.tgl_permintaan,
+          nama_pemasok: item.nama_pemasok || item.vendor_name || 'Vendor',
+          alamat_pemasok: item.alamat_pemasok || item.vendor_address || item.shipto || 'Alamat Vendor',
+          status: item.status || item.status_pembayaran || '',
           items: []
         };
       }
@@ -151,7 +170,8 @@ router.get('/pembelian', async (req, res) => {
         no_barang: item.no_barang || item.item_code,
         deskripsi_barang: item.deskripsi_barang || item.item_name,
         qty: parseFloat(item.qty || item.quantity) || 0,
-        uom: item.uom || item.unit || 'Pcs'
+        uom: item.uom || item.unit || 'Pcs',
+        unit_price: parseFloat(item.price || item.unit_price || item.dpp || 0)
       });
     }
 

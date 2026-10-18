@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import ModalWizardPackaging from './components/ModalWizardPackaging';
 import ModalValidasiMaterial from './components/ModalValidasiMaterial';
+import { apiUrl } from '../../api';
 
 export default function PackingPage() {
   // Data Pekerjaan Packaging (Sesuai Struktur Packaging Calculation backend-admin)
@@ -113,7 +114,7 @@ export default function PackingPage() {
   // Handler Search SO ke API Akurasi
   const handleSearchSO = async (ref) => {
     try {
-      const res = await fetch(`/api/akurasi/sales-orders?ref=${encodeURIComponent(ref)}`);
+      const res = await fetch(apiUrl(`akurasi/sales-orders?ref=${encodeURIComponent(ref)}`));
       const json = await res.json().catch(() => null);
       if (res.ok && json?.success && json?.data?.length > 0) {
         return json.data[0];
