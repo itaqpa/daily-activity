@@ -5,8 +5,11 @@ import {
   User,
   Calendar,
   Plus,
-  Trash2
+  Trash2,
+  Box,
+  Eye
 } from 'lucide-react';
+import Packing3DViewer from '../Packing3DViewer';
 
 export default function Step3RangkaDimensi({ formData, setFormData }) {
   // Collapsible accordion state
@@ -17,6 +20,8 @@ export default function Step3RangkaDimensi({ formData, setFormData }) {
     areaBawah: true,
     areaAtas: true
   });
+
+  const [show3DPreview, setShow3DPreview] = useState(false);
 
   const toggleSection = (sec) => {
     setOpenSections(prev => ({ ...prev, [sec]: !prev[sec] }));
@@ -147,46 +152,96 @@ export default function Step3RangkaDimensi({ formData, setFormData }) {
         </div>
 
         {openSections.dimensi && (
-          <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                Panjang Luar (mm) <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                min="100"
-                value={formData.panjang}
-                onChange={(e) => handleChange('panjang', parseInt(e.target.value) || 0)}
-                className="w-full px-3 py-2 bg-white rounded-lg border border-slate-300 font-mono font-bold text-slate-900 text-center focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-              />
+          <>
+            <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                  Panjang Luar (mm) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="100"
+                  value={formData.panjang}
+                  onChange={(e) => handleChange('panjang', parseInt(e.target.value) || 0)}
+                  className="w-full px-3 py-2 bg-white rounded-lg border border-slate-300 font-mono font-bold text-slate-900 text-center focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                  Lebar Luar (mm) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="100"
+                  value={formData.lebar}
+                  onChange={(e) => handleChange('lebar', parseInt(e.target.value) || 0)}
+                  className="w-full px-3 py-2 bg-white rounded-lg border border-slate-300 font-mono font-bold text-slate-900 text-center focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                  Tinggi Luar (mm) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="100"
+                  value={formData.tinggi}
+                  onChange={(e) => handleChange('tinggi', parseInt(e.target.value) || 0)}
+                  className="w-full px-3 py-2 bg-white rounded-lg border border-slate-300 font-mono font-bold text-slate-900 text-center focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                Lebar Luar (mm) <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                min="100"
-                value={formData.lebar}
-                onChange={(e) => handleChange('lebar', parseInt(e.target.value) || 0)}
-                className="w-full px-3 py-2 bg-white rounded-lg border border-slate-300 font-mono font-bold text-slate-900 text-center focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
+            {/* Toggle Live 3D Preview Box & Balok */}
+            <div className="px-4 pb-4 border-t border-slate-100 pt-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
+                  <Box className="w-4 h-4 text-blue-600" />
+                  Live Simulasi Model Balok 3D (Three.js)
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShow3DPreview(!show3DPreview)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                    show3DPreview
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                  }`}
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>{show3DPreview ? 'Sembunyikan 3D' : 'Buka Preview 3D'}</span>
+                </button>
+              </div>
 
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                Tinggi Luar (mm) <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                min="100"
-                value={formData.tinggi}
-                onChange={(e) => handleChange('tinggi', parseInt(e.target.value) || 0)}
-                className="w-full px-3 py-2 bg-white rounded-lg border border-slate-300 font-mono font-bold text-slate-900 text-center focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-              />
+              {show3DPreview && (
+                <div className="rounded-xl overflow-hidden border border-slate-200 shadow-sm">
+                  <Packing3DViewer
+                    dimensions={{
+                      panjang: formData.panjang || 1200,
+                      lebar: formData.lebar || 800,
+                      tinggi: formData.tinggi || 1000
+                    }}
+                    timberConfig={{
+                      frameSize: 80,
+                      supportSize: 60,
+                      maxSpacing: 500,
+                      boardWidth: 150,
+                      boardThickness: 20,
+                      halfGap: 30,
+                      plywoodThickness: 9,
+                      includeBottomSkids: true,
+                      skidHeight: 80,
+                      skidWidth: 100,
+                      skidCount: 3
+                    }}
+                    className="h-[380px]"
+                  />
+                </div>
+              )}
             </div>
-          </div>
+          </>
         )}
       </div>
 

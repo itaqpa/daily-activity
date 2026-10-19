@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import ModalWizardPackaging from './components/ModalWizardPackaging';
 import ModalValidasiMaterial from './components/ModalValidasiMaterial';
+import ModalShowPacking from './components/ModalShowPacking';
 import { apiUrl } from '../../api';
 
 export default function PackingPage() {
@@ -83,6 +84,8 @@ export default function PackingPage() {
   // Modal States
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [isValidasiOpen, setIsValidasiOpen] = useState(false);
+  const [isShowOpen, setIsShowOpen] = useState(false);
+  const [selectedShowJob, setSelectedShowJob] = useState(null);
   const [selectedJob, setSelectedJob] = useState(null);
 
   // Filter Jobs
@@ -388,11 +391,14 @@ export default function PackingPage() {
                       <td className="py-3.5 px-3 text-center">
                         <button
                           type="button"
-                          onClick={() => alert(`Detail kalkulasi ${job.packaging_number}`)}
-                          className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-600 font-bold text-xs transition-colors inline-flex items-center gap-1"
+                          onClick={() => {
+                            setSelectedShowJob(job);
+                            setIsShowOpen(true);
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white font-bold text-xs transition-all inline-flex items-center gap-1 shadow-xs active:scale-95"
                         >
                           <Eye className="w-3.5 h-3.5" />
-                          <span>Detail</span>
+                          <span>Show & 3D</span>
                         </button>
                       </td>
                     </tr>
@@ -415,6 +421,16 @@ export default function PackingPage() {
         <ModalValidasiMaterial
           isOpen={isValidasiOpen}
           onClose={() => setIsValidasiOpen(false)}
+        />
+
+        {/* MODAL 3: SHOW PACKAGING & 3D TIMBER BEAM VISUALIZER */}
+        <ModalShowPacking
+          isOpen={isShowOpen}
+          job={selectedShowJob}
+          onClose={() => {
+            setIsShowOpen(false);
+            setSelectedShowJob(null);
+          }}
         />
 
       </div>

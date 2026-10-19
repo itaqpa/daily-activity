@@ -63,6 +63,7 @@ import TugasDriverPage from './logistic/tugas-driver/TugasDriverPage';
 import EkspedisiPage from './logistic/ekspedisi/EkspedisiPage';
 import PenugasanDriverPage from './logistic/penugasan-driver/PenugasanDriverPage';
 import PackingPage from './logistic/packing/PackingPage';
+import ShowPackingPage from './logistic/packing/ShowPackingPage';
 import HppRitasePage from './logistic/hpp-ritase/HppRitasePage';
 import LaporanLogistikPage from './logistic/laporan/LaporanLogistikPage';
 import RiwayatPengeluaranPage from './logistic/riwayat-pengeluaran/RiwayatPengeluaranPage';
@@ -156,6 +157,7 @@ function App() {
             <Route path="ekspedisi" element={<EkspedisiPage />} />
             <Route path="penugasan-driver" element={<PenugasanDriverPage />} />
             <Route path="packing" element={<PackingPage />} />
+            <Route path="packing/:id" element={<ShowPackingPage />} />
             <Route path="hpp-ritase" element={<HppRitasePage />} />
             <Route path="laporan" element={<LaporanLogistikPage />} />
             <Route path="riwayat-pengeluaran" element={<RiwayatPengeluaranPage />} />
