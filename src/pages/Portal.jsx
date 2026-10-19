@@ -16,11 +16,18 @@ import {
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
+import { offlineEngine } from '../offline/offlineEngine';
 
 export default function Portal() {
   const navigate = useNavigate();
   const { user, logout, hasPermission, canAccessModule } = useAuth();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  useEffect(() => {
+    if (user && navigator.onLine) {
+      offlineEngine.syncAuthorizedData(user);
+    }
+  }, [user]);
 
   const handleLogout = () => {
     logout();
