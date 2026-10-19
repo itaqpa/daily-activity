@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Menu, Download, Settings, Users, LogOut, LayoutDashboard } from 'lucide-react';
+import OfflineSyncIndicator from '../../OfflineSyncIndicator';
 
 export default function MobileHeader({ 
   user, 
@@ -22,11 +23,7 @@ export default function MobileHeader({
         </button>
         <div className="flex items-center gap-2">
           <img src="/logo/aqpa-indonesia-logo.png" alt="AQPA Logo" className="h-6 w-auto object-contain" />
-          {isOnline ? (
-            <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full">Online</span>
-          ) : (
-            <span className="bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-full">Offline</span>
-          )}
+          <OfflineSyncIndicator />
         </div>
       </div>
       <div className="flex items-center gap-3">

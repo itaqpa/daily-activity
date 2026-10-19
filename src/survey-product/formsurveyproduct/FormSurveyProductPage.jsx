@@ -6,6 +6,8 @@ import { useAuth } from '../../context/AuthContext';
 import Swal from 'sweetalert2';
 import { exportToPDF, generatePreviewHTML } from '../utils/pdfExport';
 import MainLayout from '../../components/layouts/MainLayout';
+import { offlineEngine } from '../../offline/offlineEngine';
+import { offlineDb } from '../../offline/db';
 
 import StepData, { createEmptyStepData, PRODUCT_LIST } from '../components/StepData';
 import StepPersiapan, { createEmptyPersiapanData } from '../components/StepPersiapan';
@@ -126,13 +128,38 @@ export default function FormSurveyProductPage() {
 
       setIsLoadingDraft(true);
       try {
-        const response = await fetch(apiUrl(`survey-engine/product-drafts/${editId}`));
-        const result = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          throw new Error(result.error || 'Gagal mengambil data survey product');
+        let result = null;
+        try {
+          const response = await fetch(apiUrl(`survey-engine/product-drafts/${editId}`));
+          if (response.ok) {
+            result = await response.json();
+            // Cache draft ini
+            await offlineDb.surveyDrafts.put({
+              id: String(editId),
+              serverId: editId,
+              userId: Number(user?.id || 0),
+              noSurvey: result.data?.no_survey,
+              status: result.status || result.data?.status || 'Draft',
+              data: result.data,
+              persiapan: result.persiapan,
+              lapangan: result.lapangan,
+              syncStatus: 'synced',
+              updatedAt: new Date().toISOString()
+            });
+          }
+        } catch (netErr) {
+          console.warn('Network error fetching survey draft, looking up offlineDb:', netErr);
+          const cached = await offlineDb.surveyDrafts.get(String(editId));
+          if (cached) {
+            result = cached;
+          }
         }
 
-        setSurveyDraftId(result.survey_id);
+        if (!result) {
+          throw new Error('Gagal mengambil data survey product');
+        }
+
+        setSurveyDraftId(result.survey_id || result.id);
         setStepData({
           ...createEmptyStepData(),
           ...(result.data || {})
@@ -198,14 +225,39 @@ export default function FormSurveyProductPage() {
         }
       }
 
-      const finalStatus = calculatedStatus;
+      const finalStatus = (forceStatus && forceStatus !== 'Submit') ? forceStatus : calculatedStatus;
+
+      // Handle offline save
+      if (!navigator.onLine) {
+        const localSaved = await offlineEngine.saveSurveyDraft({
+          surveyId: surveyIdOverride,
+          status: finalStatus,
+          data: {
+            ...stepData,
+            created_by: stepData.created_by || user?.name || user?.username || user?.id || ''
+          },
+          selectedProducts,
+          schedules: (stepData.schedules || []).map((schedule, index) => ({
+            ...schedule,
+            hari: index + 1
+          })),
+          userId: user?.id
+        });
+
+        setSurveyDraftId(localSaved.id);
+        setStepData(prev => ({
+          ...prev,
+          status: finalStatus
+        }));
+        return localSaved.id;
+      }
 
       const response = await fetch(apiUrl('survey-engine/product-drafts'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           survey_id: surveyIdOverride,
-          status: (forceStatus && forceStatus !== 'Submit') ? forceStatus : finalStatus,
+          status: finalStatus,
           data: {
             ...stepData,
             created_by: stepData.created_by || user?.name || user?.username || user?.id || ''
@@ -218,19 +270,45 @@ export default function FormSurveyProductPage() {
         })
       });
 
-      const result = await response.json().catch(() => ({}));
       if (!response.ok) {
+        const result = await response.json().catch(() => ({}));
         throw new Error(result.error || 'Gagal menyimpan draft survey product');
       }
 
+      const result = await response.json();
       setSurveyDraftId(result.survey_id);
       setStepData(prev => ({
         ...prev,
         no_survey: result.no_survey || prev.no_survey,
         status: result.status || 'Draft'
       }));
+
+      // Cache juga ke offlineDb
+      await offlineDb.surveyDrafts.put({
+        id: String(result.survey_id),
+        serverId: result.survey_id,
+        userId: Number(user?.id || 0),
+        noSurvey: result.no_survey || stepData.no_survey,
+        status: result.status || 'Draft',
+        data: stepData,
+        syncStatus: 'synced',
+        updatedAt: new Date().toISOString()
+      });
+
       return result.survey_id;
     } catch (error) {
+      if (error.message === 'Failed to fetch' || !navigator.onLine) {
+        const localSaved = await offlineEngine.saveSurveyDraft({
+          surveyId: surveyIdOverride,
+          status: 'Draft',
+          data: stepData,
+          selectedProducts: (stepData.selectedProducts || []).map(code => ({ code, name: code })),
+          schedules: stepData.schedules || [],
+          userId: user?.id
+        });
+        setSurveyDraftId(localSaved.id);
+        return localSaved.id;
+      }
       alert(error.message);
       return null;
     } finally {
@@ -259,6 +337,16 @@ export default function FormSurveyProductPage() {
         qty: Number(persiapanData.state?.[item.id]?.qty || 0)
       }));
 
+      if (!navigator.onLine) {
+        await offlineEngine.saveSurveyPersiapan({
+          surveyId: targetSurveyId,
+          items,
+          userId: user?.id
+        });
+        setSurveyDraftId(targetSurveyId);
+        return targetSurveyId;
+      }
+
       const response = await fetch(apiUrl(`survey-engine/product-drafts/${targetSurveyId}/persiapan`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -268,13 +356,32 @@ export default function FormSurveyProductPage() {
         })
       });
 
-      const result = await response.json().catch(() => ({}));
       if (!response.ok) {
+        const result = await response.json().catch(() => ({}));
         throw new Error(result.error || 'Gagal menyimpan draft persiapan');
       }
+
       setSurveyDraftId(targetSurveyId);
       return targetSurveyId;
     } catch (error) {
+      if (error.message === 'Failed to fetch' || !navigator.onLine) {
+        const items = (persiapanData.masterData || []).map(item => ({
+          master_persiapan_id: item.id,
+          label: item.label,
+          jenis: item.jenis,
+          ket_tambahan: item.ket_tambahan,
+          is_custom: item.id > 100000,
+          digunakan: Boolean(persiapanData.state?.[item.id]?.digunakan),
+          qty: Number(persiapanData.state?.[item.id]?.qty || 0)
+        }));
+        await offlineEngine.saveSurveyPersiapan({
+          surveyId: targetSurveyId,
+          items,
+          userId: user?.id
+        });
+        setSurveyDraftId(targetSurveyId);
+        return targetSurveyId;
+      }
       alert(error.message);
       return false;
     } finally {
@@ -297,25 +404,53 @@ export default function FormSurveyProductPage() {
 
     if (!silent) setIsSavingDraft(true);
     try {
+      const lapPayload = {
+        survey_id: targetSurveyId,
+        status: 'Draft',
+        schedules: lapanganData.actualSchedules || [],
+        products: lapanganData.productProgress || []
+      };
+
+      if (!navigator.onLine) {
+        await offlineEngine.saveSurveyLapangan({
+          surveyId: targetSurveyId,
+          payload: lapPayload,
+          userId: user?.id
+        });
+        setSurveyDraftId(targetSurveyId);
+        return true;
+      }
+
       const response = await fetch(apiUrl('survey-engine/submit-lapangan'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: JSON.stringify(lapPayload)
+      });
+
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({}));
+        throw new Error(result.error || 'Gagal menyimpan draft lapangan');
+      }
+
+      const result = await response.json();
+      setSurveyDraftId(result.survey_id || targetSurveyId);
+      return true;
+    } catch (error) {
+      if (error.message === 'Failed to fetch' || !navigator.onLine) {
+        const lapPayload = {
           survey_id: targetSurveyId,
           status: 'Draft',
           schedules: lapanganData.actualSchedules || [],
           products: lapanganData.productProgress || []
-        })
-      });
-
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(result.error || 'Gagal menyimpan draft lapangan');
+        };
+        await offlineEngine.saveSurveyLapangan({
+          surveyId: targetSurveyId,
+          payload: lapPayload,
+          userId: user?.id
+        });
+        setSurveyDraftId(targetSurveyId);
+        return true;
       }
-
-      setSurveyDraftId(result.survey_id || targetSurveyId);
-      return true;
-    } catch (error) {
       if (!silent) alert(error.message);
       return false;
     } finally {

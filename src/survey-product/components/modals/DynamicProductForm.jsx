@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { X, ChevronRight, CheckCircle2, AlertTriangle, AlertCircle, Save, ArrowLeft, Camera, FileText, Plus, Trash2, Check, Image as ImageIcon, Upload } from 'lucide-react';
 import { apiUrl } from '../../../api';
 import { useAuth } from '../../../context/AuthContext';
+import { offlineEngine } from '../../../offline/offlineEngine';
+import { offlineDb } from '../../../offline/db';
 
 export const PHOTO_CATS = [
   'Keseluruhan',
@@ -152,11 +154,21 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
     const fetchTemplate = async () => {
       try {
         setIsLoading(true);
-        const res = await fetch(apiUrl(`survey-engine/template/${product.code}`));
-        if (!res.ok) {
-          throw new Error('Template tidak ditemukan');
+        let data = null;
+        try {
+          const res = await fetch(apiUrl(`survey-engine/template/${product.code}`));
+          if (res.ok) {
+            data = await res.json();
+            await offlineEngine.cacheReference(`survey_template_${product.code}`, 'survey_product', data);
+          }
+        } catch (netErr) {
+          console.warn(`Network error fetching template ${product.code}, reading cache:`, netErr);
+          data = await offlineEngine.getReference(`survey_template_${product.code}`);
         }
-        const data = await res.json();
+
+        if (!data) {
+          throw new Error('Template tidak ditemukan secara online maupun lokal');
+        }
         
         // Sesuaikan mapping data dari API ke format UI
         const mappedSections = data.sections.map(sec => ({
@@ -178,7 +190,6 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
         setSections(mappedSections);
       } catch (err) {
         console.error('Gagal memuat template:', err);
-        // Fallback or show error state if needed
       } finally {
         setIsLoading(false);
       }
@@ -326,8 +337,31 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
           console.warn('Network error upload ke MinIO, simpan lokal sementara:', uploadErr);
         }
 
+        const photoId = 'p_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+
+        // Jika upload gagal / offline, simpan Blob ke IndexedDB
+        if (!uploadedUrl) {
+          try {
+            await offlineEngine.saveSurveyPhotoOffline({
+              surveyId: noSurvey || answers.no_survey || product?.id || 'survey',
+              photoItem: {
+                id: photoId,
+                blob: file,
+                data: dataUrl,
+                filename: file.name || 'photo.jpg',
+                cat: photoCat,
+                productCode: code,
+                noSurvey: surveyNumber
+              },
+              userId: currentUser?.id
+            });
+          } catch (storageErr) {
+            console.error('Gagal menyimpan foto ke IndexedDB:', storageErr);
+          }
+        }
+
         newPhotos.push({
-          id: 'p_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+          id: photoId,
           url: uploadedUrl || null,
           data: uploadedUrl ? null : dataUrl, // Jika URL MinIO berhasil, tidak perlu simpan base64 besar
           cat: photoCat,

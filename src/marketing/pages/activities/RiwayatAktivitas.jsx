@@ -3,6 +3,8 @@ import MainLayout from '../../../components/layouts/MainLayout';
 import { Clock, Filter, Trash2, Search, ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import { apiUrl } from '../../../api';
 import { useAuth } from '../../../context/AuthContext';
+import { offlineEngine } from '../../../offline/offlineEngine';
+import { offlineDb } from '../../../offline/db';
 
 export default function RiwayatAktivitas() {
   const { user: authUser, hasPermission, getPermissionScope } = useAuth();
@@ -34,34 +36,65 @@ export default function RiwayatAktivitas() {
 
   const fetchActivities = async () => {
     try {
-      const response = await fetch(apiUrl('/activities'));
-      if (response.ok) {
-        let data = await response.json();
-        
-        // Backend sudah menerapkan scope filtering (WHERE u.divisi_id = $1 atau WHERE a.user_id = $1).
-        // Kita juga pastikan frontend filter konsisten bila token belum ter-refresh
-        data = data.filter(act => {
-          if (isSuperAdmin || actScope === 'ALL') return true;
-          if (actScope === 'OWN') return Number(act.user_id) === Number(user.id);
-          if (actScope === 'DIVISION') {
-            const userDivId = Number(user.divisi_id || 0);
-            const actDivId = Number(act.user_divisi_id || act.divisi_id || 0);
-            const userDiv = (user.divisi || user.nama_divisi || '').trim().toLowerCase();
-            const actDiv = (act.user_divisi || '').trim().toLowerCase();
-            
-            // Seluruh hierarki di divisi yang sama (Staff, SPV, Manager, dsb)
-            if (userDivId && actDivId && userDivId === actDivId) return true;
-            if (userDiv && actDiv && userDiv === actDiv) return true;
-            if (Number(act.user_id) === Number(user.id)) return true;
-            return false;
+      let serverActivities = [];
+      try {
+        const response = await fetch(apiUrl('/activities'));
+        if (response.ok) {
+          serverActivities = await response.json();
+          // Simpan snapshot ke Dexie activities agar bisa dibaca saat offline
+          for (const sAct of serverActivities) {
+            await offlineDb.activities.put({
+              ...sAct,
+              id: String(sAct.id),
+              serverId: sAct.id,
+              userId: Number(sAct.user_id),
+              syncStatus: 'synced',
+              updatedAt: sAct.updated_at || sAct.created_at || new Date().toISOString()
+            });
           }
-          return false;
-        });
-
-        setActivities(data);
+        }
+      } catch (netErr) {
+        console.warn('Network error fetching activities, using local Dexie data:', netErr);
       }
+
+      // Ambil seluruh data dari offlineDb (termasuk yang pending/offline)
+      const localActivities = await offlineDb.activities.toArray();
+
+      // Gabungkan serverActivities & localActivities (prioritaskan pending local updates)
+      const combinedMap = new Map();
+      serverActivities.forEach(item => combinedMap.set(String(item.id), item));
+      localActivities.forEach(item => {
+        const idKey = String(item.serverId || item.id);
+        if (item.syncStatus === 'pending' || !combinedMap.has(idKey)) {
+          combinedMap.set(idKey, { ...combinedMap.get(idKey), ...item });
+        }
+      });
+
+      let data = Array.from(combinedMap.values());
+        
+      // Backend sudah menerapkan scope filtering (WHERE u.divisi_id = $1 atau WHERE a.user_id = $1).
+      // Kita juga pastikan frontend filter konsisten bila token belum ter-refresh
+      data = data.filter(act => {
+        if (isSuperAdmin || actScope === 'ALL') return true;
+        if (actScope === 'OWN') return Number(act.user_id || act.userId) === Number(user.id);
+        if (actScope === 'DIVISION') {
+          const userDivId = Number(user.divisi_id || 0);
+          const actDivId = Number(act.user_divisi_id || act.divisi_id || 0);
+          const userDiv = (user.divisi || user.nama_divisi || '').trim().toLowerCase();
+          const actDiv = (act.user_divisi || '').trim().toLowerCase();
+          
+          // Seluruh hierarki di divisi yang sama (Staff, SPV, Manager, dsb)
+          if (userDivId && actDivId && userDivId === actDivId) return true;
+          if (userDiv && actDiv && userDiv === actDiv) return true;
+          if (Number(act.user_id || act.userId) === Number(user.id)) return true;
+          return false;
+        }
+        return false;
+      });
+
+      setActivities(data);
     } catch (error) {
-      console.error('Error fetching activities:', error);
+      console.error('Error in fetchActivities:', error);
     } finally {
       setLoading(false);
     }

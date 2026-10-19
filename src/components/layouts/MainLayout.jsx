@@ -7,6 +7,7 @@ import MobileHeader from './commons/MobileHeader';
 import MobileBottomNav from './commons/MobileBottomNav';
 import { apiUrl } from '../../api';
 import { useAuth } from '../../context/AuthContext';
+import { offlineEngine } from '../../offline/offlineEngine';
 
 export default function MainLayout({ children }) {
   const navigate = useNavigate();
@@ -135,6 +136,7 @@ export default function MainLayout({ children }) {
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
+      offlineEngine.triggerSync();
       syncOfflineActivities();
       syncOfflineCustomers();
     };
@@ -145,6 +147,7 @@ export default function MainLayout({ children }) {
 
     // Initial check on load
     if (navigator.onLine) {
+      offlineEngine.triggerSync();
       syncOfflineActivities();
       syncOfflineCustomers();
     }

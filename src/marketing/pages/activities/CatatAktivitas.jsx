@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { apiUrl } from '../../../api';
 import Select from 'react-select';
+import { offlineEngine } from '../../../offline/offlineEngine';
 
 export default function CatatAktivitas() {
   const navigate = useNavigate();
@@ -79,9 +80,17 @@ export default function CatatAktivitas() {
           return { ...c, site_kota: sk };
         });
         setCustomers(normalizedData);
+        // Simpan ke cache offline engine
+        await offlineEngine.cacheReference(`customers_${user.id || 0}`, 'sales_activity', normalizedData, user.id);
+      } else {
+        throw new Error('Failed to fetch customers');
       }
     } catch (error) {
-      console.error('Error fetching customers:', error);
+      console.warn('Network error fetching customers, falling back to offline cache:', error);
+      const cached = await offlineEngine.getReference(`customers_${user.id || 0}`, user.id);
+      if (cached && Array.isArray(cached) && cached.length > 0) {
+        setCustomers(cached);
+      }
     }
   };
 
@@ -211,12 +220,13 @@ export default function CatatAktivitas() {
       };
 
       if (!navigator.onLine) {
-        // Save to offline queue
-        const offlineQueue = JSON.parse(localStorage.getItem('offlineActivities') || '[]');
-        offlineQueue.push({ ...payload, _offline_id: Date.now() });
-        localStorage.setItem('offlineActivities', JSON.stringify(offlineQueue));
+        // Simpan ke offlineEngine IndexedDB & outbox
+        await offlineEngine.saveSalesActivity({
+          activityData: payload,
+          userId: user.id
+        });
         
-        setSuccess('Anda sedang offline. Aktivitas berhasil disimpan lokal dan akan disinkronisasi saat online!');
+        setSuccess('Anda sedang offline. Aktivitas berhasil disimpan di IndexedDB lokal dan akan disinkronisasi saat online!');
         resetFormAndRedirect();
         return;
       }
@@ -232,18 +242,26 @@ export default function CatatAktivitas() {
         throw new Error(data.error || 'Gagal menyimpan aktivitas');
       }
 
+      const savedData = await response.json();
+      // Cache juga ke offlineDb sebagai record synced
+      await offlineEngine.saveSalesActivity({
+        activityData: { ...savedData, syncStatus: 'synced' },
+        userId: user.id
+      });
+
       setSuccess('Aktivitas berhasil disimpan!');
       resetFormAndRedirect();
 
     } catch (err) {
-      if (err.message === 'Failed to fetch') {
-        // Network error (server down or no internet even though navigator.onLine was true)
+      if (err.message === 'Failed to fetch' || !navigator.onLine) {
+        // Network error / server down
         const payload = { ...formData, user_id: user.id };
-        const offlineQueue = JSON.parse(localStorage.getItem('offlineActivities') || '[]');
-        offlineQueue.push({ ...payload, _offline_id: Date.now() });
-        localStorage.setItem('offlineActivities', JSON.stringify(offlineQueue));
+        await offlineEngine.saveSalesActivity({
+          activityData: payload,
+          userId: user.id
+        });
         
-        setSuccess('Server tidak dapat dijangkau. Aktivitas disimpan lokal dan akan disinkronisasi nanti!');
+        setSuccess('Server tidak dapat dijangkau. Aktivitas aman tersimpan di penyimpanan lokal dan akan disinkronisasi otomatis saat pulih!');
         resetFormAndRedirect();
       } else {
         setError(err.message);
