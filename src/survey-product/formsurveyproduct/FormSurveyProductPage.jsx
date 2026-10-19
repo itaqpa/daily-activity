@@ -663,30 +663,33 @@ export default function FormSurveyProductPage() {
   };
 
   return (
-    <MainLayout currentModule="Survey Product">
-      <div className="min-h-screen bg-gray-50/50 pb-16">
+    <MainLayout currentModule="Survey Product" hideMobileNav={true}>
+      <div className="min-h-screen bg-gray-50/50 pb-28 sm:pb-24">
         {/* Header Bar */}
-        <div className="bg-white border-b border-gray-200/80 sticky top-0 z-10 px-4 sm:px-6 lg:px-8 py-3.5 mb-6 rounded-b-xl shadow-xs">
-          <div className="flex items-center justify-between max-w-5xl mx-auto">
-            <div className="flex items-center">
+        <div className="bg-white border-b border-gray-200/80 sticky top-0 z-20 px-3.5 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 mb-4 sm:mb-6 shadow-xs backdrop-blur-md bg-white/95">
+          <div className="flex items-center justify-between max-w-5xl mx-auto gap-2">
+            <div className="flex items-center min-w-0">
               <button
                 onClick={() => navigate('/survey-product')}
-                className="mr-3 p-1.5 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors"
+                className="mr-2 sm:mr-3 p-1.5 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors shrink-0"
                 title="Kembali ke Daftar Survey"
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
-              <div>
-                <h1 className="text-lg sm:text-xl font-bold text-gray-900">
-                  {editId ? `Edit Survey (${stepData?.no_survey || 'Draft'})` : 'Input Survey Product Baru'}
+              <div className="min-w-0">
+                <h1 className="text-base sm:text-xl font-bold text-gray-900 truncate">
+                  {editId ? `Edit Survey (${stepData?.no_survey || 'Draft'})` : 'Input Survey Baru'}
                 </h1>
                 <p className="text-xs text-gray-500 hidden sm:block">Lengkapi tahapan data, persiapan, lapangan, dan summary laporan</p>
+                <span className="text-[11px] font-medium text-blue-600 sm:hidden">
+                  Langkah {currentStepIndex + 1} dari {visibleSteps.length}: {visibleSteps[currentStepIndex]?.title}
+                </span>
               </div>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 shrink-0">
               <button
                 onClick={() => navigate('/survey-product')}
-                className="px-3.5 py-1.5 border border-gray-300 rounded-lg text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-2xs"
+                className="px-2.5 sm:px-3.5 py-1.5 border border-gray-300 rounded-lg text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-2xs"
               >
                 Daftar Survey
               </button>
@@ -694,53 +697,99 @@ export default function FormSurveyProductPage() {
           </div>
         </div>
 
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Progress Bar / Steps */}
-        <div className="mb-8 rounded-2xl border border-gray-100 bg-white px-4 py-8 shadow-sm sm:px-12 sm:py-10">
-          <div className="relative flex justify-between items-center w-full max-w-3xl mx-auto">
-            {/* Connecting Line Background */}
-            <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-[3px] bg-gray-100 rounded-full"></div>
-            {/* Connecting Line Active */}
-            <div
-              className="absolute left-0 top-1/2 -translate-y-1/2 h-[3px] bg-blue-600 rounded-full transition-all duration-500 ease-in-out"
-              style={{ width: `${visibleSteps.length > 1 && currentStepIndex >= 0 ? (currentStepIndex / (visibleSteps.length - 1)) * 100 : 0}%` }}
-            ></div>
-
-            {visibleSteps.map((step) => {
-              const stepIndex = visibleSteps.findIndex(item => item.id === step.id);
-              const isDone = currentStepIndex > stepIndex;
+        <div className="max-w-5xl mx-auto px-3 sm:px-6 lg:px-8">
+        {/* Progress Bar / Steps (Mobile-Friendly Compact Stepper) */}
+        <div className="mb-4 sm:mb-8 rounded-xl sm:rounded-2xl border border-gray-100 bg-white px-3 py-4 sm:px-12 sm:py-8 shadow-xs sm:shadow-sm">
+          {/* Mobile Step Pills / Indicators */}
+          <div className="flex sm:hidden items-center justify-between gap-1 overflow-x-auto no-scrollbar pb-1">
+            {visibleSteps.map((step, idx) => {
+              const isDone = currentStepIndex > idx;
               const isActive = currentStep === step.id;
-
               return (
-                <div key={step.id} className="relative z-10 flex flex-col items-center">
-                  <div
-                    className={`flex items-center justify-center w-12 h-12 rounded-full text-base font-semibold transition-all duration-300 ring-[8px] ring-white
-                      ${isDone
-                        ? 'bg-blue-600 text-white shadow-sm'
-                        : isActive
-                          ? 'bg-blue-50 text-blue-700 border-[2px] border-blue-600 shadow-sm'
-                          : 'bg-white text-gray-400 border-[2px] border-gray-200'
-                      }
-                    `}
-                  >
-                    {isDone ? <Check className="w-6 h-6 stroke-[3]" /> : step.id}
-                  </div>
-                  <span
-                    className={`absolute -bottom-8 whitespace-nowrap text-sm font-medium transition-colors duration-300
-                      ${isActive ? 'text-blue-700 font-semibold' : isDone ? 'text-gray-800' : 'text-gray-400'}
-                    `}
-                  >
-                    {step.title}
+                <button
+                  key={step.id}
+                  onClick={() => {
+                    if (isReadonlyClosed || isDone || isActive) {
+                      setCurrentStep(step.id);
+                    }
+                  }}
+                  disabled={!isReadonlyClosed && !isDone && !isActive}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-200 border ${
+                    isActive
+                      ? 'bg-blue-50 text-blue-700 border-blue-500 shadow-xs font-semibold'
+                      : isDone
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                        : 'bg-gray-50 text-gray-400 border-gray-200 opacity-80'
+                  }`}
+                >
+                  <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                    isActive
+                      ? 'bg-blue-600 text-white'
+                      : isDone
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-gray-200 text-gray-500'
+                  }`}>
+                    {isDone ? '✓' : step.id}
                   </span>
-                </div>
+                  <span>{step.title}</span>
+                </button>
               );
             })}
           </div>
-          <div className="h-4"></div>
+
+          {/* Desktop Classic Stepper */}
+          <div className="hidden sm:block">
+            <div className="relative flex justify-between items-center w-full max-w-3xl mx-auto">
+              {/* Connecting Line Background */}
+              <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-[3px] bg-gray-100 rounded-full"></div>
+              {/* Connecting Line Active */}
+              <div
+                className="absolute left-0 top-1/2 -translate-y-1/2 h-[3px] bg-blue-600 rounded-full transition-all duration-500 ease-in-out"
+                style={{ width: `${visibleSteps.length > 1 && currentStepIndex >= 0 ? (currentStepIndex / (visibleSteps.length - 1)) * 100 : 0}%` }}
+              ></div>
+
+              {visibleSteps.map((step) => {
+                const stepIndex = visibleSteps.findIndex(item => item.id === step.id);
+                const isDone = currentStepIndex > stepIndex;
+                const isActive = currentStep === step.id;
+
+                return (
+                  <div key={step.id} className="relative z-10 flex flex-col items-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isReadonlyClosed || isDone || isActive) {
+                          setCurrentStep(step.id);
+                        }
+                      }}
+                      className={`flex items-center justify-center w-11 h-11 rounded-full text-sm font-semibold transition-all duration-300 ring-[6px] ring-white
+                        ${isDone
+                          ? 'bg-blue-600 text-white shadow-sm hover:bg-blue-700 cursor-pointer'
+                          : isActive
+                            ? 'bg-blue-50 text-blue-700 border-[2px] border-blue-600 shadow-sm'
+                            : 'bg-white text-gray-400 border-[2px] border-gray-200 cursor-default'
+                        }
+                      `}
+                    >
+                      {isDone ? <Check className="w-5 h-5 stroke-[3]" /> : step.id}
+                    </button>
+                    <span
+                      className={`absolute -bottom-7 whitespace-nowrap text-xs font-medium transition-colors duration-300
+                        ${isActive ? 'text-blue-700 font-bold' : isDone ? 'text-gray-800' : 'text-gray-400'}
+                      `}
+                    >
+                      {step.title}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="h-2"></div>
+          </div>
         </div>
 
         {/* Step Content */}
-        <div className="mb-24">
+        <div className="mb-8">
           {isLoadingDraft ? (
             <div className="bg-white border border-gray-100 rounded-2xl p-8 text-center text-gray-500 shadow-sm">
               Memuat data survey product...
@@ -760,27 +809,32 @@ export default function FormSurveyProductPage() {
         </div>
       </div>
 
-      {/* Navigation Buttons */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+      {/* Mobile-Optimized Navigation Sticky Bottom Bar */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 shadow-[0_-4px_16px_rgba(0,0,0,0.08)] px-3 py-2.5 sm:px-6 sm:py-3.5">
+        <div className="max-w-5xl mx-auto flex items-center justify-between gap-2">
+          {/* Tombol Kembali */}
           <button
+            type="button"
             onClick={handlePrev}
             disabled={isFirstVisibleStep}
-            className={`px-6 py-2.5 rounded-lg text-sm font-medium flex items-center transition-colors ${isFirstVisibleStep
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
-              }`}
+            className={`px-3.5 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold flex items-center justify-center transition-colors shrink-0 ${
+              isFirstVisibleStep
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-60'
+                : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 active:bg-gray-100 shadow-2xs'
+            }`}
           >
-            Kembali
+            <ArrowLeft className="w-4 h-4 mr-1 sm:mr-1.5" />
+            <span>Kembali</span>
           </button>
 
-          <div className="flex items-center space-x-3">
+          {/* Group Tombol Aksi Kanan */}
+          <div className="flex items-center gap-2 grow sm:grow-0 justify-end">
             {!isReadonlyClosed && (
               <button
                 type="button"
                 onClick={handleSaveDraftManual}
                 disabled={isSavingDraft || isLoadingDraft}
-                className="px-4 py-2.5 rounded-lg text-sm font-medium border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 flex items-center transition-colors shadow-2xs"
+                className="px-3.5 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 active:bg-gray-100 flex items-center justify-center transition-colors shadow-2xs shrink-0"
               >
                 {isSavingDraft ? 'Menyimpan...' : 'Simpan Draft'}
               </button>
@@ -788,11 +842,12 @@ export default function FormSurveyProductPage() {
 
             {!isLastVisibleStep ? (
               <button
+                type="button"
                 onClick={handleNext}
                 disabled={isSavingDraft || isLoadingDraft}
-                className="px-6 py-2.5 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 flex items-center transition-colors shadow-sm"
+                className="px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 flex items-center justify-center transition-all shadow-sm shrink-0"
               >
-                {isReadonlyClosed ? 'Selanjutnya' : (isSavingDraft ? 'Menyimpan...' : 'Selanjutnya')}
+                <span>{isReadonlyClosed ? 'Lanjut' : (isSavingDraft ? 'Menyimpan...' : 'Lanjut')}</span>
                 <ChevronRight className="w-4 h-4 ml-1" />
               </button>
             ) : (
@@ -849,12 +904,12 @@ export default function FormSurveyProductPage() {
                   }
                 }}
                 disabled={isSavingDraft || (!editId && !hasPersiapanPerm) || (editId && currentStep === 3 && !hasLapPerm) || (editId && currentStep === 4 && (!hasSummaryPerm || !canSaveFinal))}
-                className={`px-6 py-2.5 rounded-lg text-sm font-medium flex items-center transition-colors shadow-sm ${
-                  (!editId && !hasPersiapanPerm) || (editId && currentStep === 3 && !hasLapPerm) || (editId && currentStep === 4 && (!hasSummaryPerm || !canSaveFinal)) ? 'bg-gray-400 text-gray-200 cursor-not-allowed' : 'bg-green-600 text-white hover:bg-green-700'
+                className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold flex items-center justify-center transition-all shadow-sm shrink-0 ${
+                  (!editId && !hasPersiapanPerm) || (editId && currentStep === 3 && !hasLapPerm) || (editId && currentStep === 4 && (!hasSummaryPerm || !canSaveFinal)) ? 'bg-gray-400 text-gray-200 cursor-not-allowed' : 'bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800'
                 }`}
                 title={editId && currentStep === 4 && !canSaveFinal ? "Hanya Leader Surveyor yang dapat menyimpan data" : ""}
               >
-                {isSavingDraft ? 'Menyimpan...' : 'Simpan Survey'}
+                <span>{isSavingDraft ? 'Menyimpan...' : 'Selesaikan'}</span>
                 <Check className="w-4 h-4 ml-1" />
               </button>
               )

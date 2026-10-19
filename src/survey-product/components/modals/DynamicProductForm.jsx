@@ -682,24 +682,31 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
   if (currentSectionId) {
     const section = sections.find(s => s.id === currentSectionId);
     return (
-      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 md:p-6">
-        <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl flex flex-col max-h-[90vh] overflow-hidden">
+      <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 md:p-6">
+        <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full max-w-2xl flex flex-col h-[94vh] sm:h-auto sm:max-h-[90vh] overflow-hidden">
           {/* Header Section */}
-          <div className="p-5 border-b border-gray-100 flex items-center gap-3 bg-slate-50">
+          <div className="px-4 py-3 sm:p-5 border-b border-gray-100 flex items-center gap-3 bg-slate-50 shrink-0">
             <button 
               onClick={() => setCurrentSectionId(null)}
-              className="p-2 hover:bg-slate-200 rounded-lg transition-colors text-slate-600"
+              className="p-1.5 sm:p-2 hover:bg-slate-200 rounded-lg transition-colors text-slate-600 shrink-0"
+              title="Kembali"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <div className="flex-1">
-              <h2 className="text-lg font-bold text-gray-800">{section.title}</h2>
-              <p className="text-sm text-gray-500">{product.displayId} - {product.name}</p>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-base sm:text-lg font-bold text-gray-800 truncate">{section.title}</h2>
+              <p className="text-xs sm:text-sm text-gray-500 truncate">{product.displayId} - {product.name}</p>
             </div>
+            <button
+              onClick={() => setCurrentSectionId(null)}
+              className="p-1.5 text-gray-400 hover:text-gray-600 sm:hidden rounded-lg hover:bg-gray-200 shrink-0"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
 
           {/* Body Section (Form Renderer) */}
-          <div className="flex-1 overflow-y-auto p-5 md:p-8 space-y-6 bg-white">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 space-y-5 sm:space-y-6 bg-white">
             {section.questions.filter(q => evaluateVisibility(q, answers)).map((q) => {
               const labelL = (q.label || '').toLowerCase();
               const idL = (q.id || '').toLowerCase();
@@ -1325,12 +1332,12 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
           </div>
 
           {/* Footer Section */}
-          <div className="p-4 md:p-5 border-t border-gray-100 bg-gray-50 flex justify-end">
+          <div className="p-3 sm:p-4 md:p-5 border-t border-gray-100 bg-gray-50 flex justify-end shrink-0">
             <button 
               onClick={() => {
                 setCurrentSectionId(null);
               }}
-              className="w-full md:w-auto bg-blue-600 text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-sm"
+              className="w-full sm:w-auto bg-blue-600 text-white px-6 py-2.5 rounded-xl font-semibold hover:bg-blue-700 active:bg-blue-800 transition-colors shadow-sm text-sm"
             >
               {readOnly ? 'Kembali' : 'Simpan & Kembali'}
             </button>
@@ -1384,58 +1391,72 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 md:p-6">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl flex flex-col max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 md:p-6">
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full max-w-3xl flex flex-col h-[94vh] sm:h-auto sm:max-h-[90vh] overflow-hidden">
         
         {/* Header Master */}
-        <div className="p-5 md:p-6 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-blue-50/50">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full border border-blue-200 bg-white flex items-center justify-center text-xs font-bold text-blue-700 shadow-2xs">
-              {product.code}
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-xl font-bold text-gray-900">{product.displayId}</h2>
-                <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${
-                  overallPercent === 100 
-                    ? 'bg-emerald-100 text-emerald-700 border-emerald-200' 
-                    : overallPercent >= 50 
-                    ? 'bg-blue-100 text-blue-700 border-blue-200' 
-                    : 'bg-amber-100 text-amber-700 border-amber-200'
-                }`}>
-                  {overallPercent}%
-                </span>
+        <div className="px-4 py-3 sm:p-5 md:p-6 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-blue-50/50 shrink-0">
+          <div className="flex items-center justify-between sm:justify-start gap-3 w-full sm:w-auto">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-blue-200 bg-white flex items-center justify-center text-xs font-bold text-blue-700 shadow-2xs shrink-0">
+                {product.code}
               </div>
-              <p className="text-sm text-gray-500 font-medium">{product.name}</p>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base sm:text-xl font-bold text-gray-900 truncate">{product.displayId}</h2>
+                  <span className={`px-2 py-0.5 rounded-full text-[11px] sm:text-xs font-bold border shrink-0 ${
+                    overallPercent === 100 
+                      ? 'bg-emerald-100 text-emerald-700 border-emerald-200' 
+                      : overallPercent >= 50 
+                      ? 'bg-blue-100 text-blue-700 border-blue-200' 
+                      : 'bg-amber-100 text-amber-700 border-amber-200'
+                  }`}>
+                    {overallPercent}%
+                  </span>
+                </div>
+                <p className="text-xs sm:text-sm text-gray-500 font-medium truncate">{product.name}</p>
+              </div>
             </div>
+
+            <button 
+              onClick={onClose} 
+              className="p-1.5 sm:hidden text-gray-400 hover:text-gray-600 rounded-lg hover:bg-white/80 border border-gray-200 shadow-2xs shrink-0"
+              title="Tutup"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
 
-          <div className="flex items-center gap-4 self-end sm:self-auto">
-            <div className="text-right">
-              <span className="text-xs font-semibold text-gray-600 block">
+          <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
+            <div className="text-left sm:text-right grow sm:grow-0">
+              <span className="text-[11px] sm:text-xs font-semibold text-gray-600 block">
                 {missingFields.length === 0 ? 'Semua data wajib lengkap' : `${missingFields.length} data wajib belum lengkap`}
               </span>
-              <div className="w-32 bg-gray-200 rounded-full h-2 mt-1 overflow-hidden">
+              <div className="w-full sm:w-32 bg-gray-200 rounded-full h-1.5 sm:h-2 mt-1 overflow-hidden">
                 <div 
-                  className={`h-2 rounded-full transition-all duration-300 ${overallPercent === 100 ? 'bg-emerald-500' : 'bg-blue-600'}`}
+                  className={`h-full rounded-full transition-all duration-300 ${overallPercent === 100 ? 'bg-emerald-500' : 'bg-blue-600'}`}
                   style={{ width: `${overallPercent}%` }}
                 />
               </div>
             </div>
-            <button onClick={onClose} className="p-2 bg-white text-gray-400 hover:text-gray-600 rounded-full border border-gray-200 shadow-sm transition-colors">
+            <button 
+              onClick={onClose} 
+              className="hidden sm:flex p-2 bg-white text-gray-400 hover:text-gray-600 rounded-full border border-gray-200 shadow-sm transition-colors shrink-0"
+              title="Tutup"
+            >
               <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
         {/* Body Cards List */}
-        <div className="flex-1 overflow-y-auto p-5 md:p-6 bg-slate-50">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="font-bold text-gray-700">Form Inspeksi Lapangan</h3>
-            <span className="text-xs font-medium text-gray-500">{readOnly ? 'Data hanya dapat dilihat' : 'Pilih modul untuk mengisi data'}</span>
+        <div className="flex-1 overflow-y-auto p-3.5 sm:p-5 md:p-6 bg-slate-50 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-gray-700 text-sm sm:text-base">Form Inspeksi Lapangan</h3>
+            <span className="text-[11px] sm:text-xs font-medium text-gray-500">{readOnly ? 'Hanya lihat' : 'Pilih modul'}</span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-4">
             {sections
               .filter(s => isPhotoSection(s) || s.questions.some(q => evaluateVisibility(q, answers)))
               .sort((a, b) => {
@@ -1454,9 +1475,9 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
               
               // Badge colors based on status
               const statusConfig = {
-                green: { bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-200', icon: <CheckCircle2 className="w-4 h-4" /> },
-                yellow: { bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-200', icon: <AlertTriangle className="w-4 h-4" /> },
-                red: { bg: 'bg-rose-100', text: 'text-rose-700', border: 'border-rose-200', icon: <AlertCircle className="w-4 h-4" /> }
+                green: { bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-200', icon: <CheckCircle2 className="w-3.5 h-3.5" /> },
+                yellow: { bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-200', icon: <AlertTriangle className="w-3.5 h-3.5" /> },
+                red: { bg: 'bg-rose-100', text: 'text-rose-700', border: 'border-rose-200', icon: <AlertCircle className="w-3.5 h-3.5" /> }
               };
               const config = statusConfig[progress.status];
 
@@ -1464,54 +1485,54 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
                 <button
                   key={section.id}
                   onClick={() => setCurrentSectionId(section.id)}
-                  className="flex flex-col text-left bg-white p-4 rounded-xl border border-gray-200 hover:border-blue-400 hover:shadow-md transition-all group relative overflow-hidden"
+                  className="flex flex-col text-left bg-white p-3.5 sm:p-4 rounded-xl border border-gray-200 hover:border-blue-400 active:bg-blue-50/20 hover:shadow-md transition-all group relative overflow-hidden"
                 >
-                  <div className="flex justify-between items-start mb-3 w-full">
-                    <div className="bg-blue-50 p-2 rounded-lg text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                      {isPhoto ? <Camera className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
+                  <div className="flex justify-between items-start mb-2 sm:mb-3 w-full">
+                    <div className="bg-blue-50 p-1.5 sm:p-2 rounded-lg text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                      {isPhoto ? <Camera className="w-4 h-4 sm:w-5 sm:h-5" /> : <FileText className="w-4 h-4 sm:w-5 sm:h-5" />}
                     </div>
-                    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold border ${config.bg} ${config.text} ${config.border}`}>
+                    <div className={`flex items-center gap-1 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md text-[11px] sm:text-xs font-bold border ${config.bg} ${config.text} ${config.border}`}>
                       {config.icon}
                       <span>
                         {isPhoto 
-                          ? `${photoCount} Foto Tersimpan`
+                          ? `${photoCount} Foto`
                           : progress.totalRequired > 0 
-                          ? `${progress.filledRequired} / ${progress.totalRequired} Wajib` 
-                          : `${progress.filled} / ${progress.total} Diisi`}
+                          ? `${progress.filledRequired}/${progress.totalRequired} Wajib` 
+                          : `${progress.filled}/${progress.total} Diisi`}
                       </span>
                     </div>
                   </div>
                   
-                  <h4 className="font-bold text-gray-800 text-lg mb-1">{section.title}</h4>
-                  <p className="text-sm text-gray-500 line-clamp-2">{section.description || (isPhoto ? 'Dokumentasi foto lapangan, nameplate, dan hasil ukur' : '')}</p>
+                  <h4 className="font-bold text-gray-800 text-sm sm:text-base mb-0.5">{section.title}</h4>
+                  <p className="text-xs text-gray-500 line-clamp-1 sm:line-clamp-2">{section.description || (isPhoto ? 'Dokumentasi foto lapangan, nameplate, dan hasil ukur' : '')}</p>
                   
                   {/* Info Data Utama */}
-                  <div className="mt-3">
+                  <div className="mt-2.5">
                     {isPhoto ? (
                       photoCount > 0 ? (
-                        <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded">
-                          {photoCount} dokumentasi tersimpan
+                        <span className="text-[11px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">
+                          {photoCount} foto tersimpan
                         </span>
                       ) : (
-                        <span className="text-xs font-medium text-amber-600 bg-amber-50 px-2 py-1 rounded">
-                          Belum ada foto dokumentasi
+                        <span className="text-[11px] font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded">
+                          Belum ada foto
                         </span>
                       )
                     ) : progress.totalRequired === 0 ? (
-                      <span className="text-xs font-medium text-gray-400 bg-gray-100 px-2 py-1 rounded">Tidak ada data wajib</span>
+                      <span className="text-[11px] font-medium text-gray-400 bg-gray-100 px-2 py-0.5 rounded">Tidak ada data wajib</span>
                     ) : progress.filledRequired < progress.totalRequired ? (
-                      <span className="text-xs font-medium text-rose-600 bg-rose-50 px-2 py-1 rounded">
-                        {progress.totalRequired - progress.filledRequired} info utama belum terisi
+                      <span className="text-[11px] font-medium text-rose-600 bg-rose-50 px-2 py-0.5 rounded">
+                        {progress.totalRequired - progress.filledRequired} info wajib belum
                       </span>
                     ) : (
-                      <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded">
-                        Semua info utama sudah terisi
+                      <span className="text-[11px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">
+                        Lengkap
                       </span>
                     )}
                   </div>
                   
-                  <div className="absolute right-4 bottom-4 text-gray-300 group-hover:text-blue-500 transition-colors">
-                    <ChevronRight className="w-5 h-5" />
+                  <div className="absolute right-3 bottom-3 text-gray-300 group-hover:text-blue-500 transition-colors">
+                    <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
                   </div>
                 </button>
               );
@@ -1519,15 +1540,15 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
           </div>
 
           {/* Tambahan Catatan & Outstanding */}
-          <div className="mt-8 space-y-4">
+          <div className="mt-4 sm:mt-6 space-y-3 sm:space-y-4">
             {/* Catatan Item */}
-            <div className="bg-white border border-gray-200 rounded-xl p-4">
-              <div className="flex justify-between items-center mb-2">
-                <h4 className="font-bold text-gray-800">Catatan Item</h4>
+            <div className="bg-white border border-gray-200 rounded-xl p-3.5 sm:p-4">
+              <div className="flex justify-between items-center mb-1.5">
+                <h4 className="font-bold text-gray-800 text-sm sm:text-base">Catatan Item</h4>
                 {!readOnly && (
                   <button 
                     onClick={() => setIsEditingNotes(!isEditingNotes)}
-                    className="text-sm font-bold text-slate-800 hover:text-blue-600 transition-colors"
+                    className="text-xs sm:text-sm font-bold text-slate-800 hover:text-blue-600 transition-colors"
                   >
                     {isEditingNotes || answers.catatan ? 'Edit Catatan' : '+ Catatan'}
                   </button>
@@ -1542,24 +1563,24 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
                     setAnswers(prev => ({ ...prev, catatan: e.target.value }));
                   }}
                   onBlur={() => setIsEditingNotes(false)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-700 min-h-[80px]"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-xs sm:text-sm text-gray-700 min-h-[70px]"
                   placeholder="Masukkan catatan item..."
                 />
               ) : (
-                <p className="text-gray-500 text-sm">
+                <p className="text-gray-500 text-xs sm:text-sm">
                   {answers.catatan || 'Belum ada catatan.'}
                 </p>
               )}
             </div>
 
             {/* Perlu Konfirmasi / Outstanding */}
-            <div className="bg-white border border-gray-200 rounded-xl p-4">
-              <div className="flex justify-between items-center mb-2">
-                <h4 className="font-bold text-gray-800">Perlu Konfirmasi / Outstanding</h4>
+            <div className="bg-white border border-gray-200 rounded-xl p-3.5 sm:p-4">
+              <div className="flex justify-between items-center mb-1.5">
+                <h4 className="font-bold text-gray-800 text-sm sm:text-base">Perlu Konfirmasi / Outstanding</h4>
                 {!readOnly && (
                   <button 
                     onClick={() => setIsEditingOutstanding(!isEditingOutstanding)}
-                    className="text-sm font-bold text-slate-800 hover:text-blue-600 transition-colors"
+                    className="text-xs sm:text-sm font-bold text-slate-800 hover:text-blue-600 transition-colors"
                   >
                     {isEditingOutstanding || answers.outstanding ? 'Edit Outstanding' : '+ Outstanding'}
                   </button>
@@ -1574,11 +1595,11 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
                     setAnswers(prev => ({ ...prev, outstanding: e.target.value }));
                   }}
                   onBlur={() => setIsEditingOutstanding(false)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-700 min-h-[80px]"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-xs sm:text-sm text-gray-700 min-h-[70px]"
                   placeholder="Masukkan outstanding item..."
                 />
               ) : (
-                <p className="text-gray-500 text-sm">
+                <p className="text-gray-500 text-xs sm:text-sm">
                   {answers.outstanding || 'Tidak ada outstanding.'}
                 </p>
               )}
@@ -1586,39 +1607,39 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
 
             {/* Field kritis belum lengkap */}
             {missingFields.length > 0 && (
-              <div className="bg-white border border-orange-400 rounded-xl p-4">
-                <h4 className="font-bold text-slate-800 mb-1">Field kritis belum lengkap</h4>
-                <p className="text-gray-500 text-sm">{missingFields.join(' • ')}</p>
+              <div className="bg-white border border-orange-400 rounded-xl p-3.5 sm:p-4">
+                <h4 className="font-bold text-slate-800 mb-1 text-xs sm:text-sm">Field kritis belum lengkap</h4>
+                <p className="text-gray-500 text-xs sm:text-sm leading-relaxed">{missingFields.join(' • ')}</p>
               </div>
             )}
           </div>
         </div>
 
         {/* Footer Master */}
-        <div className="p-4 md:p-5 border-t border-gray-100 bg-white flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="text-sm text-gray-500 w-full md:w-auto text-center md:text-left">
+        <div className="p-3 sm:p-4 md:p-5 border-t border-gray-100 bg-white flex flex-col sm:flex-row justify-between items-center gap-3 shrink-0">
+          <div className="text-xs sm:text-sm text-gray-500 w-full sm:w-auto text-center sm:text-left">
             {isAllComplete ? (
-              <span className="text-emerald-600 font-bold flex items-center justify-center md:justify-start gap-1">
+              <span className="text-emerald-600 font-bold flex items-center justify-center sm:justify-start gap-1">
                 <CheckCircle2 className="w-4 h-4" /> Seluruh section lengkap
               </span>
             ) : (
-              <span className="text-rose-500 font-bold flex items-center justify-center md:justify-start gap-1">
-                <AlertCircle className="w-4 h-4" /> Masih ada section yang belum lengkap
+              <span className="text-rose-500 font-bold flex items-center justify-center sm:justify-start gap-1">
+                <AlertCircle className="w-4 h-4" /> Masih ada section belum lengkap
               </span>
             )}
           </div>
           {!readOnly ? (
             <button 
               onClick={() => onSave(answers, getOverallPercent())}
-              className="flex items-center justify-center w-full md:w-auto gap-2 bg-blue-600 text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center justify-center w-full sm:w-auto gap-2 bg-blue-600 text-white px-5 sm:px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 active:bg-blue-800 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Save className="w-5 h-5" />
+              <Save className="w-4 h-4 sm:w-5 sm:h-5" />
               Simpan Data Produk
             </button>
           ) : (
             <button 
-              onClick={onClose}
-              className="flex items-center justify-center w-full md:w-auto gap-2 bg-slate-200 text-slate-700 px-6 py-2.5 rounded-lg font-semibold hover:bg-slate-300 transition-colors shadow-sm"
+              onClick={onClose} 
+              className="flex items-center justify-center w-full sm:w-auto gap-2 bg-slate-200 text-slate-700 px-5 sm:px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-300 active:bg-slate-400 transition-colors shadow-sm"
             >
               Tutup
             </button>
