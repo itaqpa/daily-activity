@@ -7,8 +7,9 @@ import MobileHeader from './commons/MobileHeader';
 import MobileBottomNav from './commons/MobileBottomNav';
 import { apiUrl } from '../../api';
 import { useAuth } from '../../context/AuthContext';
+import { offlineEngine } from '../../offline/offlineEngine';
 
-export default function MainLayout({ children }) {
+export default function MainLayout({ children, hideMobileNav = false }) {
   const navigate = useNavigate();
   const { user: contextUser, hasMarketingPerm } = useAuth();
   const user = contextUser || {};
@@ -135,6 +136,7 @@ export default function MainLayout({ children }) {
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
+      offlineEngine.triggerSync();
       syncOfflineActivities();
       syncOfflineCustomers();
     };
@@ -143,17 +145,21 @@ export default function MainLayout({ children }) {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Initial check on load
+    // Initial check on load: sinkronkan antrean outbox dan auto-download data modul user
     if (navigator.onLine) {
+      offlineEngine.triggerSync();
       syncOfflineActivities();
       syncOfflineCustomers();
+      if (user) {
+        offlineEngine.syncAuthorizedData(user);
+      }
     }
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, []);
+  }, [user]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -170,7 +176,7 @@ export default function MainLayout({ children }) {
         <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} currentModule={currentModule} />
 
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto w-full pb-20 md:pb-0 relative">
+        <main className={`flex-1 overflow-y-auto w-full relative ${hideMobileNav ? 'pb-0' : 'pb-20 md:pb-0'}`}>
           <MobileHeader 
             user={user}
             activeJabatan={activeJabatan}
@@ -191,11 +197,13 @@ export default function MainLayout({ children }) {
         </main>
       </div>
 
-      <MobileBottomNav 
-        currentModule={currentModule}
-        isActive={isActive}
-        canAddActivity={canAddActivity}
-      />
+      {!hideMobileNav && (
+        <MobileBottomNav 
+          currentModule={currentModule}
+          isActive={isActive}
+          canAddActivity={canAddActivity}
+        />
+      )}
     </div>
   );
 }

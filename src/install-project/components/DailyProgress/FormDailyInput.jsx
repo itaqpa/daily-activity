@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Plus, Trash2, ArrowLeft, Save, Loader2 } from 'lucide-react';
 import { apiUrl } from '../../../api';
 import { useAuth } from '../../../context/AuthContext';
+import { offlineEngine } from '../../../offline/offlineEngine';
 
 export default function FormDailyInput({ onBack, project }) {
   const { user } = useAuth();
@@ -110,12 +111,27 @@ export default function FormDailyInput({ onBack, project }) {
     };
 
     try {
+      if (!navigator.onLine) {
+        await offlineEngine.saveDinasProgress({
+          progressData: { ...payload, project_id: project?.id },
+          userId: user?.id
+        });
+        alert("Anda sedang offline. Catatan harian tersimpan di penyimpanan lokal dan akan disinkronkan otomatis saat server online!");
+        onBack();
+        return;
+      }
+
       const res = await fetch(apiUrl('/daily-progress'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
       if (res.ok) {
+        // Simpan juga ke cache offline
+        await offlineEngine.saveDinasProgress({
+          progressData: { ...payload, project_id: project?.id, syncStatus: 'synced' },
+          userId: user?.id
+        });
         alert("Berhasil menyimpan catatan harian!");
         onBack();
       } else {
@@ -123,7 +139,16 @@ export default function FormDailyInput({ onBack, project }) {
         alert("Gagal menyimpan: " + err.error);
       }
     } catch (err) {
-      alert("Terjadi kesalahan: " + err.message);
+      if (err.message === 'Failed to fetch' || !navigator.onLine) {
+        await offlineEngine.saveDinasProgress({
+          progressData: { ...payload, project_id: project?.id },
+          userId: user?.id
+        });
+        alert("Server tidak dapat dijangkau. Catatan harian berhasil disimpan secara lokal dan akan disinkronisasi nanti!");
+        onBack();
+      } else {
+        alert("Terjadi kesalahan: " + err.message);
+      }
     } finally {
       setIsSaving(false);
     }

@@ -5,6 +5,8 @@ import { Eye, Edit, Trash2, Plus, FileSpreadsheet, MapPin, Calendar, Box, Packag
 import TokenAccessModal from './components/token-access/TokenAccessModal';
 import TokenInputModal from './components/token-access/TokenInputModal';
 import { apiUrl } from '../api';
+import { offlineEngine } from '../offline/offlineEngine';
+import { offlineDb } from '../offline/db';
 
 export default function SurveyProductList() {
   const navigate = useNavigate();
@@ -34,18 +36,76 @@ export default function SurveyProductList() {
       setIsLoading(true);
       setErrorMessage('');
       try {
-        const response = await fetch(apiUrl('survey-engine/product-drafts'));
-        const result = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          throw new Error(result.error || 'Gagal mengambil daftar survey product');
+        let rawList = [];
+        try {
+          const response = await fetch(apiUrl('survey-engine/product-drafts'));
+          if (response.ok) {
+            const result = await response.json();
+            rawList = Array.isArray(result.data) ? result.data : [];
+            await offlineEngine.cacheReference('survey_products_list', 'survey_product', rawList);
+
+            // Pre-cache item draft ke offlineDb agar saat offline dibuka, datanya langsung ada (tidak 0)
+            rawList.forEach(item => {
+              offlineDb.surveyDrafts.put({
+                id: String(item.id),
+                serverId: item.id,
+                userId: Number(user?.id || 0),
+                noSurvey: item.no_survey,
+                status: item.status || 'Draft',
+                data: {
+                  no_survey: item.no_survey,
+                  nama_client: item.nama_client,
+                  plant_area: item.plant_area,
+                  alamat_lokasi: item.alamat_lokasi,
+                  tanggal_mulai: item.tanggal_mulai,
+                  nama_surveyor: item.nama_surveyor,
+                  nama_marketing: item.nama_marketing,
+                  pic_client: item.pic_client,
+                  kontak_pic: item.kontak_pic,
+                  no_inquiry: item.no_inquiry,
+                  tujuan_survey: item.tujuan_survey,
+                  status: item.status,
+                  selectedProducts: (item.selected_products || []).map(p => p.nama_produk || p.code || p),
+                  schedules: item.schedules || []
+                },
+                persiapan: null,
+                lapangan: null,
+                syncStatus: 'synced',
+                updatedAt: new Date().toISOString()
+              }).catch(() => {});
+            });
+          }
+        } catch (netErr) {
+          console.warn('Network error fetching surveys, checking cache:', netErr);
+          const cached = await offlineEngine.getReference('survey_products_list');
+          if (cached && Array.isArray(cached)) {
+            rawList = cached;
+          }
         }
-        const rawList = Array.isArray(result.data) ? result.data : [];
-        const seenIds = new Set();
-        const uniqueList = rawList.filter(item => {
-          if (!item?.id || seenIds.has(item.id)) return false;
-          seenIds.add(item.id);
-          return true;
+
+        // Ambil draft offline dari offlineDb
+        const localDrafts = await offlineDb.surveyDrafts.toArray();
+        const combinedMap = new Map();
+        rawList.forEach(item => combinedMap.set(String(item.id), item));
+
+        localDrafts.forEach(ld => {
+          const idKey = String(ld.serverId || ld.id);
+          if (ld.syncStatus === 'pending' || !combinedMap.has(idKey)) {
+            combinedMap.set(idKey, {
+              id: ld.serverId || ld.id,
+              no_survey: ld.noSurvey || ld.data?.no_survey || 'Draft Lokal',
+              nama_client: ld.data?.nama_client || '-',
+              plant_area: ld.data?.plant_area || '-',
+              status: ld.status || 'Draft',
+              selected_products: ld.selected_products || [],
+              schedules: ld.schedules || [],
+              created_at: ld.updatedAt,
+              isOfflineDraft: ld.syncStatus === 'pending'
+            });
+          }
         });
+
+        const uniqueList = Array.from(combinedMap.values());
         setData(uniqueList);
       } catch (error) {
         setErrorMessage(error.message);

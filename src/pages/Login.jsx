@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { apiUrl } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { cacheUserCredentials, verifyOfflineLogin } from '../offline/auth';
 
 export default function Login() {
   const { updateUser } = useAuth();
@@ -73,6 +74,8 @@ export default function Login() {
 
         if (data.user) {
           updateUser(data.user);
+          // Simpan kredensial secara aman untuk offline login berkala
+          await cacheUserCredentials(data.user, password, data.token);
         }
 
         if (rememberMe) {
@@ -94,14 +97,22 @@ export default function Login() {
         );
       }
     } catch (error) {
-      setErrorMsg(
-        'Terjadi kesalahan jaringan. Gagal terhubung ke server.'
-      );
+      console.warn('Network error during online login. Attempting offline verification...', error);
 
-      console.error(
-        'Login error:',
-        error
-      );
+      // Coba verifikasi offline login lokal yang aman
+      const offlineResult = await verifyOfflineLogin(email, password);
+      if (offlineResult.success) {
+        localStorage.setItem('token', offlineResult.token);
+        updateUser(offlineResult.user);
+        if (rememberMe) {
+          localStorage.setItem('remember_email', email);
+        }
+        redirectBasedOnRole(offlineResult.user);
+      } else {
+        setErrorMsg(
+          offlineResult.message || 'Server tidak dapat dijangkau dan verifikasi offline gagal.'
+        );
+      }
     } finally {
       setIsLoading(false);
     }

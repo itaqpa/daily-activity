@@ -6,6 +6,7 @@ import { apiUrl } from '../../api';
 import MainLayout from '../../components/layouts/MainLayout';
 import FormDailyInput from '../components/DailyProgress/FormDailyInput';
 import { useAuth } from '../../context/AuthContext';
+import { offlineEngine } from '../../offline/offlineEngine';
 
 export default function StandaloneAddActivity() {
   const navigate = useNavigate();
@@ -19,49 +20,59 @@ export default function StandaloneAddActivity() {
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        const res = await fetch(apiUrl('/install-projects'));
-        if (res.ok) {
-          let data = await res.json();
-          // Filter out closed projects
-          let activeProjects = data.filter(p => p.status?.toLowerCase() !== 'close' && p.status?.toLowerCase() !== 'closed' && p.status?.toLowerCase() !== 'done');
-          
-          // Hanya Super Admin yang melihat semua project
-          const isSuperAdmin = 
-            Number(user?.jabatan_id) === 1 || 
-            user?.role?.toLowerCase() === 'superadmin' ||
-            user?.jabatan?.toLowerCase() === 'super admin' ||
-            user?.jabatan_name?.toLowerCase() === 'super admin' ||
-            user?.additional_roles_data?.some(r => Number(r.id) === 1);
-
-          // Selain Super Admin, hanya tampilkan project yang dipimpinnya sendiri
-          if (user && !isSuperAdmin) {
-            const uId = Number(user.id);
-            const uName = (user.name || '').trim().toLowerCase();
-            const uUsername = (user.username || '').trim().toLowerCase();
-            activeProjects = activeProjects.filter(p => {
-              if (Number(p.created_by) === uId) return true;
-              // Check leaders array (JSONB)
-              if (Array.isArray(p.leaders) && p.leaders.length > 0) {
-                const matched = p.leaders.some(l => {
-                  const lId = Number(l?.value || l?.id);
-                  const lName = (l?.label || l?.name || '').trim().toLowerCase();
-                  return (lId && lId === uId) || (lName && (lName === uName || lName === uUsername));
-                });
-                if (matched) return true;
-              }
-              // Check leader string (comma-separated or single)
-              if (p.leader) {
-                const leaderNames = String(p.leader).split(',').map(s => s.trim().toLowerCase());
-                if (leaderNames.includes(uName) || (uUsername && leaderNames.includes(uUsername))) {
-                  return true;
-                }
-              }
-              return false;
-            });
+        let activeProjects = [];
+        try {
+          const res = await fetch(apiUrl('/install-projects'));
+          if (res.ok) {
+            let data = await res.json();
+            // Filter out closed projects
+            activeProjects = data.filter(p => p.status?.toLowerCase() !== 'close' && p.status?.toLowerCase() !== 'closed' && p.status?.toLowerCase() !== 'done');
+            await offlineEngine.cacheReference(`install_projects_active_${user?.id || 0}`, 'dinas_luar', activeProjects, user?.id);
           }
-          
-          setProjects(activeProjects);
+        } catch (netErr) {
+          console.warn('Network error fetching projects, falling back to cache:', netErr);
+          const cached = await offlineEngine.getReference(`install_projects_active_${user?.id || 0}`, user?.id);
+          if (cached && Array.isArray(cached)) {
+            activeProjects = cached;
+          }
         }
+          
+        // Hanya Super Admin yang melihat semua project
+        const isSuperAdmin = 
+          Number(user?.jabatan_id) === 1 || 
+          user?.role?.toLowerCase() === 'superadmin' ||
+          user?.jabatan?.toLowerCase() === 'super admin' ||
+          user?.jabatan_name?.toLowerCase() === 'super admin' ||
+          user?.additional_roles_data?.some(r => Number(r.id) === 1);
+
+        // Selain Super Admin, hanya tampilkan project yang dipimpinnya sendiri
+        if (user && !isSuperAdmin) {
+          const uId = Number(user.id);
+          const uName = (user.name || '').trim().toLowerCase();
+          const uUsername = (user.username || '').trim().toLowerCase();
+          activeProjects = activeProjects.filter(p => {
+            if (Number(p.created_by) === uId) return true;
+            // Check leaders array (JSONB)
+            if (Array.isArray(p.leaders) && p.leaders.length > 0) {
+              const matched = p.leaders.some(l => {
+                const lId = Number(l?.value || l?.id);
+                const lName = (l?.label || l?.name || '').trim().toLowerCase();
+                return (lId && lId === uId) || (lName && (lName === uName || lName === uUsername));
+              });
+              if (matched) return true;
+            }
+            // Check leader string (comma-separated or single)
+            if (p.leader) {
+              const leaderNames = String(p.leader).split(',').map(s => s.trim().toLowerCase());
+              if (leaderNames.includes(uName) || (uUsername && leaderNames.includes(uUsername))) {
+                return true;
+              }
+            }
+            return false;
+          });
+        }
+        
+        setProjects(activeProjects);
       } catch (err) {
         console.error('Error fetching projects:', err);
       } finally {
@@ -79,10 +90,19 @@ export default function StandaloneAddActivity() {
     const fetchProjectDetail = async () => {
       setIsLoadingProjectDetail(true);
       try {
-        const res = await fetch(apiUrl(`/install-projects/${selectedProjectId}`));
-        if (res.ok) {
-          const data = await res.json();
-          setProject(data);
+        try {
+          const res = await fetch(apiUrl(`/install-projects/${selectedProjectId}`));
+          if (res.ok) {
+            const data = await res.json();
+            setProject(data);
+            await offlineEngine.cacheReference(`project_detail_${selectedProjectId}`, 'dinas_luar', data, user?.id);
+          }
+        } catch (netErr) {
+          console.warn('Network error fetching project detail, checking cache:', netErr);
+          const cached = await offlineEngine.getReference(`project_detail_${selectedProjectId}`, user?.id);
+          if (cached) {
+            setProject(cached);
+          }
         }
       } catch (err) {
         console.error('Error fetching project detail:', err);

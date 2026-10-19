@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Menu, Download, Settings, Users, LogOut, LayoutDashboard } from 'lucide-react';
+import OfflineSyncIndicator from '../../OfflineSyncIndicator';
 
 export default function MobileHeader({ 
   user, 
@@ -15,21 +16,30 @@ export default function MobileHeader({
   handleLogout 
 }) {
   return (
-    <header className="bg-white border-b border-gray-200 p-4 flex justify-between items-center md:hidden sticky top-0 z-30">
-      <div className="flex items-center gap-3">
-        <button onClick={() => setIsSidebarOpen(true)} className="text-gray-600 p-1 bg-gray-50 rounded-md">
-          <Menu className="w-6 h-6" />
+    <header className="bg-white/95 backdrop-blur-md border-b border-gray-100 px-3.5 py-2.5 flex justify-between items-center md:hidden sticky top-0 z-30 shadow-xs">
+      {/* Sisi Kiri: Menu Drawer & Logo */}
+      <div className="flex items-center gap-2.5 min-w-0">
+        <button 
+          onClick={() => setIsSidebarOpen(true)} 
+          aria-label="Open Menu"
+          className="text-gray-700 p-2 hover:bg-gray-100/80 active:bg-gray-200 rounded-xl transition-colors shrink-0"
+        >
+          <Menu className="w-5 h-5" />
         </button>
-        <div className="flex items-center gap-2">
-          <img src="/logo/aqpa-indonesia-logo.png" alt="AQPA Logo" className="h-6 w-auto object-contain" />
-          {isOnline ? (
-            <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full">Online</span>
-          ) : (
-            <span className="bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-full">Offline</span>
-          )}
+        
+        <div className="flex items-center gap-2 min-w-0">
+          <img 
+            src="/logo/aqpa-indonesia-logo.png" 
+            alt="AQPA Logo" 
+            className="h-6 w-auto max-w-[130px] object-contain shrink-0" 
+          />
         </div>
       </div>
-      <div className="flex items-center gap-3">
+
+      {/* Sisi Kanan: Status Offline/Online, Tombol Install PWA, dan Avatar Profile */}
+      <div className="flex items-center gap-2 shrink-0">
+        <OfflineSyncIndicator />
+
         {!window.matchMedia('(display-mode: standalone)').matches && (
           <button 
             onClick={async () => {
@@ -44,10 +54,11 @@ export default function MobileHeader({
                 alert("Untuk menginstal aplikasi:\n\n- iOS/Safari: Tap tombol Share, lalu pilih 'Add to Home Screen'.\n- Android/Chrome: Tap ikon titik tiga, lalu pilih 'Install App' atau 'Add to Home Screen'.");
               }
             }}
-            className="text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 p-1.5 rounded-md transition-colors"
+            className="text-blue-600 hover:text-blue-700 bg-blue-50/80 hover:bg-blue-100 active:scale-95 p-1.5 rounded-xl transition-all"
             title="Install App"
+            aria-label="Install App"
           >
-            <Download className="w-5 h-5" />
+            <Download className="w-4 h-4" />
           </button>
         )}
         
@@ -55,7 +66,8 @@ export default function MobileHeader({
         <div className="relative">
           <button 
             onClick={() => setIsMobileProfileOpen(!isMobileProfileOpen)}
-            className="w-8 h-8 rounded-full bg-blue-100 border border-blue-200 shadow-sm flex items-center justify-center text-blue-600 font-bold active:scale-95 transition-transform"
+            className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-500 shadow-xs flex items-center justify-center text-white font-bold text-xs active:scale-95 transition-transform ring-2 ring-white"
+            aria-label="Profil User"
           >
             {user.nama ? user.nama.substring(0, 2).toUpperCase() : 'U'}
           </button>

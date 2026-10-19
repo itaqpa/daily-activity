@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Search, Bell, ChevronDown, LayoutDashboard, Wrench, Shield, LogOut, Settings, ClipboardList } from 'lucide-react';
 
+import OfflineSyncIndicator from '../OfflineSyncIndicator';
+
 export default function Topbar({ currentModule }) {
   const navigate = useNavigate();
   const { user, logout, hasPermission } = useAuth();
@@ -81,6 +83,7 @@ export default function Topbar({ currentModule }) {
       </div>
 
       <div className="flex items-center gap-4">
+        <OfflineSyncIndicator />
         <button className="text-gray-400 hover:text-gray-600 transition-colors">
           <Search className="w-5 h-5" />
         </button>

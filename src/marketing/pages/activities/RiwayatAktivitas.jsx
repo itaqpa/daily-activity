@@ -3,6 +3,8 @@ import MainLayout from '../../../components/layouts/MainLayout';
 import { Clock, Filter, Trash2, Search, ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import { apiUrl } from '../../../api';
 import { useAuth } from '../../../context/AuthContext';
+import { offlineEngine } from '../../../offline/offlineEngine';
+import { offlineDb } from '../../../offline/db';
 
 export default function RiwayatAktivitas() {
   const { user: authUser, hasPermission, getPermissionScope } = useAuth();
@@ -34,36 +36,105 @@ export default function RiwayatAktivitas() {
 
   const fetchActivities = async () => {
     try {
-      const response = await fetch(apiUrl('/activities'));
-      if (response.ok) {
-        let data = await response.json();
-        
-        // Backend sudah menerapkan scope filtering (WHERE u.divisi_id = $1 atau WHERE a.user_id = $1).
-        // Kita juga pastikan frontend filter konsisten bila token belum ter-refresh
-        data = data.filter(act => {
-          if (isSuperAdmin || actScope === 'ALL') return true;
-          if (actScope === 'OWN') return Number(act.user_id) === Number(user.id);
-          if (actScope === 'DIVISION') {
-            const userDivId = Number(user.divisi_id || 0);
-            const actDivId = Number(act.user_divisi_id || act.divisi_id || 0);
-            const userDiv = (user.divisi || user.nama_divisi || '').trim().toLowerCase();
-            const actDiv = (act.user_divisi || '').trim().toLowerCase();
-            
-            // Seluruh hierarki di divisi yang sama (Staff, SPV, Manager, dsb)
-            if (userDivId && actDivId && userDivId === actDivId) return true;
-            if (userDiv && actDiv && userDiv === actDiv) return true;
-            if (Number(act.user_id) === Number(user.id)) return true;
-            return false;
+      let serverActivities = [];
+      try {
+        const response = await fetch(apiUrl('/activities'));
+        if (response.ok) {
+          serverActivities = await response.json();
+          // Simpan snapshot ke Dexie activities agar bisa dibaca saat offline
+          for (const sAct of serverActivities) {
+            await offlineDb.activities.put({
+              ...sAct,
+              id: String(sAct.id),
+              serverId: sAct.id,
+              userId: Number(sAct.user_id),
+              syncStatus: 'synced',
+              updatedAt: sAct.updated_at || sAct.created_at || new Date().toISOString()
+            });
           }
-          return false;
-        });
-
-        setActivities(data);
+        }
+      } catch (netErr) {
+        console.warn('Network error fetching activities, using local Dexie data:', netErr);
       }
+
+      // Ambil seluruh data dari offlineDb (termasuk yang pending/offline)
+      const localActivities = await offlineDb.activities.toArray();
+
+      // Gabungkan serverActivities & localActivities (prioritaskan pending local updates)
+      const combinedMap = new Map();
+      serverActivities.forEach(item => combinedMap.set(String(item.id), item));
+      localActivities.forEach(item => {
+        const idKey = String(item.serverId || item.id);
+        if (item.syncStatus === 'pending' || !combinedMap.has(idKey)) {
+          combinedMap.set(idKey, { ...combinedMap.get(idKey), ...item });
+        }
+      });
+
+      let data = Array.from(combinedMap.values());
+        
+      // Backend sudah menerapkan scope filtering (WHERE u.divisi_id = $1 atau WHERE a.user_id = $1).
+      // Kita juga pastikan frontend filter konsisten bila token belum ter-refresh
+      data = data.filter(act => {
+        if (isSuperAdmin || actScope === 'ALL') return true;
+        if (actScope === 'OWN') return Number(act.user_id || act.userId) === Number(user.id);
+        if (actScope === 'DIVISION') {
+          const userDivId = Number(user.divisi_id || 0);
+          const actDivId = Number(act.user_divisi_id || act.divisi_id || 0);
+          const userDiv = (user.divisi || user.nama_divisi || '').trim().toLowerCase();
+          const actDiv = (act.user_divisi || '').trim().toLowerCase();
+          
+          // Seluruh hierarki di divisi yang sama (Staff, SPV, Manager, dsb)
+          if (userDivId && actDivId && userDivId === actDivId) return true;
+          if (userDiv && actDiv && userDiv === actDiv) return true;
+          if (Number(act.user_id || act.userId) === Number(user.id)) return true;
+          return false;
+        }
+        return false;
+      });
+
+      setActivities(data);
     } catch (error) {
-      console.error('Error fetching activities:', error);
+      console.error('Error in fetchActivities:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteActivity = async (act) => {
+    if (!window.confirm(`Apakah Anda yakin ingin menghapus aktivitas pada tanggal ${formatDate(act.tanggal)}?`)) {
+      return;
+    }
+
+    try {
+      // 1. Jalankan penghapusan di offline engine (menghapus lokal & mengantrekan DELETE outbox)
+      await offlineEngine.deleteSalesActivity(act.id, user?.id);
+
+      // 2. Jika online, coba kirim langsung ke endpoint DELETE jika punya ID server
+      const targetId = act.serverId || (String(act.id).startsWith('local_') ? null : act.id);
+      if (navigator.onLine && targetId) {
+        try {
+          const res = await fetch(apiUrl(`/activities/${targetId}`), {
+            method: 'DELETE'
+          });
+          if (res.ok) {
+            // Berhasil di server: bersihkan dari antrean outbox jika ada
+            const pendingOutbox = await offlineDb.outbox
+              .filter(ob => ob.module === 'sales_activity' && ob.action === 'DELETE' && ob.entityId === String(act.id))
+              .toArray();
+            for (const item of pendingOutbox) {
+              await offlineDb.outbox.delete(item.id);
+            }
+          }
+        } catch (netErr) {
+          console.warn('Network error during online delete, queued in outbox for auto-sync:', netErr);
+        }
+      }
+
+      // 3. Update state di UI
+      setActivities(prev => prev.filter(item => String(item.id) !== String(act.id)));
+    } catch (err) {
+      console.error('Error deleting activity:', err);
+      alert('Gagal menghapus aktivitas: ' + err.message);
     }
   };
 
@@ -327,7 +398,11 @@ export default function RiwayatAktivitas() {
                     <td className="py-3 px-4 text-gray-600 max-w-[300px] truncate" title={act.catatan}>{act.catatan || '-'}</td>
                     {canAction && (
                       <td className="py-3 px-4 text-center">
-                         <button className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition-colors" title="Hapus">
+                         <button 
+                           onClick={() => handleDeleteActivity(act)}
+                           className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition-colors" 
+                           title="Hapus"
+                         >
                            <Trash2 size={16} />
                          </button>
                       </td>
@@ -388,7 +463,11 @@ export default function RiwayatAktivitas() {
                 
                 {canAction && (
                   <div className="pt-3 mt-1 border-t border-gray-100 flex justify-end">
-                     <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-200" title="Hapus">
+                     <button 
+                       onClick={() => handleDeleteActivity(act)}
+                       className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-200" 
+                       title="Hapus"
+                     >
                        <Trash2 size={14} /> Hapus
                      </button>
                   </div>

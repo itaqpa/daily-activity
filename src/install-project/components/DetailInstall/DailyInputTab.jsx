@@ -3,6 +3,8 @@ import { Calendar, Search, Plus, Filter, ChevronDown, ChevronUp, X, Loader2 } fr
 import { useNavigate, useParams } from 'react-router-dom';
 import FormDailyInput from '../DailyProgress/FormDailyInput';
 import { apiUrl } from '../../../api';
+import { offlineEngine } from '../../../offline/offlineEngine';
+import { offlineDb } from '../../../offline/db';
 
 export default function DailyInputTab({ project }) {
   const [activeFilter, setActiveFilter] = useState(null);
@@ -24,11 +26,42 @@ export default function DailyInputTab({ project }) {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(apiUrl(`/daily-progress?project_id=${id}`));
-      if (res.ok) {
-        const json = await res.json();
-        setData(json);
+      let serverData = [];
+      try {
+        const res = await fetch(apiUrl(`/daily-progress?project_id=${id}`));
+        if (res.ok) {
+          serverData = await res.json();
+          await offlineEngine.cacheReference(`daily_progress_list_${id}`, 'dinas_luar', serverData);
+        }
+      } catch (netErr) {
+        console.warn('Network error fetching daily progress, loading cached:', netErr);
+        const cached = await offlineEngine.getReference(`daily_progress_list_${id}`);
+        if (cached && Array.isArray(cached)) {
+          serverData = cached;
+        }
       }
+
+      // Merge local pending daily progress for this project
+      const localProgress = await offlineEngine.getDinasProgressByProject(id);
+      const combined = [...serverData];
+
+      localProgress.forEach(localItem => {
+        if (localItem.syncStatus === 'pending') {
+          // Format sesuai tampilan table
+          const scopeNames = (localItem.scopes || []).map(s => `${s.nama_scope || s.nama} +${s.pct || 0}%`).join(', ');
+          combined.unshift({
+            id: localItem.id,
+            tanggal: localItem.tanggal,
+            areaUnit: `Lokal (Unit #${localItem.unit_id || localItem.unitId})`,
+            jamKerja: localItem.jam_kerja || localItem.jamKerja,
+            capaian: scopeNames || 'Pending sync',
+            catatan: '(Tersimpan Offline - Menunggu Sync)',
+            isPending: true
+          });
+        }
+      });
+
+      setData(combined);
     } catch (err) {
       console.error(err);
     } finally {

@@ -40,13 +40,28 @@ const pool = new Pool({
   password: String(process.env.DB_PASSWORD || 'postgres'),
 });
 
-// Test DB Connection
-pool.connect((err, client, release) => {
+// Test DB Connection & Ensure Idempotency Key Support
+pool.connect(async (err, client, release) => {
   if (err) {
     return console.error('Error acquiring client', err.stack);
   }
   console.log('Berhasil terhubung ke database PostgreSQL!');
-  release();
+  try {
+    await client.query(`
+      ALTER TABLE daily_activity_sales 
+      ADD COLUMN IF NOT EXISTS idempotency_key VARCHAR(100);
+    `);
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_daily_act_sales_idempotency 
+      ON daily_activity_sales (idempotency_key) 
+      WHERE idempotency_key IS NOT NULL;
+    `);
+    console.log('Idempotency schema for daily_activity_sales is verified.');
+  } catch (schemaErr) {
+    console.warn('Note: Idempotency column/index check:', schemaErr.message);
+  } finally {
+    release();
+  }
 });
 
 // Secret for JWT
@@ -815,33 +830,291 @@ app.get('/api/activities', async (req, res) => {
 });
 
 app.post('/api/activities', async (req, res) => {
-  const { user_id, customer_id, site_kota, jenis_aktivitas, ditemui, ditemui_lainnya, tanggal, catatan } = req.body;
+  // 1. Validasi Autentikasi JWT
+  if (!req.user || !req.user.id) {
+    return res.status(401).json({ error: 'Akses ditolak: Autentikasi diperlukan' });
+  }
+
+  // 2. Cek Permission (aktivitas_create)
+  const { scope, userId, divisiId, isSuperAdmin } = await getUserPermissionScope(pool, req.user, 'aktivitas_create');
+
+  const { 
+    user_id, 
+    customer_id, 
+    site_kota, 
+    jenis_aktivitas, 
+    ditemui, 
+    ditemui_lainnya, 
+    tanggal, 
+    catatan, 
+    idempotency_key, 
+    _idempotency_key, 
+    _local_id 
+  } = req.body || {};
+
+  // Gunakan ID user dari JWT atau izinkan user_id jika Super Admin / scope ALL
+  const targetUserId = isSuperAdmin ? (user_id || req.user.id) : req.user.id;
   
-  if (!user_id || !jenis_aktivitas || !tanggal) {
-    return res.status(400).json({ error: 'User, jenis aktivitas, dan tanggal wajib diisi' });
+  if (!jenis_aktivitas || !tanggal) {
+    return res.status(400).json({ error: 'Jenis aktivitas dan tanggal wajib diisi' });
+  }
+
+  // Idempotency key bisa dikirim dari header 'idempotency-key' atau body
+  const finalIdempotencyKey = (
+    req.headers['idempotency-key'] || 
+    idempotency_key || 
+    _idempotency_key || 
+    _local_id || 
+    null
+  );
+
+  try {
+    // 3. Pengecekan Idempotency secara atomik jika idempotency_key tersedia
+    if (finalIdempotencyKey) {
+      const existing = await pool.query(
+        'SELECT * FROM daily_activity_sales WHERE idempotency_key = $1',
+        [String(finalIdempotencyKey)]
+      );
+      if (existing.rows.length > 0) {
+        // Record sudah pernah dibuat sebelumnya (Idempotent replay)
+        return res.status(200).json(existing.rows[0]);
+      }
+    }
+
+    // 4. Atomic Insert dengan ON CONFLICT (idempotency_key) DO NOTHING atau RETURNING
+    const insertSql = finalIdempotencyKey
+      ? `INSERT INTO daily_activity_sales 
+          (user_id, customer_id, site_kota, jenis_aktivitas, ditemui, ditemui_lainnya, tanggal, catatan, idempotency_key) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
+         ON CONFLICT (idempotency_key) WHERE idempotency_key IS NOT NULL 
+         DO UPDATE SET updated_at = daily_activity_sales.updated_at
+         RETURNING *`
+      : `INSERT INTO daily_activity_sales 
+          (user_id, customer_id, site_kota, jenis_aktivitas, ditemui, ditemui_lainnya, tanggal, catatan) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
+         RETURNING *`;
+
+    const insertParams = [
+      targetUserId, 
+      customer_id || null, 
+      site_kota || null, 
+      jenis_aktivitas, 
+      ditemui ? JSON.stringify(ditemui) : '[]', 
+      ditemui_lainnya || null, 
+      tanggal, 
+      catatan || null
+    ];
+
+    if (finalIdempotencyKey) {
+      insertParams.push(String(finalIdempotencyKey));
+    }
+
+    const result = await pool.query(insertSql, insertParams);
+    
+    // Status 201 Created
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    // Jika ada race condition duplicate key
+    if (error.code === '23505' && finalIdempotencyKey) {
+      try {
+        const recheck = await pool.query(
+          'SELECT * FROM daily_activity_sales WHERE idempotency_key = $1',
+          [String(finalIdempotencyKey)]
+        );
+        if (recheck.rows.length > 0) {
+          return res.status(200).json(recheck.rows[0]);
+        }
+      } catch (e) {
+        console.error('Error rechecking idempotency:', e);
+      }
+    }
+
+    console.error('Error creating activity:', error);
+    res.status(500).json({ error: 'Gagal mencatat aktivitas: ' + (error.message || 'Server error') });
+  }
+});
+
+app.put('/api/activities/:id', async (req, res) => {
+  const { id } = req.params;
+
+  // 1. Validasi Autentikasi JWT
+  if (!req.user || !req.user.id) {
+    return res.status(401).json({ error: 'Akses ditolak: Autentikasi diperlukan' });
+  }
+
+  // Validasi ID numerik (cegah string ID lokal / NaN tembus ke DB)
+  const activityId = parseInt(id, 10);
+  if (isNaN(activityId) || activityId <= 0) {
+    return res.status(400).json({ error: 'ID aktivitas tidak valid' });
+  }
+
+  const body = req.body || {};
+  const { customer_id, site_kota, jenis_aktivitas, ditemui, ditemui_lainnya, tanggal, catatan, updated_at } = body;
+
+  try {
+    // 2. Cek eksistensi data existing beserta creator info
+    const existingRes = await pool.query(`
+      SELECT a.*, u.divisi_id as user_divisi_id 
+      FROM daily_activity_sales a
+      LEFT JOIN users u ON a.user_id = u.id
+      WHERE a.id = $1
+    `, [activityId]);
+
+    if (existingRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Aktivitas tidak ditemukan' });
+    }
+
+    const existing = existingRes.rows[0];
+
+    // 3. Cek Permission & Data Scope / Ownership
+    let scopeRes = await getUserPermissionScope(pool, req.user, 'aktivitas_edit');
+    if (scopeRes.scope === 'ALL' && !scopeRes.isSuperAdmin) {
+      const altScope = await getUserPermissionScope(pool, req.user, 'aktivitas_create');
+      if (altScope.scope === 'OWN' || altScope.scope === 'DIVISION') {
+        scopeRes = altScope;
+      }
+    }
+    const { scope, userId, divisiId, isSuperAdmin } = scopeRes;
+
+    if (!isSuperAdmin) {
+      if (scope === 'OWN' && Number(existing.user_id) !== Number(userId)) {
+        return res.status(403).json({ error: 'Akses ditolak: Anda hanya dapat mengubah aktivitas milik Anda sendiri' });
+      }
+      if (scope === 'DIVISION') {
+        const activityDivisiId = existing.user_divisi_id !== null ? Number(existing.user_divisi_id) : null;
+        const currentDivisiId = divisiId !== null ? Number(divisiId) : null;
+        if (activityDivisiId !== currentDivisiId && Number(existing.user_id) !== Number(userId)) {
+          return res.status(403).json({ error: 'Akses ditolak: Anda hanya dapat mengubah aktivitas di divisi Anda' });
+        }
+      }
+    }
+
+    // 4. Optimistic Concurrency Control (Atomic check)
+    // Jika client mengirimkan updated_at (misal timestamp saat data di-fetch / di-cache)
+    if (updated_at) {
+      const serverTime = new Date(existing.updated_at).getTime();
+      const clientTime = new Date(updated_at).getTime();
+      // Toleransi 1000ms untuk clock skew / rounding
+      if (serverTime > clientTime + 1000) {
+        return res.status(409).json({ 
+          error: 'Konflik data: record ini telah diubah di server oleh pengguna lain.',
+          server_updated_at: existing.updated_at
+        });
+      }
+    }
+
+    // 5. Validasi & Sanitasi Input (Cegah penimpaan field yang tidak dikirim / undefined)
+    const newCustomerId = customer_id !== undefined ? (customer_id || null) : existing.customer_id;
+    const newSiteKota = site_kota !== undefined ? (site_kota || null) : existing.site_kota;
+    const newJenisAktivitas = jenis_aktivitas !== undefined ? jenis_aktivitas : existing.jenis_aktivitas;
+    const newDitemui = ditemui !== undefined ? (Array.isArray(ditemui) ? JSON.stringify(ditemui) : (typeof ditemui === 'string' ? ditemui : JSON.stringify(ditemui))) : (existing.ditemui ? JSON.stringify(existing.ditemui) : '[]');
+    const newDitemuiLainnya = ditemui_lainnya !== undefined ? (ditemui_lainnya || null) : existing.ditemui_lainnya;
+    const newTanggal = tanggal !== undefined ? tanggal : existing.tanggal;
+    const newCatatan = catatan !== undefined ? (catatan || null) : existing.catatan;
+
+    // 6. Eksekusi Atomic UPDATE dengan verifikasi updated_at untuk mencegah race condition
+    // Menggunakan epoch diff < 0.05 detik agar akurat dan toleran terhadap mikrodetik/driver date serialization
+    const updateResult = await pool.query(
+      `UPDATE daily_activity_sales 
+       SET customer_id = $1, 
+           site_kota = $2, 
+           jenis_aktivitas = $3, 
+           ditemui = $4::jsonb, 
+           ditemui_lainnya = $5, 
+           tanggal = $6, 
+           catatan = $7, 
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $8 AND abs(extract(epoch from (updated_at - $9))) < 0.05
+       RETURNING *`,
+      [
+        newCustomerId,
+        newSiteKota,
+        newJenisAktivitas,
+        newDitemui,
+        newDitemuiLainnya,
+        newTanggal,
+        newCatatan,
+        activityId,
+        existing.updated_at
+      ]
+    );
+
+    if (updateResult.rows.length === 0) {
+      // Race condition terdeteksi saat UPDATE berlangsung
+      const recheck = await pool.query('SELECT updated_at FROM daily_activity_sales WHERE id = $1', [activityId]);
+      if (recheck.rows.length > 0) {
+        return res.status(409).json({
+          error: 'Konflik data: record ini telah diperbarui secara bersamaan oleh proses lain.',
+          server_updated_at: recheck.rows[0].updated_at
+        });
+      }
+      return res.status(404).json({ error: 'Aktivitas tidak ditemukan' });
+    }
+
+    res.json(updateResult.rows[0]);
+  } catch (error) {
+    console.error('Error updating activity:', error);
+    res.status(500).json({ error: 'Gagal memperbarui aktivitas: ' + (error.message || 'Server error') });
+  }
+});
+
+app.delete('/api/activities/:id', async (req, res) => {
+  const { id } = req.params;
+
+  // 1. Validasi Autentikasi JWT
+  if (!req.user || !req.user.id) {
+    return res.status(401).json({ error: 'Akses ditolak: Autentikasi diperlukan' });
+  }
+
+  const activityId = parseInt(id, 10);
+  if (isNaN(activityId) || activityId <= 0) {
+    return res.status(400).json({ error: 'ID aktivitas tidak valid' });
   }
 
   try {
-    const result = await pool.query(
-      `INSERT INTO daily_activity_sales 
-        (user_id, customer_id, site_kota, jenis_aktivitas, ditemui, ditemui_lainnya, tanggal, catatan) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
-       RETURNING *`,
-      [
-        user_id, 
-        customer_id || null, 
-        site_kota || null, 
-        jenis_aktivitas, 
-        ditemui ? JSON.stringify(ditemui) : '[]', 
-        ditemui_lainnya || null, 
-        tanggal, 
-        catatan || null
-      ]
-    );
-    res.status(201).json(result.rows[0]);
+    // 2. Cek eksistensi record
+    const existingRes = await pool.query(`
+      SELECT a.*, u.divisi_id as user_divisi_id 
+      FROM daily_activity_sales a
+      LEFT JOIN users u ON a.user_id = u.id
+      WHERE a.id = $1
+    `, [activityId]);
+
+    if (existingRes.rows.length === 0) {
+      // Jika sudah tidak ada di server, anggap deleted (Idempotent 200)
+      return res.json({ success: true, message: 'Aktivitas sudah dihapus' });
+    }
+
+    const existing = existingRes.rows[0];
+
+    // 3. Cek Permission & Data Scope / Ownership
+    let scopeRes = await getUserPermissionScope(pool, req.user, 'aktivitas_delete');
+    if (scopeRes.scope === 'ALL' && !scopeRes.isSuperAdmin) {
+      const altScope = await getUserPermissionScope(pool, req.user, 'aktivitas_edit');
+      if (altScope.scope === 'OWN' || altScope.scope === 'DIVISION') {
+        scopeRes = altScope;
+      }
+    }
+    const { scope, userId, divisiId, isSuperAdmin } = scopeRes;
+
+    if (!isSuperAdmin) {
+      if (scope === 'OWN' && Number(existing.user_id) !== Number(userId)) {
+        return res.status(403).json({ error: 'Akses ditolak: Anda hanya dapat menghapus aktivitas milik Anda sendiri' });
+      }
+      if (scope === 'DIVISION') {
+        const activityDivisiId = existing.user_divisi_id !== null ? Number(existing.user_divisi_id) : null;
+        const currentDivisiId = divisiId !== null ? Number(divisiId) : null;
+        if (activityDivisiId !== currentDivisiId && Number(existing.user_id) !== Number(userId)) {
+          return res.status(403).json({ error: 'Akses ditolak: Anda hanya dapat menghapus aktivitas di divisi Anda' });
+        }
+      }
+    }
+
+    await pool.query('DELETE FROM daily_activity_sales WHERE id = $1', [activityId]);
+    res.json({ success: true, message: 'Aktivitas berhasil dihapus' });
   } catch (error) {
-    console.error('Error creating activity:', error);
-    res.status(500).json({ error: 'Gagal mencatat aktivitas' });
+    console.error('Error deleting activity:', error);
+    res.status(500).json({ error: 'Gagal menghapus aktivitas: ' + (error.message || 'Server error') });
   }
 });
 
