@@ -22,43 +22,43 @@ export default function OfflineSyncIndicator() {
       {/* Badge Button */}
       <button
         onClick={() => setShowDetail(!showDetail)}
-        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-all border ${
+        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all border shadow-xs ${
           !isOnline
-            ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+            ? 'bg-rose-50 text-rose-700 border-rose-200/80 hover:bg-rose-100'
             : isSyncing
-            ? 'bg-blue-50 text-blue-700 border-blue-200 animate-pulse'
+            ? 'bg-blue-50 text-blue-700 border-blue-200/80 animate-pulse'
             : failedCount > 0
-            ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+            ? 'bg-amber-50 text-amber-700 border-amber-200/80 hover:bg-amber-100'
             : totalPending > 0
-            ? 'bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100'
-            : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+            ? 'bg-sky-50 text-sky-700 border-sky-200/80 hover:bg-sky-100'
+            : 'bg-emerald-50/90 text-emerald-700 border-emerald-200/80 hover:bg-emerald-100'
         }`}
         title="Status Koneksi & Sinkronisasi Offline"
       >
         {!isOnline ? (
           <>
-            <WifiOff className="w-3.5 h-3.5 text-red-600" />
-            <span>Offline</span>
+            <WifiOff className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+            <span className="tracking-tight">Offline</span>
           </>
         ) : isSyncing ? (
           <>
-            <RefreshCw className="w-3.5 h-3.5 text-blue-600 animate-spin" />
-            <span>Syncing ({syncingCount || totalPending})</span>
+            <RefreshCw className="w-3.5 h-3.5 text-blue-600 animate-spin shrink-0" />
+            <span className="tracking-tight">Sync ({syncingCount || totalPending})</span>
           </>
         ) : failedCount > 0 ? (
           <>
-            <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
-            <span>Sync Failed ({failedCount})</span>
+            <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+            <span className="tracking-tight">Error ({failedCount})</span>
           </>
         ) : totalPending > 0 ? (
           <>
-            <RefreshCw className="w-3.5 h-3.5 text-sky-600" />
-            <span>Pending Sync ({totalPending})</span>
+            <RefreshCw className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+            <span className="tracking-tight">Pending ({totalPending})</span>
           </>
         ) : (
           <>
-            <Wifi className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Online</span>
+            <Wifi className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+            <span className="tracking-tight font-medium">Online</span>
           </>
         )}
       </button>
@@ -104,20 +104,44 @@ export default function OfflineSyncIndicator() {
               </div>
             )}
 
-            <button
-              onClick={() => {
-                offlineEngine.triggerSync();
-              }}
-              disabled={isSyncing || !isOnline}
-              className={`w-full py-2 px-3 rounded-lg font-bold flex items-center justify-center gap-1.5 transition-colors ${
-                isSyncing || !isOnline
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'
-              }`}
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-              {isSyncing ? 'Sedang Sinkronisasi...' : 'Sinkronkan Sekarang (Retry)'}
-            </button>
+            <div className="space-y-2">
+              <button
+                onClick={() => {
+                  offlineEngine.triggerSync();
+                }}
+                disabled={isSyncing || !isOnline}
+                className={`w-full py-2 px-3 rounded-lg font-bold flex items-center justify-center gap-1.5 transition-colors ${
+                  isSyncing || !isOnline
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'
+                }`}
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                {isSyncing ? 'Sedang Sinkronisasi...' : 'Sinkronkan Data (Retry)'}
+              </button>
+
+              <button
+                onClick={async () => {
+                  if ('serviceWorker' in navigator) {
+                    try {
+                      const reg = await navigator.serviceWorker.getRegistration();
+                      if (reg) {
+                        await reg.update();
+                      }
+                      window.location.reload();
+                    } catch (e) {
+                      window.location.reload();
+                    }
+                  } else {
+                    window.location.reload();
+                  }
+                }}
+                className="w-full py-1.5 px-3 rounded-lg font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 border border-gray-200 flex items-center justify-center gap-1.5 transition-colors text-[11px]"
+              >
+                <RefreshCw className="w-3 h-3 text-gray-500" />
+                Periksa & Muat Ulang Versi Baru
+              </button>
+            </div>
           </div>
         </>
       )}

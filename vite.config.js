@@ -17,6 +17,9 @@ export default defineConfig({
       workbox: {
         globIgnores: ['**/runtime-config.js'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MiB
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
       },
       manifest: {
         name: 'Apps Aqpa',

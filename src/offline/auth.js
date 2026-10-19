@@ -56,7 +56,7 @@ export async function cacheUserCredentials(user, password, onlineToken) {
           tokenExp = payload.exp * 1000;
         }
       }
-    } catch (e) {
+    } catch {
       // fallback
     }
 

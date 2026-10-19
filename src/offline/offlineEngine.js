@@ -88,7 +88,7 @@ class OfflineEngine {
     }
   }
 
-  async getReference(key, userId = 0) {
+  async getReference(key) {
     try {
       const rec = await offlineDb.references.get(key);
       if (rec) return rec.data;
@@ -208,6 +208,39 @@ class OfflineEngine {
     });
 
     return record;
+  }
+
+  async deleteSalesActivity(id, userId = 0) {
+    const stringId = String(id);
+    const existing = await offlineDb.activities.get(stringId);
+    const serverId = existing?.serverId || (stringId.startsWith('local_') ? null : id);
+
+    // Hapus dari Dexie activities lokal secara instan (optimistic UI)
+    await offlineDb.activities.delete(stringId);
+
+    // Jika record baru dibuat offline dan belum punya serverId, cukup batalkan item create di outbox
+    if (!serverId && stringId.startsWith('local_')) {
+      const pendingOutbox = await offlineDb.outbox
+        .filter(ob => ob.module === 'sales_activity' && ob.entityId === stringId)
+        .toArray();
+      for (const p of pendingOutbox) {
+        await offlineDb.outbox.delete(p.id);
+      }
+      await this.refreshCounts();
+      return { success: true, localOnly: true };
+    }
+
+    // Jika sudah ada serverId, antrekan DELETE operation ke server
+    await this.queueOperation({
+      module: 'sales_activity',
+      entityType: 'daily_activity_sales',
+      entityId: stringId,
+      action: 'DELETE',
+      payload: { id: stringId, serverId },
+      userId
+    });
+
+    return { success: true };
   }
 
   async getSalesActivities(userId = 0) {
@@ -431,34 +464,78 @@ class OfflineEngine {
         try {
           const syncResult = await this.processSyncItem(item, token);
           if (syncResult.success) {
-            // Berhasil: hapus dari outbox
+            // Berhasil: baru aman menghapus item ini dari antrean outbox
             await offlineDb.outbox.delete(item.id);
             this.syncStats.syncedCount++;
           } else if (syncResult.isConflict) {
-            // Konflik terdeteksi
+            // 409 CONFLICT: tandai status failed dengan error konflik versi
             await offlineDb.outbox.update(item.id, {
               syncStatus: 'failed',
-              lastError: syncResult.error || 'Konflik versi terdeteksi',
-              retryCount: (item.retryCount || 0) + 1
+              errorType: 'conflict',
+              statusCode: 409,
+              lastError: syncResult.error || 'Konflik versi: data telah diubah di server',
+              retryCount: (item.retryCount || 0) + 1,
+              updatedAt: new Date().toISOString()
             });
             this.syncStats.lastError = syncResult.error;
-          } else {
-            // Gagal non-fatal (misal server mati, bad request)
+          } else if (syncResult.isAuthError) {
+            // 401 / 403: auth/permission issue, jangan dihapus, beri status failed dengan tipe auth
             await offlineDb.outbox.update(item.id, {
               syncStatus: 'failed',
-              lastError: syncResult.error || 'Gagal mengirim data ke server',
-              retryCount: (item.retryCount || 0) + 1
+              errorType: 'auth',
+              statusCode: syncResult.status || 401,
+              lastError: syncResult.error || 'Akses ditolak / sesi kedaluwarsa',
+              retryCount: item.retryCount || 0,
+              updatedAt: new Date().toISOString()
+            });
+            this.syncStats.lastError = syncResult.error;
+          } else if (syncResult.isNotFound) {
+            // 404: resource tidak ditemukan
+            await offlineDb.outbox.update(item.id, {
+              syncStatus: 'failed',
+              errorType: 'not_found',
+              statusCode: 404,
+              lastError: syncResult.error || 'Data target tidak ditemukan di server (404)',
+              retryCount: (item.retryCount || 0) + 1,
+              updatedAt: new Date().toISOString()
+            });
+            this.syncStats.lastError = syncResult.error;
+          } else if (syncResult.isNetworkError) {
+            // Network Error: kembalikan ke status pending agar otomatis dicoba lagi saat koneksi pulih
+            await offlineDb.outbox.update(item.id, {
+              syncStatus: 'pending',
+              errorType: 'network',
+              lastError: syncResult.error || 'Koneksi terputus (Failed to fetch)',
+              retryCount: (item.retryCount || 0) + 1,
+              updatedAt: new Date().toISOString()
+            });
+            this.syncStats.lastError = 'Koneksi terputus: ' + syncResult.error;
+            // Jika network error, hentikan loop untuk item berikutnya agar tidak spamming
+            break;
+          } else {
+            // 500 / Error lainnya: tandai failed dengan retryCount
+            await offlineDb.outbox.update(item.id, {
+              syncStatus: 'failed',
+              errorType: 'server',
+              statusCode: syncResult.status || 500,
+              lastError: syncResult.error || 'Server error',
+              retryCount: (item.retryCount || 0) + 1,
+              updatedAt: new Date().toISOString()
             });
             this.syncStats.lastError = syncResult.error;
           }
         } catch (itemErr) {
           console.error(`[OfflineEngine] Error syncing item ${item.id}:`, itemErr);
+          const isNetwork = itemErr.name === 'TypeError' || itemErr.message.includes('fetch');
           await offlineDb.outbox.update(item.id, {
-            syncStatus: 'failed',
+            syncStatus: isNetwork ? 'pending' : 'failed',
+            errorType: isNetwork ? 'network' : 'unknown',
             lastError: itemErr.message,
-            retryCount: (item.retryCount || 0) + 1
+            retryCount: (item.retryCount || 0) + 1,
+            updatedAt: new Date().toISOString()
           });
           this.syncStats.lastError = itemErr.message;
+          if (isNetwork) break;
         }
 
         await this.refreshCounts();
@@ -483,34 +560,72 @@ class OfflineEngine {
 
     // 1. SALES ACTIVITY SYNC
     if (module === 'sales_activity') {
+      const isDelete = action === 'DELETE';
       const targetId = payload.serverId || payload.id;
       const isLocalId = !targetId || String(targetId).startsWith('local_') || String(item.entityId).startsWith('local_');
-      const isCreate = action === 'CREATE' || (!payload.serverId && isLocalId);
-      
-      const endpoint = isCreate ? apiUrl('/activities') : apiUrl(`/activities/${targetId}`);
-      const method = isCreate ? 'POST' : 'PUT';
 
-      const res = await fetch(endpoint, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          ...payload,
-          _local_id: item.entityId
-        })
-      });
+      if (isDelete && !targetId) {
+        // Jika target ID lokal dan tidak pernah ada di server, anggap sukses terhapus
+        return { success: true };
+      }
+
+      const isCreate = action === 'CREATE' || (!payload.serverId && isLocalId && !isDelete);
+      
+      const endpoint = isCreate 
+        ? apiUrl('/activities') 
+        : apiUrl(`/activities/${targetId}`);
+      const method = isDelete ? 'DELETE' : (isCreate ? 'POST' : 'PUT');
+
+      // Gunakan entityId sebagai idempotency key unik untuk CREATE
+      const idempotencyKey = item.entityId || payload.id || `local_act_${Date.now()}`;
+
+      let res;
+      try {
+        res = await fetch(endpoint, {
+          method,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+            'Idempotency-Key': idempotencyKey
+          },
+          body: isDelete ? undefined : JSON.stringify({
+            ...payload,
+            idempotency_key: idempotencyKey,
+            _local_id: item.entityId
+          })
+        });
+      } catch (fetchErr) {
+        // Tangani Network Error (Failed to fetch / Connection refused / Offline)
+        return {
+          success: false,
+          isNetworkError: true,
+          error: fetchErr.message || 'Gagal terhubung ke server (Failed to fetch)'
+        };
+      }
 
       if (!res.ok) {
-        if (res.status === 409) {
-          return { success: false, isConflict: true, error: 'Data aktivitas telah diubah di server.' };
-        }
         const errJson = await res.json().catch(() => ({}));
-        return { success: false, error: errJson.error || `Server returned ${res.status}` };
+        const errorMsg = errJson.error || `Server returned ${res.status}`;
+
+        if (res.status === 401 || res.status === 403) {
+          return { success: false, isAuthError: true, status: res.status, error: errorMsg };
+        }
+        if (res.status === 404) {
+          return { success: false, isNotFound: true, status: 404, error: errorMsg };
+        }
+        if (res.status === 409) {
+          return { success: false, isConflict: true, status: 409, error: errorMsg };
+        }
+        return { success: false, status: res.status, error: errorMsg };
+      }
+
+      if (isDelete) {
+        await offlineDb.activities.delete(item.entityId);
+        return { success: true };
       }
 
       const serverRecord = await res.json();
+      
       // Update local activities record dengan serverId & status synced
       await offlineDb.activities.update(item.entityId, {
         serverId: serverRecord.id,
@@ -518,7 +633,20 @@ class OfflineEngine {
         updatedAt: serverRecord.updated_at || new Date().toISOString()
       });
 
-      return { success: true };
+      // Update juga item antrean berikutnya di outbox yang mereferensikan entityId lokal ini
+      const dependentOutboxItems = await offlineDb.outbox
+        .filter(ob => ob.module === 'sales_activity' && ob.entityId === item.entityId && ob.id !== item.id)
+        .toArray();
+      for (const dep of dependentOutboxItems) {
+        await offlineDb.outbox.update(dep.id, {
+          payload: {
+            ...dep.payload,
+            serverId: serverRecord.id
+          }
+        });
+      }
+
+      return { success: true, serverRecord };
     }
 
     // 2. DINAS LUAR (DAILY PROGRESS) SYNC

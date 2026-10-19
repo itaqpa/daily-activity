@@ -26,12 +26,14 @@ export function AuthProvider({ children }) {
         localStorage.setItem('user', JSON.stringify(data.user)); // update cache
         return data.user;
       } else if (response.status === 401) {
+        // Hanya hapus jika server secara eksplisit mengembalikan 401 Unauthorized (token invalid/expired)
         setUser(null);
         localStorage.removeItem('token');
         localStorage.removeItem('user');
       }
     } catch (err) {
-      console.error('Failed to refresh user session', err);
+      // Jika jaringan mati / server down, tetap gunakan cached user session dari localStorage
+      console.warn('Network error or server down during user refresh, keeping cached session:', err.message);
     }
     return null;
   };

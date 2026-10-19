@@ -100,6 +100,44 @@ export default function RiwayatAktivitas() {
     }
   };
 
+  const handleDeleteActivity = async (act) => {
+    if (!window.confirm(`Apakah Anda yakin ingin menghapus aktivitas pada tanggal ${formatDate(act.tanggal)}?`)) {
+      return;
+    }
+
+    try {
+      // 1. Jalankan penghapusan di offline engine (menghapus lokal & mengantrekan DELETE outbox)
+      await offlineEngine.deleteSalesActivity(act.id, user?.id);
+
+      // 2. Jika online, coba kirim langsung ke endpoint DELETE jika punya ID server
+      const targetId = act.serverId || (String(act.id).startsWith('local_') ? null : act.id);
+      if (navigator.onLine && targetId) {
+        try {
+          const res = await fetch(apiUrl(`/activities/${targetId}`), {
+            method: 'DELETE'
+          });
+          if (res.ok) {
+            // Berhasil di server: bersihkan dari antrean outbox jika ada
+            const pendingOutbox = await offlineDb.outbox
+              .filter(ob => ob.module === 'sales_activity' && ob.action === 'DELETE' && ob.entityId === String(act.id))
+              .toArray();
+            for (const item of pendingOutbox) {
+              await offlineDb.outbox.delete(item.id);
+            }
+          }
+        } catch (netErr) {
+          console.warn('Network error during online delete, queued in outbox for auto-sync:', netErr);
+        }
+      }
+
+      // 3. Update state di UI
+      setActivities(prev => prev.filter(item => String(item.id) !== String(act.id)));
+    } catch (err) {
+      console.error('Error deleting activity:', err);
+      alert('Gagal menghapus aktivitas: ' + err.message);
+    }
+  };
+
   const getDitemuiText = (act) => {
      try {
        let ditemuiArr = act.ditemui;
@@ -360,7 +398,11 @@ export default function RiwayatAktivitas() {
                     <td className="py-3 px-4 text-gray-600 max-w-[300px] truncate" title={act.catatan}>{act.catatan || '-'}</td>
                     {canAction && (
                       <td className="py-3 px-4 text-center">
-                         <button className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition-colors" title="Hapus">
+                         <button 
+                           onClick={() => handleDeleteActivity(act)}
+                           className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition-colors" 
+                           title="Hapus"
+                         >
                            <Trash2 size={16} />
                          </button>
                       </td>
@@ -421,7 +463,11 @@ export default function RiwayatAktivitas() {
                 
                 {canAction && (
                   <div className="pt-3 mt-1 border-t border-gray-100 flex justify-end">
-                     <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-200" title="Hapus">
+                     <button 
+                       onClick={() => handleDeleteActivity(act)}
+                       className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-200" 
+                       title="Hapus"
+                     >
                        <Trash2 size={14} /> Hapus
                      </button>
                   </div>
