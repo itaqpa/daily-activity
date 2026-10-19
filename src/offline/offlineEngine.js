@@ -100,6 +100,128 @@ class OfflineEngine {
   }
 
   // =========================================================================
+  // BACKGROUND AUTO-DOWNLOAD & PRE-CACHE SEMUA MODUL SESUAI IZIN/ROLE USER
+  // =========================================================================
+  async syncAuthorizedData(user) {
+    if (!navigator.onLine || !user) return;
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    const perms = Array.isArray(user.permissions) ? user.permissions : [];
+    const bypass = Array.isArray(user.explicit_bypass_permissions) ? user.explicit_bypass_permissions : [];
+    const hasPerm = (p) => perms.includes(p) || bypass.includes(p) || user.jabatan === 'Super Admin';
+
+    console.log('[Offline Engine] Menjalankan Background Auto-Download Data untuk User:', user.name || user.username);
+
+    // 1. Modul Daily Activity Sales
+    if (hasPerm('aktivitas_view') || hasPerm('riwayat_aktivitas_view') || hasPerm('dashboard_view')) {
+      try {
+        const [actRes, custRes, salesRes] = await Promise.all([
+          fetch(apiUrl('/activities')).catch(() => null),
+          fetch(apiUrl('/customers')).catch(() => null),
+          fetch(apiUrl('/sales')).catch(() => null)
+        ]);
+
+        if (actRes && actRes.ok) {
+          const acts = await actRes.json();
+          if (Array.isArray(acts)) {
+            // Simpan ke IndexedDB activities
+            for (const act of acts.slice(0, 300)) {
+              await offlineDb.activities.put({
+                id: `server_${act.id}`,
+                serverId: act.id,
+                userId: Number(act.user_id || 0),
+                syncStatus: 'synced',
+                ...act,
+                updatedAt: act.updated_at || act.created_at || new Date().toISOString()
+              }).catch(() => {});
+            }
+          }
+        }
+
+        if (custRes && custRes.ok) {
+          const custs = await custRes.json();
+          await this.cacheReference('customers_list', 'sales_activity', custs, user.id);
+        }
+
+        if (salesRes && salesRes.ok) {
+          const sales = await salesRes.json();
+          await this.cacheReference('sales_list', 'sales_activity', sales, user.id);
+        }
+      } catch (err) {
+        console.warn('[Offline Engine] Background sync Daily Activity Sales warning:', err);
+      }
+    }
+
+    // 2. Modul Survey Product
+    if (hasPerm('survey_product_view') || hasPerm('survey_product_create')) {
+      try {
+        const surveyRes = await fetch(apiUrl('survey-engine/product-drafts')).catch(() => null);
+        if (surveyRes && surveyRes.ok) {
+          const sData = await surveyRes.json();
+          const sList = Array.isArray(sData.data) ? sData.data : [];
+          await this.cacheReference('survey_products_list', 'survey_product', sList, user.id);
+
+          // Pre-cache item draft ke IndexedDB
+          for (const item of sList) {
+            await offlineDb.surveyDrafts.put({
+              id: String(item.id),
+              serverId: item.id,
+              userId: Number(user?.id || 0),
+              noSurvey: item.no_survey,
+              status: item.status || 'Draft',
+              data: {
+                no_survey: item.no_survey,
+                nama_client: item.nama_client,
+                plant_area: item.plant_area,
+                alamat_lokasi: item.alamat_lokasi,
+                tanggal_mulai: item.tanggal_mulai,
+                nama_surveyor: item.nama_surveyor,
+                nama_marketing: item.nama_marketing,
+                pic_client: item.pic_client,
+                kontak_pic: item.kontak_pic,
+                no_inquiry: item.no_inquiry,
+                tujuan_survey: item.tujuan_survey,
+                status: item.status,
+                selectedProducts: (item.selected_products || []).map(p => p.nama_produk || p.code || p),
+                schedules: item.schedules || []
+              },
+              persiapan: null,
+              lapangan: null,
+              syncStatus: 'synced',
+              updatedAt: new Date().toISOString()
+            }).catch(() => {});
+          }
+        }
+      } catch (err) {
+        console.warn('[Offline Engine] Background sync Survey Product warning:', err);
+      }
+    }
+
+    // 3. Modul Dinas Luar (Installation Project)
+    if (hasPerm('install_project_view') || hasPerm('pengeluaran_view')) {
+      try {
+        const [projRes, costRes] = await Promise.all([
+          fetch(apiUrl('/projects')).catch(() => null),
+          fetch(apiUrl('/report/all-costs')).catch(() => null)
+        ]);
+
+        if (projRes && projRes.ok) {
+          const projs = await projRes.json();
+          await this.cacheReference('projects_list', 'dinas_luar', projs, user.id);
+        }
+
+        if (costRes && costRes.ok) {
+          const costs = await costRes.json();
+          await this.cacheReference('costs_report_list', 'dinas_luar', costs, user.id);
+        }
+      } catch (err) {
+        console.warn('[Offline Engine] Background sync Dinas Luar warning:', err);
+      }
+    }
+  }
+
+  // =========================================================================
   // ATTACHMENT BLOB STORAGE
   // =========================================================================
   async saveAttachmentBlob({ id, userId, entityType, entityId, blob, meta = {} }) {

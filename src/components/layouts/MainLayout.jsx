@@ -145,18 +145,21 @@ export default function MainLayout({ children }) {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Initial check on load
+    // Initial check on load: sinkronkan antrean outbox dan auto-download data modul user
     if (navigator.onLine) {
       offlineEngine.triggerSync();
       syncOfflineActivities();
       syncOfflineCustomers();
+      if (user) {
+        offlineEngine.syncAuthorizedData(user);
+      }
     }
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, []);
+  }, [user]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');

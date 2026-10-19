@@ -131,9 +131,9 @@ export default function FormSurveyProductPage() {
         let result = null;
         try {
           const response = await fetch(apiUrl(`survey-engine/product-drafts/${editId}`));
-          if (response.ok) {
+          if (response && response.ok) {
             result = await response.json();
-            // Cache draft ini
+            // Simpan / update cache offline draft di IndexedDB
             await offlineDb.surveyDrafts.put({
               id: String(editId),
               serverId: editId,
@@ -148,15 +148,47 @@ export default function FormSurveyProductPage() {
             });
           }
         } catch (netErr) {
-          console.warn('Network error fetching survey draft, looking up offlineDb:', netErr);
-          const cached = await offlineDb.surveyDrafts.get(String(editId));
+          console.warn('Network error fetching survey draft:', netErr);
+        }
+
+        // Jika result belum didapat dari online fetch (server mati / offline / non-200),
+        // cari di offlineDb.surveyDrafts baik berdasarkan id maupun serverId
+        if (!result) {
+          const cached = await offlineDb.surveyDrafts.get(String(editId)) ||
+                         await offlineDb.surveyDrafts.where('serverId').equals(Number(editId) || editId).first();
           if (cached) {
+            console.log('[Offline Form] Menemukan draft di IndexedDB:', cached);
             result = cached;
           }
         }
 
+        // Fallback ketiga: cari di cached reference survey_products_list jika ada
         if (!result) {
-          throw new Error('Gagal mengambil data survey product');
+          const list = await offlineEngine.getReference('survey_products_list');
+          if (Array.isArray(list)) {
+            const foundInList = list.find(item => String(item.id) === String(editId));
+            if (foundInList) {
+              console.log('[Offline Form] Menemukan data di cached survey_products_list:', foundInList);
+              result = {
+                id: foundInList.id,
+                survey_id: foundInList.id,
+                data: {
+                  no_survey: foundInList.no_survey,
+                  nama_client: foundInList.nama_client,
+                  plant_area: foundInList.plant_area,
+                  status: foundInList.status,
+                  selectedProducts: (foundInList.selected_products || []).map(p => p.nama_produk || p.code || p),
+                  schedules: foundInList.schedules || []
+                },
+                persiapan: null,
+                lapangan: null
+              };
+            }
+          }
+        }
+
+        if (!result) {
+          throw new Error('Gagal mengambil data survey product. Data belum tersimpan di cache offline.');
         }
 
         setSurveyDraftId(result.survey_id || result.id);

@@ -43,6 +43,37 @@ export default function SurveyProductList() {
             const result = await response.json();
             rawList = Array.isArray(result.data) ? result.data : [];
             await offlineEngine.cacheReference('survey_products_list', 'survey_product', rawList);
+
+            // Pre-cache item draft ke offlineDb agar saat offline dibuka, datanya langsung ada (tidak 0)
+            rawList.forEach(item => {
+              offlineDb.surveyDrafts.put({
+                id: String(item.id),
+                serverId: item.id,
+                userId: Number(user?.id || 0),
+                noSurvey: item.no_survey,
+                status: item.status || 'Draft',
+                data: {
+                  no_survey: item.no_survey,
+                  nama_client: item.nama_client,
+                  plant_area: item.plant_area,
+                  alamat_lokasi: item.alamat_lokasi,
+                  tanggal_mulai: item.tanggal_mulai,
+                  nama_surveyor: item.nama_surveyor,
+                  nama_marketing: item.nama_marketing,
+                  pic_client: item.pic_client,
+                  kontak_pic: item.kontak_pic,
+                  no_inquiry: item.no_inquiry,
+                  tujuan_survey: item.tujuan_survey,
+                  status: item.status,
+                  selectedProducts: (item.selected_products || []).map(p => p.nama_produk || p.code || p),
+                  schedules: item.schedules || []
+                },
+                persiapan: null,
+                lapangan: null,
+                syncStatus: 'synced',
+                updatedAt: new Date().toISOString()
+              }).catch(() => {});
+            });
           }
         } catch (netErr) {
           console.warn('Network error fetching surveys, checking cache:', netErr);
