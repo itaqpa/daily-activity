@@ -19,6 +19,7 @@ import {
 import { apiUrl } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { cacheUserCredentials, verifyOfflineLogin } from '../offline/auth';
+import { offlineEngine } from '../offline/offlineEngine';
 
 export default function Login() {
   const { updateUser } = useAuth();
@@ -76,6 +77,12 @@ export default function Login() {
           updateUser(data.user);
           // Simpan kredensial secara aman untuk offline login berkala
           await cacheUserCredentials(data.user, password, data.token);
+          // Pemicu langsung: download & simpan seluruh data modul ke storage lokal sebelum pindah halaman
+          try {
+            await offlineEngine.syncAuthorizedData(data.user);
+          } catch (syncErr) {
+            console.warn('Auto download error on login:', syncErr);
+          }
         }
 
         if (rememberMe) {
