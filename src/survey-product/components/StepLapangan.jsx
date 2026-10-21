@@ -1,19 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MapPin, Box, Plus, Trash2, ChevronRight, X, Download, Share2 } from 'lucide-react';
 import DynamicProductForm from './modals/DynamicProductForm';
 import { exportToPDF, generatePreviewHTML } from '../utils/pdfExport';
 import { useAuth } from '../../context/AuthContext';
+import { DEFAULT_PRODUCT_LIST, fetchSurveyProducts } from '../utils/surveyProductHelper';
 
-export const PRODUCT_LIST = [
-  { code: 'EJR', name: 'Expansion Joint Rubber', category: 'Expansion joint' },
-  { code: 'EJM', name: 'Expansion Joint Metal', category: 'Expansion joint' },
-  { code: 'EJF', name: 'Expansion Joint Fabric', category: 'Expansion joint' },
-  { code: 'SWG', name: 'Spiral Wound Gasket', category: 'Gasket' },
-  { code: 'GMG', name: 'Grooved Metal Gasket', category: 'Gasket' },
-  { code: 'RTI', name: 'Removable Thermal Insulation', category: 'Insulasi' },
-  { code: 'GPP', name: 'Gland Packing', category: 'Packing' },
-  { code: 'DFG', name: 'Die Formed Graphite', category: 'Packing' }
-];
+export const PRODUCT_LIST = DEFAULT_PRODUCT_LIST;
 
 export const createEmptyLapanganData = () => {
   const today = new Date().toISOString().split('T')[0];
@@ -25,6 +17,18 @@ export const createEmptyLapanganData = () => {
 
 export default function StepLapangan({ data = createEmptyLapanganData(), stepData = {}, onChange, readOnly = false }) {
   const { user } = useAuth();
+  const [availableProducts, setAvailableProducts] = useState(DEFAULT_PRODUCT_LIST);
+
+  useEffect(() => {
+    let isMounted = true;
+    fetchSurveyProducts().then(prods => {
+      if (isMounted && Array.isArray(prods) && prods.length > 0) {
+        setAvailableProducts(prods);
+      }
+    });
+    return () => { isMounted = false; };
+  }, []);
+
   const actualSchedules = data.actualSchedules?.length ? data.actualSchedules : createEmptyLapanganData().actualSchedules;
   const productProgress = data.productProgress || [];
   const [isAddingProduct, setIsAddingProduct] = useState(false);
@@ -255,7 +259,7 @@ export default function StepLapangan({ data = createEmptyLapanganData(), stepDat
           <div className="mb-6 bg-purple-50 p-4 rounded-xl border border-purple-100">
             <h3 className="text-sm font-bold text-purple-800 mb-3">Pilih Jenis Produk:</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-              {PRODUCT_LIST.map(product => (
+              {availableProducts.map(product => (
                 <button
                   key={product.code}
                   onClick={() => handleAddProduct(product)}

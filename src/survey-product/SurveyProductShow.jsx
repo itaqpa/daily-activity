@@ -41,6 +41,7 @@ import {
 import MainLayout from '../components/layouts/MainLayout';
 import { apiUrl } from '../api';
 import { PRODUCT_LIST } from './components/StepData';
+import { fetchSurveyProducts } from './utils/surveyProductHelper';
 import DynamicProductForm from './components/modals/DynamicProductForm';
 import { exportToPDF, generatePreviewHTML } from './utils/pdfExport';
 
@@ -150,6 +151,18 @@ export default function SurveyProductShow() {
   const [popupType, setPopupType] = useState(null); // null | 'checklist' | 'report'
   const [popupScale, setPopupScale] = useState(1);
   const popupIframeRef = useRef(null);
+  const [availableProducts, setAvailableProducts] = useState(PRODUCT_LIST);
+
+  useEffect(() => {
+    let isMounted = true;
+    fetchSurveyProducts().then(prods => {
+      if (isMounted && Array.isArray(prods) && prods.length > 0) {
+        setAvailableProducts(prods);
+      }
+    });
+    return () => { isMounted = false; };
+  }, []);
+
   const [mobileDropdownOpen, setMobileDropdownOpen] = useState(false);
   const mobileDropdownRef = useRef(null);
 
@@ -203,9 +216,9 @@ export default function SurveyProductShow() {
 
   const selectedProducts = useMemo(() => {
     return (stepData.selectedProducts || []).map((code) => {
-      return PRODUCT_LIST.find((p) => p.code === code) || { code, name: code, category: 'Lainnya' };
+      return (availableProducts || PRODUCT_LIST).find((p) => p.code === code) || { code, name: code, category: 'Lainnya' };
     });
-  }, [stepData.selectedProducts]);
+  }, [stepData.selectedProducts, availableProducts]);
 
   const actualProducts = useMemo(() => {
     return lapanganData.productProgress || [];
@@ -1251,7 +1264,7 @@ export default function SurveyProductShow() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {PRODUCT_LIST.filter(
+                    {(availableProducts || PRODUCT_LIST).filter(
                       (p) =>
                         (stepData.selectedProducts || []).includes(p.code) ||
                         actualProducts.some((ap) => ap.code === p.code)
@@ -1303,7 +1316,7 @@ export default function SurveyProductShow() {
 
               {/* Mobile Card View */}
               <div className="md:hidden space-y-2">
-                {PRODUCT_LIST.filter(
+                {(availableProducts || PRODUCT_LIST).filter(
                   (p) =>
                     (stepData.selectedProducts || []).includes(p.code) ||
                     actualProducts.some((ap) => ap.code === p.code)

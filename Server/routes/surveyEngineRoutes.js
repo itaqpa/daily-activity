@@ -1328,6 +1328,80 @@ export default function (pool) {
     }
   });
 
+  // 1b. POST /admin/products - Create a new survey product and link to template
+  router.post('/admin/products', async (req, res) => {
+    const client = await pool.connect();
+    try {
+      const { code, name } = req.body;
+      const cleanCode = (code || '').trim().toUpperCase();
+      const cleanName = (name || '').trim();
+
+      if (!cleanCode || !cleanName) {
+        return res.status(400).json({ error: 'Kode produk dan nama produk wajib diisi' });
+      }
+
+      await client.query('BEGIN');
+      await client.query('SET search_path TO survey_engine, public');
+      await client.query("SET LOCAL survey_engine.allow_admin_override = 'on'");
+
+      // 1. Insert or activate product in survey_engine.products
+      const prodResult = await client.query(`
+        INSERT INTO survey_engine.products (code, name, is_active, updated_at)
+        VALUES ($1, $2, true, NOW())
+        ON CONFLICT (code) DO UPDATE
+          SET name = EXCLUDED.name,
+              is_active = true,
+              updated_at = NOW()
+        RETURNING id, code, name, is_active
+      `, [cleanCode, cleanName]);
+
+      const product = prodResult.rows[0];
+
+      // 2. Link to active template_products for published version of GTE_PRODUCT_SURVEY
+      await client.query(`
+        INSERT INTO survey_engine.template_products (version_id, product_id)
+        SELECT v.id, $1
+        FROM survey_engine.survey_template_versions v
+        JOIN survey_engine.survey_templates t ON v.template_id = t.id
+        WHERE t.code = 'GTE_PRODUCT_SURVEY' AND v.status = 'published'
+        ON CONFLICT DO NOTHING
+      `, [product.id]);
+
+      await client.query('COMMIT');
+      res.status(201).json(product);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('Error creating admin product:', error);
+      res.status(500).json({ error: error.message || 'Gagal menyimpan produk baru' });
+    } finally {
+      client.release();
+    }
+  });
+
+  // 1c. DELETE /admin/products/:code - Deactivate a survey product
+  router.delete('/admin/products/:code', async (req, res) => {
+    try {
+      const { code } = req.params;
+      const cleanCode = (code || '').trim().toUpperCase();
+
+      const result = await pool.query(`
+        UPDATE survey_engine.products
+        SET is_active = false, updated_at = NOW()
+        WHERE code = $1
+        RETURNING id, code, name, is_active
+      `, [cleanCode]);
+
+      if (result.rowCount === 0) {
+        return res.status(404).json({ error: 'Produk tidak ditemukan' });
+      }
+
+      res.json({ message: 'Produk berhasil dinonaktifkan', product: result.rows[0] });
+    } catch (error) {
+      console.error('Error deleting admin product:', error);
+      res.status(500).json({ error: error.message || 'Gagal menghapus produk' });
+    }
+  });
+
   // 2. GET /admin/sections - List all distinct sections grouped by name (optionally filtered by product_code)
   router.get('/admin/sections', async (req, res) => {
     try {

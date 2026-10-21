@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Download, Share2 } from 'lucide-react';
 import { PRODUCT_LIST } from './StepData';
+import { fetchSurveyProducts } from '../utils/surveyProductHelper';
 import { exportToPDF, generatePreviewHTML } from '../utils/pdfExport';
 
 const formatDate = (value) => {
@@ -20,13 +21,25 @@ const countPhotos = (products) => products.reduce((total, product) => {
   }, 0);
 }, 0);
 
-const getProduct = (code) => PRODUCT_LIST.find(product => product.code === code) || { code, name: code };
-
-const productCodesFromText = (text = '') => PRODUCT_LIST
-  .filter(product => new RegExp(`\\b${product.code}\\b`, 'i').test(text))
-  .map(product => product.code);
-
 export default function StepSummary({ stepData = {}, lapanganData = {}, onChange, readOnly = false }) {
+  const [availableProducts, setAvailableProducts] = useState(PRODUCT_LIST);
+
+  useEffect(() => {
+    let isMounted = true;
+    fetchSurveyProducts().then(prods => {
+      if (isMounted && Array.isArray(prods) && prods.length > 0) {
+        setAvailableProducts(prods);
+      }
+    });
+    return () => { isMounted = false; };
+  }, []);
+
+  const getProduct = (code) => (availableProducts || PRODUCT_LIST).find(product => product.code === code) || { code, name: code };
+
+  const productCodesFromText = (text = '') => (availableProducts || PRODUCT_LIST)
+    .filter(product => new RegExp(`\\b${product.code}\\b`, 'i').test(text))
+    .map(product => product.code);
+
   const [previewHtml, setPreviewHtml] = useState(null);
   const [previewScale, setPreviewScale] = useState(1);
 
@@ -35,7 +48,7 @@ export default function StepSummary({ stepData = {}, lapanganData = {}, onChange
   const actualSchedules = lapanganData.actualSchedules || [];
   const actualProducts = lapanganData.productProgress || [];
   const actualCodes = [...new Set(actualProducts.map(product => product.code).filter(Boolean))];
-  const summaryCodes = PRODUCT_LIST
+  const summaryCodes = (availableProducts || PRODUCT_LIST)
     .map(product => product.code)
     .filter(code => plannedCodes.includes(code) || actualCodes.includes(code));
 

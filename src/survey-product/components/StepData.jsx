@@ -4,17 +4,9 @@ import CreatableSelect from 'react-select/creatable';
 import { Building2, MapPin, Calendar, User, Phone, FileText, Target, Plus, Trash2, PackageOpen, CalendarDays, Users, Printer, ClipboardCheck } from 'lucide-react';
 import { apiUrl } from '../../api';
 import { useAuth } from '../../context/AuthContext';
+import { DEFAULT_PRODUCT_LIST, fetchSurveyProducts } from '../utils/surveyProductHelper';
 
-export const PRODUCT_LIST = [
-  { code: 'EJR', name: 'Expansion Joint Rubber', category: 'Expansion joint' },
-  { code: 'EJM', name: 'Expansion Joint Metal', category: 'Expansion joint' },
-  { code: 'EJF', name: 'Expansion Joint Fabric', category: 'Expansion joint' },
-  { code: 'SWG', name: 'Spiral Wound Gasket', category: 'Gasket' },
-  { code: 'GMG', name: 'Grooved Metal Gasket', category: 'Gasket' },
-  { code: 'RTI', name: 'Removable Thermal Insulation', category: 'Insulasi' },
-  { code: 'GPP', name: 'Gland Packing', category: 'Packing' },
-  { code: 'DFG', name: 'Die Formed Graphite', category: 'Packing' }
-];
+export const PRODUCT_LIST = DEFAULT_PRODUCT_LIST;
 
 export const createEmptyStepData = () => ({
   created_by: '',
@@ -41,8 +33,20 @@ export const createEmptyStepData = () => ({
 export default function StepData({ data = createEmptyStepData(), persiapanData = null, onChange, readOnly = false }) {
   const { user } = useAuth();
   
-  // Constants
+  // Constants & Dynamic Products
   const selectedProducts = data.selectedProducts || [];
+  const [availableProducts, setAvailableProducts] = useState(DEFAULT_PRODUCT_LIST);
+
+  useEffect(() => {
+    let isMounted = true;
+    fetchSurveyProducts().then(prods => {
+      if (isMounted && Array.isArray(prods) && prods.length > 0) {
+        setAvailableProducts(prods);
+      }
+    });
+    return () => { isMounted = false; };
+  }, []);
+
   const schedules = (data.schedules?.length ? data.schedules : createEmptyStepData().schedules)
     .map((schedule, index) => ({ ...schedule, hari: index + 1 }));
   const persiapanMasterData = persiapanData?.masterData || [];
@@ -546,7 +550,7 @@ export default function StepData({ data = createEmptyStepData(), persiapanData =
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {PRODUCT_LIST.map((product) => {
+          {availableProducts.map((product) => {
             const isSelected = selectedProducts.includes(product.code);
             return (
               <label 

@@ -17,12 +17,15 @@ import {
   ToggleRight,
   Tag,
   RotateCcw,
-  GitBranch
+  GitBranch,
+  Package
 } from 'lucide-react';
 import MainLayout from '../../components/layouts/MainLayout';
 import { apiUrl } from '../../api';
 import { useAuth } from '../../context/AuthContext';
 import ModalQuestionForm from './components/ModalQuestionForm';
+import ModalManageProducts from './components/ModalManageProducts';
+import { fetchSurveyProducts } from '../../survey-product/utils/surveyProductHelper';
 
 export default function SurveyQuestionPage() {
   const { hasPermission, user } = useAuth();
@@ -58,6 +61,7 @@ export default function SurveyQuestionPage() {
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState(null);
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
 
   // Feedback Toast state
   const [toast, setToast] = useState(null);
@@ -68,16 +72,17 @@ export default function SurveyQuestionPage() {
   };
 
   // Fetch initial products
+  const loadProducts = async () => {
+    try {
+      const data = await fetchSurveyProducts();
+      if (Array.isArray(data)) setProducts(data);
+    } catch (err) {
+      console.error('Failed to fetch products:', err);
+    }
+  };
+
   useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const prodRes = await fetch(apiUrl('survey-engine/admin/products'));
-        if (prodRes.ok) setProducts(await prodRes.json());
-      } catch (err) {
-        console.error('Failed to fetch products:', err);
-      }
-    };
-    fetchProducts();
+    loadProducts();
   }, []);
 
   // Fetch sections correlated with selected filterProduct
@@ -322,15 +327,28 @@ export default function SurveyQuestionPage() {
             </p>
           </div>
 
-          {canCreate && (
-            <button
-              onClick={handleOpenAdd}
-              className="relative z-10 self-start sm:self-center inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-bold text-sm rounded-xl shadow-md transition-all shrink-0 cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Tambah Pertanyaan</span>
-            </button>
-          )}
+          <div className="relative z-10 self-start sm:self-center flex flex-wrap items-center gap-2.5">
+            {isSuperAdmin && (
+              <button
+                type="button"
+                onClick={() => setIsProductModalOpen(true)}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-800/80 hover:bg-slate-700/90 active:scale-95 text-white font-bold text-sm rounded-xl border border-slate-700 shadow-md transition-all shrink-0 cursor-pointer"
+              >
+                <Package className="w-4 h-4 text-blue-400" />
+                <span>Kelola Produk</span>
+              </button>
+            )}
+
+            {canCreate && (
+              <button
+                onClick={handleOpenAdd}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-bold text-sm rounded-xl shadow-md transition-all shrink-0 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Tambah Pertanyaan</span>
+              </button>
+            )}
+          </div>
 
           {/* Decorative Background Glow */}
           <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -898,6 +916,17 @@ export default function SurveyQuestionPage() {
           products={products}
           sections={sections}
           allQuestions={allQuestionsPool.length > 0 ? allQuestionsPool : questions}
+        />
+
+        {/* Modal Kelola Produk */}
+        <ModalManageProducts
+          isOpen={isProductModalOpen}
+          onClose={() => setIsProductModalOpen(false)}
+          products={products}
+          onProductsUpdated={() => {
+            loadProducts();
+            showToast('Daftar produk berhasil diperbarui');
+          }}
         />
       </div>
     </MainLayout>

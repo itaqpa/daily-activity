@@ -13,6 +13,7 @@ import StepData, { createEmptyStepData, PRODUCT_LIST } from '../components/StepD
 import StepPersiapan, { createEmptyPersiapanData } from '../components/StepPersiapan';
 import StepLapangan, { createEmptyLapanganData } from '../components/StepLapangan';
 import StepSummary from '../components/StepSummary';
+import { fetchSurveyProducts } from '../utils/surveyProductHelper';
 
 const ALL_STEPS = [
   { id: 1, title: 'Data' },
@@ -38,6 +39,17 @@ export default function FormSurveyProductPage() {
   
 
   const [currentStep, setCurrentStep] = useState(1);
+  const [availableProducts, setAvailableProducts] = useState(PRODUCT_LIST);
+
+  useEffect(() => {
+    let isMounted = true;
+    fetchSurveyProducts().then(prods => {
+      if (isMounted && Array.isArray(prods) && prods.length > 0) {
+        setAvailableProducts(prods);
+      }
+    });
+    return () => { isMounted = false; };
+  }, []);
   
   const [stepData, setStepData] = useState(createEmptyStepData());
   const [persiapanData, setPersiapanData] = useState(createEmptyPersiapanData());
@@ -237,7 +249,7 @@ export default function FormSurveyProductPage() {
     setIsSavingDraft(true);
     try {
       const selectedProducts = (stepData.selectedProducts || []).map(code => {
-        const product = PRODUCT_LIST.find(item => item.code === code);
+        const product = (availableProducts || PRODUCT_LIST).find(item => item.code === code);
         return product || { code, name: code };
       });
       
