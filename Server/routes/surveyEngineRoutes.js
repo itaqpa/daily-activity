@@ -1378,7 +1378,37 @@ export default function (pool) {
     }
   });
 
-  // 1c. DELETE /admin/products/:code - Deactivate a survey product
+  // 1c. PUT /admin/products/:code - Update a survey product
+  router.put('/admin/products/:code', async (req, res) => {
+    try {
+      const { code } = req.params;
+      const { name } = req.body;
+      const cleanCode = (code || '').trim().toUpperCase();
+      const cleanName = (name || '').trim();
+
+      if (!cleanName) {
+        return res.status(400).json({ error: 'Nama produk wajib diisi' });
+      }
+
+      const result = await pool.query(`
+        UPDATE survey_engine.products
+        SET name = $1, updated_at = NOW()
+        WHERE code = $2
+        RETURNING id, code, name, is_active
+      `, [cleanName, cleanCode]);
+
+      if (result.rowCount === 0) {
+        return res.status(404).json({ error: 'Produk tidak ditemukan' });
+      }
+
+      res.json(result.rows[0]);
+    } catch (error) {
+      console.error('Error updating admin product:', error);
+      res.status(500).json({ error: error.message || 'Gagal mengubah produk' });
+    }
+  });
+
+  // 1d. DELETE /admin/products/:code - Deactivate a survey product
   router.delete('/admin/products/:code', async (req, res) => {
     try {
       const { code } = req.params;
