@@ -81,6 +81,33 @@ export async function createSurveyProduct(productData) {
 }
 
 /**
+ * Mengubah data nama produk survey
+ */
+export async function updateSurveyProduct(productCode, productData) {
+  const token = localStorage.getItem('token');
+  const headers = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(apiUrl(`survey-engine/admin/products/${productCode}`), {
+    method: 'PUT',
+    headers,
+    body: JSON.stringify(productData)
+  });
+
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.error || errData.message || 'Gagal memperbarui produk');
+  }
+
+  return await res.json();
+}
+
+/**
  * Menghapus atau menonaktifkan produk
  */
 export async function deleteSurveyProduct(productCode) {
