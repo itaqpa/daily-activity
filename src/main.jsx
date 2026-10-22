@@ -72,7 +72,7 @@ window.fetch = async (...args) => {
     urlString.includes('/api/customers') ||
     urlString.includes('/api/sales') ||
     urlString.includes('/api/report/all-costs') ||
-    urlString.includes('/api/projects') ||
+    urlString.includes('/api/install-projects') ||
     urlString.includes('/api/installation-project') ||
     urlString.includes('/api/survey-engine') ||
     urlString.includes('/api/surveys')

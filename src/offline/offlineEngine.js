@@ -202,7 +202,7 @@ class OfflineEngine {
     if (hasPerm('install_project_view') || hasPerm('pengeluaran_view')) {
       try {
         const [projRes, costRes] = await Promise.all([
-          fetch(apiUrl('/projects')).catch(() => null),
+          fetch(apiUrl('/install-projects')).catch(() => null),
           fetch(apiUrl('/report/all-costs')).catch(() => null)
         ]);
 
