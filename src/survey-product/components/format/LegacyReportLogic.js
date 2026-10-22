@@ -371,13 +371,25 @@ function newItem(s,prod,tag){ const n=s.items.filter(i=>i.prod===prod).length+1;
 function dayLabel(s,id){ const i=s.days.findIndex(d=>d.id===id); if(i<0) return '—'; const d=s.days[i]; return 'Hari '+(i+1)+(d.date?' ('+fmtDate(d.date)+')':''); }
 function fmtDate(d){ try{ const x=new Date(d+'T00:00:00'); return x.toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'}); }catch(e){ return d; } }
 function surveyLabel(s){ return (s.info.client||'Survey tanpa nama')+(s.info.tanggal?' — '+s.info.tanggal:''); }
-function visSecs(it){ return P[it.prod].secs.filter(s=>!s.show||s.show(it.f)); }
-function visFields(sec,it){ return sec.f.filter(f=>!f.show||f.show(it.f)); }
-function critList(it){ const out=[]; visSecs(it).forEach(sec=>visFields(sec,it).forEach(f=>{ if(f.crit) out.push(Object.assign({sec:sec.id,st:sec.t},f)); })); return out; }
-function missing(it){ return critList(it).filter(c=>!filled(it.f[c.k])); }
+function visSecs(it){
+  if (!it || !it.prod || !P[it.prod] || !Array.isArray(P[it.prod].secs)) return [];
+  return P[it.prod].secs.filter(s=>!s.show||s.show(it.f));
+}
+function visFields(sec,it){
+  if (!sec || !Array.isArray(sec.f)) return [];
+  return sec.f.filter(f=>!f.show||f.show(it ? it.f : {}));
+}
+function critList(it){
+  const out=[];
+  visSecs(it).forEach(sec=>visFields(sec,it).forEach(f=>{
+    if(f.crit) out.push(Object.assign({sec:sec.id,st:sec.t},f));
+  }));
+  return out;
+}
+function missing(it){ return critList(it).filter(c=>!filled(it?.f?.[c.k])); }
 function pct(it){ const c=critList(it); return c.length?Math.round(100*(c.length-missing(it).length)/c.length):100; }
-function fdef(it,k){ return P[it.prod].fmap[k]; }
-function tolOf(it){ const t=N(it.f.tol); return t==null?3:t; }
+function fdef(it,k){ return (it?.prod && P[it.prod]?.fmap) ? P[it.prod].fmap[k] : null; }
+function tolOf(it){ const t=N(it?.f?.tol); return t==null?3:t; }
 
 /* =========================================================
    PERSISTENCE
@@ -442,6 +454,7 @@ function flangeRow(std,size){
   return rows.find(x=>{ const m=x[0].match(/\((.*)\)/); return sz===norm(x[0])||sz===norm(x[0].split(' ')[0])||(m&&sz===norm(m[1])); })||null;
 }
 function validate(it){
+  if (!it || !it.f || !it.prod || !P[it.prod]) return [];
   const f=it.f, out=[], tol=tolOf(it), prod=it.prod;
   const add=(l,m)=>out.push({l,m});
   const cmp=(label,meas,ref,src,t)=>{ const v=N(meas); if(v==null||ref==null) return; const d=v-ref, tt=t==null?tol:t;
@@ -748,7 +761,8 @@ function reportBody(s,photoMap){
   h+='<h2>'+(++n)+'. Jadwal & progres per hari</h2><div class="tw"><table><thead><tr><th>Hari</th><th>Tanggal</th><th>Rencana</th><th>Item disurvey</th></tr></thead><tbody>'+s.days.map((d,i)=>{ const its=s.items.filter(it=>it.f.day===d.id); return '<tr><td>'+(i+1)+'</td><td>'+esc(fmtDate(d.date))+'</td><td>'+esc(d.plan||'')+'</td><td>'+(its.length?its.map(it=>esc(it.prod+' '+(it.f.tag||''))).join(', '):'—')+'</td></tr>'; }).join('')+'</tbody></table></div>';
   h+='<h2>'+(++n)+'. Rekap per produk</h2>'+(sc.length?'<div class="tw"><table><thead><tr><th>Produk</th><th>Jumlah item</th><th>Total qty</th><th>Kelengkapan rata-rata</th><th>Error validasi</th><th>Peringatan</th></tr></thead><tbody>'+sc.map(c=>{ const its=s.items.filter(i=>i.prod===c); const q=its.reduce((a,i)=>a+(N(i.f.qty)||0),0); const e=its.reduce((a,i)=>a+vcount(i).err,0), w=its.reduce((a,i)=>a+vcount(i).warn,0); return '<tr><td><b>'+c+'</b> '+esc(P[c].name)+'</td><td>'+its.length+'</td><td>'+fmt(q)+'</td><td>'+Math.round(its.reduce((a,i)=>a+pct(i),0)/its.length)+'%</td><td>'+e+'</td><td>'+w+'</td></tr>'; }).join('')+'</tbody></table></div>':'<p><i>Belum ada item.</i></p>');
   sc.forEach(c=>{
-    const its=s.items.filter(i=>i.prod===c), cols=P[c].cols.map(k=>P[c].fmap[k]).filter(Boolean);
+    if(!P[c]) return;
+    const its=s.items.filter(i=>i.prod===c), cols=(P[c].cols||[]).map(k=>P[c].fmap?.[k]).filter(Boolean);
     h+='<h2>'+(++n)+'. '+c+' — '+esc(P[c].name)+'</h2><div class="tw"><table><thead><tr><th>No</th>'+cols.map(f=>'<th>'+esc(f.l)+(f.u?' ('+esc(f.u)+')':'')+'</th>').join('')+'<th>Lengkap</th><th>Validasi</th></tr></thead><tbody>'+
       its.map((it,i)=>{ const vc=vcount(it); return '<tr><td>'+(i+1)+'</td>'+cols.map(f=>'<td>'+esc(filled(it.f[f.k])?it.f[f.k]:'')+'</td>').join('')+'<td>'+pct(it)+'%</td><td>'+(vc.err?vc.err+' error ':'')+(vc.warn?vc.warn+' peringatan':'')+(!vc.err&&!vc.warn?'OK':'')+'</td></tr>'; }).join('')+'</tbody></table></div>';
     its.forEach((it,i)=>{
@@ -756,7 +770,7 @@ function reportBody(s,photoMap){
       visSecs(it).forEach(sec=>{
         if(sec.id==='foto') return;
         const rows=visFields(sec,it).map(f=>[f.l,val(it,f),f.crit&&!filled(it.f[f.k])]).filter(r=>r[1]!==''||r[2]);
-        if(sec.id==='kondisi'){ const fl=P[c].fails.filter(x=>it.fail[x]); if(fl.length) rows.unshift(['Temuan kondisi',fl.join(', '),false]); }
+        if(sec.id==='kondisi'){ const fl=(P[c].fails||[]).filter(x=>it.fail[x]); if(fl.length) rows.unshift(['Temuan kondisi',fl.join(', '),false]); }
         if(sec.id==='movement'){ const g=gapCalc(it); if(g) rows.push(['Celah 4 titik (12/3/6/9)',[it.gap.g12,it.gap.g3,it.gap.g6,it.gap.g9].join(' / ')+' mm',false]); }
         if(sec.id==='box'){ const b=boxCalc(it); if(b&&b.sec>0){ rows.push(['Penampang terhitung',fmt(b.sec,2)+' mm'+(c==='GPP'?' (standar '+fmt(b.std,1)+' mm)':''),false]); if(b.rings!=null) rows.push(['Perkiraan jumlah ring',String(b.rings),false]); if(c==='GPP'&&b.total!=null) rows.push(['Perkiraan kebutuhan packing',fmt(b.total,2)+' m',false]); } }
         if(rows.length) h+='<p style="margin:10px 0 2px;font-weight:600">'+esc(sec.t)+'</p>'+kv(rows);

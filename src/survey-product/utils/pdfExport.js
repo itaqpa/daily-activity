@@ -87,19 +87,21 @@ export const mapDataToLegacyState = (stepData = {}, lapanganData = {}, filterPro
     return normalized;
   };
 
-  const items = rawItems.map(prod => {
-    const normF = normalizeFormData(prod.formData || {}, prod);
-    const photos = prod.formData?.photos || normF.photos || prod.photos || [];
-    return {
-      id: `i${prod.id}`,
-      prod: prod.code,
-      f: normF,
-      fail: prod.formData?.fail || normF.fail || {},
-      photos: Array.isArray(photos) ? photos : [],
-      gap: prod.formData?.gap || normF.gap || {},
-      cref: prod.formData?.custom_refs || normF.custom_refs || []
-    };
-  });
+  const items = rawItems
+    .filter(prod => prod && (prod.code || prod.name))
+    .map(prod => {
+      const normF = normalizeFormData(prod.formData || {}, prod);
+      const photos = prod.formData?.photos || normF.photos || prod.photos || [];
+      return {
+        id: `i${prod.id || Math.random().toString(36).slice(2, 7)}`,
+        prod: prod.code || '',
+        f: normF,
+        fail: prod.formData?.fail || normF.fail || {},
+        photos: Array.isArray(photos) ? photos : [],
+        gap: prod.formData?.gap || normF.gap || {},
+        cref: prod.formData?.custom_refs || normF.custom_refs || []
+      };
+    });
 
   // 1. Kumpulkan notes dari survey_notes maupun catatan tiap item produk / survey level
   const notes = [...(lapanganData.survey_notes || []).map(n => ({
