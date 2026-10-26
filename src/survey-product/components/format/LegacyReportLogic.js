@@ -363,13 +363,76 @@ if(!S.cur){ const l=sortedSurveys(); if(l.length) S.cur=l[0].id; }
 
 function sortedSurveys(){ return Object.values(S.surveys).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)); }
 function cur(){ return S.cur?S.surveys[S.cur]:null; }
-function scope(s){ const a=(s.info.products||[]).slice(); s.items.forEach(i=>{ if(a.indexOf(i.prod)<0) a.push(i.prod); }); return PCODES.filter(c=>a.indexOf(c)>=0); }
+function prodName(c, s) {
+  if (P[c] && P[c].name) return P[c].name;
+  if (s?.productNames && s.productNames[c]) return s.productNames[c];
+  const item = s?.items?.find(i => i.prod === c);
+  if (item && item.name) return item.name;
+  return c;
+}
+
+function keyToLabel(k) {
+  if (!k) return '';
+  const knownLabels = {
+    tag: 'Tag number',
+    day: 'Hari survey',
+    line: 'Line / sistem / equipment',
+    posisi: 'Posisi / lokasi pemasangan',
+    qty: 'Jumlah (qty)',
+    spare: 'Spare',
+    merek: 'Merek / pabrikan lama',
+    tipe_lama: 'Tipe / marking lama',
+    alasan: 'Alasan penggantian',
+    acuan: 'Acuan data',
+    acuan_doc: 'No. dokumen / drawing acuan',
+    media: 'Media / fluida',
+    p_op: 'Tekanan operasi',
+    p_des: 'Tekanan design',
+    t_op: 'Temperatur operasi',
+    t_des: 'Temperatur design',
+    bentuk: 'Bentuk',
+    koneksi: 'Koneksi',
+    dimensi: 'Dimensi',
+    material: 'Material',
+    kondisi: 'Kondisi existing',
+    catatan: 'Catatan lapangan'
+  };
+  const parts = String(k).split('.');
+  const shortK = parts[parts.length - 1];
+  if (knownLabels[shortK]) return knownLabels[shortK];
+  return shortK
+    .replace(/_/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/\b\w/g, l => l.toUpperCase());
+}
+
+function scope(s){
+  const a = (s.info.products || []).slice();
+  s.items.forEach(i => { if (i.prod && a.indexOf(i.prod) < 0) a.push(i.prod); });
+  return a.filter(Boolean);
+}
 function visItems(s){ return S.filter==='ALL'?s.items:s.items.filter(i=>i.prod===S.filter); }
 function curItem(){ const s=cur(); if(!s||!s.items.length) return null; let it=s.items.find(i=>i.id===S.item); if(!it){ const v=visItems(s); it=v[0]||s.items[0]; S.item=it.id; } return it; }
 function newSurvey(){ const t=Date.now(); return migrate({id:'s'+uid(),createdAt:t,updatedAt:t,info:{tanggal:today(),products:[]},tools:{},docs:{},items:[],notes:[],openItems:[],summary:''}); }
 function newItem(s,prod,tag){ const n=s.items.filter(i=>i.prod===prod).length+1; return {id:'i'+uid(),prod,f:{tag:tag||(prod+'-'+String(n).padStart(2,'0')),qty:'1',day:s.activeDay},fail:{},photos:[],gap:{},cref:[]}; }
 function dayLabel(s,id){ const i=s.days.findIndex(d=>d.id===id); if(i<0) return '—'; const d=s.days[i]; return 'Hari '+(i+1)+(d.date?' ('+fmtDate(d.date)+')':''); }
-function fmtDate(d){ try{ const x=new Date(d+'T00:00:00'); return x.toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'}); }catch(e){ return d; } }
+function fmtDate(d){
+  if (!d) return '—';
+  try {
+    const str = String(d).trim();
+    if (!str) return '—';
+    const cleanDate = str.includes('T') ? str.split('T')[0] : str.split(' ')[0];
+    const x = new Date(cleanDate + 'T00:00:00');
+    if (isNaN(x.getTime())) {
+      const fallback = new Date(str);
+      if (isNaN(fallback.getTime())) return str || '—';
+      return fallback.toLocaleDateString('id-ID', {day:'numeric',month:'short',year:'numeric'});
+    }
+    return x.toLocaleDateString('id-ID', {day:'numeric',month:'short',year:'numeric'});
+  } catch(e) {
+    return String(d || '—');
+  }
+}
 function surveyLabel(s){ return (s.info.client||'Survey tanpa nama')+(s.info.tanggal?' — '+s.info.tanggal:''); }
 function visSecs(it){
   if (!it || !it.prod || !P[it.prod] || !Array.isArray(P[it.prod].secs)) return [];
@@ -387,7 +450,11 @@ function critList(it){
   return out;
 }
 function missing(it){ return critList(it).filter(c=>!filled(it?.f?.[c.k])); }
-function pct(it){ const c=critList(it); return c.length?Math.round(100*(c.length-missing(it).length)/c.length):100; }
+function pct(it){
+  if (it?.percent != null && !isNaN(it.percent)) return Number(it.percent);
+  const c = critList(it);
+  return c.length ? Math.round(100 * (c.length - missing(it).length) / c.length) : 100;
+}
 function fdef(it,k){ return (it?.prod && P[it.prod]?.fmap) ? P[it.prod].fmap[k] : null; }
 function tolOf(it){ const t=N(it?.f?.tol); return t==null?3:t; }
 
@@ -680,7 +747,11 @@ function gapHelper(it){
   const inp=(k,l)=>'<div class="fld"><label for="gap_'+k+'">'+l+'</label><div class="inp"><input id="gap_'+k+'" inputmode="decimal" data-b="gap.'+k+'" value="'+esc(k==='D'?D:(g[k]||''))+'"><span class="u">mm</span></div></div>';
   return '<div class="helper"><h4>Ukur celah flange di 4 titik</h4><p class="muted" style="margin:0">Posisi jam 12, 3, 6, dan 9.</p><div class="grid">'+inp('g12','Jam 12')+inp('g3','Jam 3')+inp('g6','Jam 6')+inp('g9','Jam 9')+inp('D','OD flange')+'</div><div class="out" id="gapOut"></div><div class="row" style="margin-top:8px"><button class="btn ghost sm" data-act="useGap">Isi panjang terpasang & misalignment</button></div></div>';
 }
-function photoSrc(p){ return p.data||p.url||(p.aid?'/_blob/'+p.aid:''); }
+function photoSrc(p){
+  if (!p) return '';
+  if (typeof p === 'string') return p;
+  return p.data || p.url || p.dataUrl || p.src || p.path || p.file_url || (p.aid ? '/_blob/' + p.aid : '');
+}
 function photoHTML(it){
   return '<div class="helper"><div class="row"><label class="btn">Ambil foto<input type="file" accept="image/*" capture="environment" hidden data-photo></label><label class="btn ghost">Pilih dari galeri<input type="file" accept="image/*" multiple hidden data-photo></label></div><p class="muted" style="margin:8px 0 0">Sertakan meteran atau penggaris di dalam foto sebagai pembanding ukuran.</p>'+
   (it.photos.length?'<div class="photos">'+it.photos.map(p=>'<div class="ph"><img src="'+esc(photoSrc(p))+'" alt="'+esc(p.cap||p.cat||'Foto')+'" loading="lazy"><div class="pb"><select data-pcat="'+p.id+'" aria-label="Kategori foto">'+PHOTO_CATS.map(c=>'<option'+(c===p.cat?' selected':'')+'>'+c+'</option>').join('')+'</select><input data-pcap="'+p.id+'" value="'+esc(p.cap||'')+'" placeholder="Keterangan" aria-label="Keterangan foto"><button class="btn danger sm" data-act="delPhoto" data-id="'+p.id+'">Hapus</button></div></div>').join('')+'</div>':'')+'</div>';
@@ -756,30 +827,73 @@ function reportBody(s,photoMap){
   const val=(it,fd)=>{ const v=it.f[fd.k]; if(!filled(v)) return ''; if(fd.ty==='day') return dayLabel(s,v); return v+(fd.u?' '+fd.u:''); };
   const period=s.days.length?(fmtDate(s.days[0].date)+(s.days.length>1?' s.d. '+fmtDate(s.days[s.days.length-1].date):'')):'';
   let n=0, h='<h1>Laporan Survey Produk GTE</h1><p class="sub">'+esc(I.client||'—')+(I.plant?', '+esc(I.plant):'')+' · '+esc(period)+' · '+s.days.length+' hari</p>';
-  h+='<h2>'+(++n)+'. Informasi survey</h2>'+kv(INFO.map(f=>[f.l,I[f.k]||'']).concat([['Produk yang disurvey',sc.map(c=>c+' ('+P[c].name+')').join(', ')||'']]));
+  h+='<h2>'+(++n)+'. Informasi survey</h2>'+kv(INFO.map(f=>[f.l,I[f.k]||'']).concat([['Produk yang disurvey',sc.map(c=>c+' ('+prodName(c,s)+')').join(', ')||'']]));
   h+='<h2>'+(++n)+'. Ringkasan & rekomendasi</h2>'+(filled(s.summary)?'<div class="sum">'+esc(s.summary)+'</div>':'<p><i>Belum diisi.</i></p>');
   h+='<h2>'+(++n)+'. Jadwal & progres per hari</h2><div class="tw"><table><thead><tr><th>Hari</th><th>Tanggal</th><th>Rencana</th><th>Item disurvey</th></tr></thead><tbody>'+s.days.map((d,i)=>{ const its=s.items.filter(it=>it.f.day===d.id); return '<tr><td>'+(i+1)+'</td><td>'+esc(fmtDate(d.date))+'</td><td>'+esc(d.plan||'')+'</td><td>'+(its.length?its.map(it=>esc(it.prod+' '+(it.f.tag||''))).join(', '):'—')+'</td></tr>'; }).join('')+'</tbody></table></div>';
-  h+='<h2>'+(++n)+'. Rekap per produk</h2>'+(sc.length?'<div class="tw"><table><thead><tr><th>Produk</th><th>Jumlah item</th><th>Total qty</th><th>Kelengkapan rata-rata</th><th>Error validasi</th><th>Peringatan</th></tr></thead><tbody>'+sc.map(c=>{ const its=s.items.filter(i=>i.prod===c); const q=its.reduce((a,i)=>a+(N(i.f.qty)||0),0); const e=its.reduce((a,i)=>a+vcount(i).err,0), w=its.reduce((a,i)=>a+vcount(i).warn,0); return '<tr><td><b>'+c+'</b> '+esc(P[c].name)+'</td><td>'+its.length+'</td><td>'+fmt(q)+'</td><td>'+Math.round(its.reduce((a,i)=>a+pct(i),0)/its.length)+'%</td><td>'+e+'</td><td>'+w+'</td></tr>'; }).join('')+'</tbody></table></div>':'<p><i>Belum ada item.</i></p>');
+  h+='<h2>'+(++n)+'. Rekap per produk</h2>'+(sc.length?'<div class="tw"><table><thead><tr><th>Produk</th><th>Jumlah item</th><th>Total qty</th><th>Kelengkapan rata-rata</th><th>Error validasi</th><th>Peringatan</th></tr></thead><tbody>'+sc.map(c=>{ const its=s.items.filter(i=>i.prod===c); const q=its.reduce((a,i)=>a+(N(i.f.qty)||1),0); const e=its.reduce((a,i)=>a+vcount(i).err,0), w=its.reduce((a,i)=>a+vcount(i).warn,0); return '<tr><td><b>'+c+'</b> '+esc(prodName(c,s))+'</td><td>'+its.length+'</td><td>'+fmt(q)+'</td><td>'+Math.round(its.reduce((a,i)=>a+pct(i),0)/its.length)+'%</td><td>'+e+'</td><td>'+w+'</td></tr>'; }).join('')+'</tbody></table></div>':'<p><i>Belum ada item.</i></p>');
   sc.forEach(c=>{
-    if(!P[c]) return;
-    const its=s.items.filter(i=>i.prod===c), cols=(P[c].cols||[]).map(k=>P[c].fmap?.[k]).filter(Boolean);
-    h+='<h2>'+(++n)+'. '+c+' — '+esc(P[c].name)+'</h2><div class="tw"><table><thead><tr><th>No</th>'+cols.map(f=>'<th>'+esc(f.l)+(f.u?' ('+esc(f.u)+')':'')+'</th>').join('')+'<th>Lengkap</th><th>Validasi</th></tr></thead><tbody>'+
-      its.map((it,i)=>{ const vc=vcount(it); return '<tr><td>'+(i+1)+'</td>'+cols.map(f=>'<td>'+esc(filled(it.f[f.k])?it.f[f.k]:'')+'</td>').join('')+'<td>'+pct(it)+'%</td><td>'+(vc.err?vc.err+' error ':'')+(vc.warn?vc.warn+' peringatan':'')+(!vc.err&&!vc.warn?'OK':'')+'</td></tr>'; }).join('')+'</tbody></table></div>';
-    its.forEach((it,i)=>{
-      h+='<div class="itemblock"><h3>'+n+'.'+(i+1)+' '+esc(it.f.tag||'(tanpa tag)')+'</h3>';
-      visSecs(it).forEach(sec=>{
-        if(sec.id==='foto') return;
-        const rows=visFields(sec,it).map(f=>[f.l,val(it,f),f.crit&&!filled(it.f[f.k])]).filter(r=>r[1]!==''||r[2]);
-        if(sec.id==='kondisi'){ const fl=(P[c].fails||[]).filter(x=>it.fail[x]); if(fl.length) rows.unshift(['Temuan kondisi',fl.join(', '),false]); }
-        if(sec.id==='movement'){ const g=gapCalc(it); if(g) rows.push(['Celah 4 titik (12/3/6/9)',[it.gap.g12,it.gap.g3,it.gap.g6,it.gap.g9].join(' / ')+' mm',false]); }
-        if(sec.id==='box'){ const b=boxCalc(it); if(b&&b.sec>0){ rows.push(['Penampang terhitung',fmt(b.sec,2)+' mm'+(c==='GPP'?' (standar '+fmt(b.std,1)+' mm)':''),false]); if(b.rings!=null) rows.push(['Perkiraan jumlah ring',String(b.rings),false]); if(c==='GPP'&&b.total!=null) rows.push(['Perkiraan kebutuhan packing',fmt(b.total,2)+' m',false]); } }
-        if(rows.length) h+='<p style="margin:10px 0 2px;font-weight:600">'+esc(sec.t)+'</p>'+kv(rows);
+    const its=s.items.filter(i=>i.prod===c);
+    const pName = prodName(c, s);
+    if (P[c]) {
+      const cols=(P[c].cols||[]).map(k=>P[c].fmap?.[k]).filter(Boolean);
+      h+='<h2>'+(++n)+'. '+c+' — '+esc(pName)+'</h2><div class="tw"><table><thead><tr><th>No</th>'+cols.map(f=>'<th>'+esc(f.l)+(f.u?' ('+esc(f.u)+')':'')+'</th>').join('')+'<th>Lengkap</th><th>Validasi</th></tr></thead><tbody>'+
+        its.map((it,i)=>{ const vc=vcount(it); return '<tr><td>'+(i+1)+'</td>'+cols.map(f=>'<td>'+esc(filled(it.f[f.k])?it.f[f.k]:'')+'</td>').join('')+'<td>'+pct(it)+'%</td><td>'+(vc.err?vc.err+' error ':'')+(vc.warn?vc.warn+' peringatan':'')+(!vc.err&&!vc.warn?'OK':'')+'</td></tr>'; }).join('')+'</tbody></table></div>';
+      its.forEach((it,i)=>{
+        h+='<div class="itemblock"><h3>'+n+'.'+(i+1)+' '+esc(it.f.tag||'(tanpa tag)')+'</h3>';
+        visSecs(it).forEach(sec=>{
+          if(sec.id==='foto') return;
+          const rows=visFields(sec,it).map(f=>[f.l,val(it,f),f.crit&&!filled(it.f[f.k])]).filter(r=>r[1]!==''||r[2]);
+          if(sec.id==='kondisi'){ const fl=(P[c].fails||[]).filter(x=>it.fail[x]); if(fl.length) rows.unshift(['Temuan kondisi',fl.join(', '),false]); }
+          if(sec.id==='movement'){ const g=gapCalc(it); if(g) rows.push(['Celah 4 titik (12/3/6/9)',[it.gap.g12,it.gap.g3,it.gap.g6,it.gap.g9].join(' / ')+' mm',false]); }
+          if(sec.id==='box'){ const b=boxCalc(it); if(b&&b.sec>0){ rows.push(['Penampang terhitung',fmt(b.sec,2)+' mm'+(c==='GPP'?' (standar '+fmt(b.std,1)+' mm)':''),false]); if(b.rings!=null) rows.push(['Perkiraan jumlah ring',String(b.rings),false]); if(c==='GPP'&&b.total!=null) rows.push(['Perkiraan kebutuhan packing',fmt(b.total,2)+' m',false]); } }
+          if(rows.length) h+='<p style="margin:10px 0 2px;font-weight:600">'+esc(sec.t)+'</p>'+kv(rows);
+        });
+        if(it.cref.length) h+='<p style="margin:10px 0 2px;font-weight:600">Acuan custom</p>'+kv(it.cref.filter(r=>r.k).map(r=>{ const fd=fdef(it,r.k); return [fd?fd.l:r.k,(r.val||'')+(fd&&fd.u?' '+fd.u:'')+' ± '+(r.tol||fmt(tolOf(it),1)),false]; }));
+        const v=validate(it); if(v.length) h+='<p style="margin:10px 0 2px;font-weight:600">Hasil validasi</p><table>'+v.map(x=>'<tr'+(x.l==='err'?' class="missing"':'')+'><td style="width:90px">'+({ok:'Sesuai',warn:'Peringatan',err:'Error'}[x.l])+'</td><td>'+esc(x.m)+'</td></tr>').join('')+'</table>';
+        if(it.photos.length) h+='<p style="margin:10px 0 6px;font-weight:600">Foto ('+it.photos.length+' foto)</p><div class="pgrid">'+it.photos.map(p=>{ const src=(photoMap&&photoMap[p.id]!==undefined)?photoMap[p.id]:photoSrc(p); return '<figure>'+(src?'<img src="'+esc(src)+'" alt="">':'')+'<figcaption>'+esc(p.cat||'')+(p.cap?': '+esc(p.cap):'')+'</figcaption></figure>'; }).join('')+'</div>';
+        h+='</div>';
       });
-      if(it.cref.length) h+='<p style="margin:10px 0 2px;font-weight:600">Acuan custom</p>'+kv(it.cref.filter(r=>r.k).map(r=>{ const fd=fdef(it,r.k); return [fd?fd.l:r.k,(r.val||'')+(fd&&fd.u?' '+fd.u:'')+' ± '+(r.tol||fmt(tolOf(it),1)),false]; }));
-      const v=validate(it); if(v.length) h+='<p style="margin:10px 0 2px;font-weight:600">Hasil validasi</p><table>'+v.map(x=>'<tr'+(x.l==='err'?' class="missing"':'')+'><td style="width:90px">'+({ok:'Sesuai',warn:'Peringatan',err:'Error'}[x.l])+'</td><td>'+esc(x.m)+'</td></tr>').join('')+'</table>';
-      if(it.photos.length) h+='<p style="margin:10px 0 6px;font-weight:600">Foto</p><div class="pgrid">'+it.photos.map(p=>{ const src=(photoMap&&photoMap[p.id]!==undefined)?photoMap[p.id]:photoSrc(p); return '<figure>'+(src?'<img src="'+esc(src)+'" alt="">':'')+'<figcaption>'+esc(p.cat||'')+(p.cap?': '+esc(p.cap):'')+'</figcaption></figure>'; }).join('')+'</div>';
-      h+='</div>';
-    });
+    } else {
+      // DYNAMIC / CUSTOM PRODUCT
+      h+='<h2>'+(++n)+'. '+c+' — '+esc(pName)+'</h2>';
+      h+='<div class="tw"><table><thead><tr><th>No</th><th>Tag / Display ID</th><th>Hari Survey</th><th>Posisi / Lokasi</th><th>Jumlah</th><th>Foto</th><th>Lengkap</th></tr></thead><tbody>'+
+        its.map((it,i)=>{
+          const tag = it.f.tag || it.name || ('Item ' + (i+1));
+          const day = dayLabel(s, it.f.day);
+          const pos = it.f.posisi || it.f.lokasi || it.f.line || '—';
+          const qty = it.f.qty || '1';
+          const p = pct(it);
+          return '<tr><td>'+(i+1)+'</td><td><b>'+esc(tag)+'</b></td><td>'+esc(day)+'</td><td>'+esc(pos)+'</td><td>'+esc(qty)+'</td><td>'+it.photos.length+' foto</td><td>'+p+'%</td></tr>';
+        }).join('')+'</tbody></table></div>';
+      its.forEach((it,i)=>{
+        h+='<div class="itemblock"><h3>'+n+'.'+(i+1)+' '+esc(it.f.tag||it.name||('Item '+(i+1)))+'</h3>';
+        const rows = [];
+        const excludedKeys = new Set(['photos','fail','gap','cref','custom_refs','status','id']);
+        const seenKeys = new Set();
+        Object.entries(it.f || {}).forEach(([k, v]) => {
+          if (excludedKeys.has(k) || seenKeys.has(k) || !filled(v)) return;
+          seenKeys.add(k);
+          if (k === 'day') {
+            rows.push([keyToLabel(k), dayLabel(s, v), false]);
+          } else {
+            rows.push([keyToLabel(k), String(v), false]);
+          }
+        });
+        if (rows.length) {
+          h+='<p style="margin:10px 0 2px;font-weight:600">Parameter & Spesifikasi</p>'+kv(rows);
+        }
+        if(it.cref && it.cref.length) {
+          h+='<p style="margin:10px 0 2px;font-weight:600">Acuan custom</p>'+kv(it.cref.filter(r=>r.k).map(r=>[keyToLabel(r.k),(r.val||'')+' ± '+(r.tol||'—'),false]));
+        }
+        if(it.photos && it.photos.length) {
+          h+='<p style="margin:10px 0 6px;font-weight:600">Foto Dokumentasi ('+it.photos.length+' Foto)</p><div class="pgrid">'+it.photos.map(p=>{
+            const src=(photoMap&&photoMap[p.id]!==undefined)?photoMap[p.id]:photoSrc(p);
+            return '<figure>'+(src?'<img src="'+esc(src)+'" alt="">':'')+'<figcaption>'+esc(p.cat||'Dokumentasi')+(p.cap?': '+esc(p.cap):'')+'</figcaption></figure>';
+          }).join('')+'</div>';
+        }
+        h+='</div>';
+      });
+    }
   });
   h+='<h2>'+(++n)+'. Catatan lapangan</h2>'+(s.notes.length?'<table><thead><tr><th>Hari</th><th>Item</th><th>Catatan</th></tr></thead><tbody>'+s.notes.map(x=>{ const i=s.items.find(y=>y.id===x.itemId); return '<tr><td>'+esc(dayLabel(s,x.dayId))+'</td><td>'+esc(i?i.prod+' '+i.f.tag:'Umum')+'</td><td style="white-space:pre-wrap">'+esc(x.text)+'</td></tr>'; }).join('')+'</tbody></table>':'<p><i>Tidak ada.</i></p>');
   h+='<h2>'+(++n)+'. Perlu dikonfirmasi ke client</h2>'+(s.openItems.length?'<table><thead><tr><th>Status</th><th>Item</th></tr></thead><tbody>'+s.openItems.map(o=>'<tr><td>'+(o.done?'Selesai':'Terbuka')+'</td><td>'+esc(o.text)+'</td></tr>').join('')+'</tbody></table>':'<p><i>Tidak ada.</i></p>');
@@ -803,15 +917,29 @@ async function downloadReport(){
   await save(fileBase(s)+'.html',html);
 }
 function downloadCsv(prod){
-  const s=cur(), fields=[]; P[prod].secs.forEach(sec=>sec.f.forEach(f=>{ if(!fields.some(x=>x.k===f.k)) fields.push(f); }));
+  const s=cur(), fields=[];
+  if (P[prod]) {
+    P[prod].secs.forEach(sec=>sec.f.forEach(f=>{ if(!fields.some(x=>x.k===f.k)) fields.push(f); }));
+  } else {
+    const its = s.items.filter(i=>i.prod===prod);
+    const seen = new Set();
+    its.forEach(it => {
+      Object.keys(it.f || {}).forEach(k => {
+        if (!['photos','fail','gap','cref','custom_refs','status','id'].includes(k) && !seen.has(k)) {
+          seen.add(k);
+          fields.push({ k, l: keyToLabel(k) });
+        }
+      });
+    });
+  }
   const q=v=>{ const t=String(v==null?'':v); return /[;"\n\r]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t; };
   const head=['Client','Produk'].concat(fields.map(f=>f.l+(f.u?' ('+f.u+')':'')),['Temuan kondisi','Jumlah foto','Kelengkapan (%)','Error validasi','Peringatan validasi']);
-  const rows=s.items.filter(i=>i.prod===prod).map(it=>{ const vc=vcount(it); return [s.info.client||'',prod].concat(fields.map(f=>f.ty==='day'?dayLabel(s,it.f[f.k]):(it.f[f.k]||'')),[P[prod].fails.filter(x=>it.fail[x]).join(', '),it.photos.length,pct(it),vc.err,vc.warn]); });
+  const rows=s.items.filter(i=>i.prod===prod).map(it=>{ const vc=vcount(it); return [s.info.client||'',prod].concat(fields.map(f=>f.ty==='day'?dayLabel(s,it.f[f.k]):(it.f[f.k]||'')),[(P[prod]?.fails||[]).filter(x=>it.fail[x]).join(', '),it.photos.length,pct(it),vc.err,vc.warn]); });
   save(fileBase(s)+'-'+prod+'.csv','\ufeff'+[head].concat(rows).map(r=>r.map(q).join(';')).join('\r\n'));
 }
 async function aiSummary(){
   const s=cur(), btn=$('#aiBtn'), msg=$('#aiMsg'), ta=$('#sumText'); if(!SAMPLE||!btn) return;
-  const data={info:s.info,hari:s.days.map((d,i)=>({hari:i+1,tanggal:d.date,rencana:d.plan})),items:s.items.map(it=>{ const o={produk:it.prod+' ('+P[it.prod].name+')'}; visSecs(it).forEach(sec=>visFields(sec,it).forEach(f=>{ if(filled(it.f[f.k])&&f.ty!=='day') o[f.l]=it.f[f.k]+(f.u?' '+f.u:''); })); o['Temuan kondisi']=P[it.prod].fails.filter(x=>it.fail[x]); o['Hasil validasi']=validate(it).filter(v=>v.l!=='ok').map(v=>v.m); o['Data utama kosong']=missing(it).map(c=>c.l); return o; }),catatan:s.notes.map(n=>n.text),perlu_konfirmasi:s.openItems.filter(o=>!o.done).map(o=>o.text)};
+  const data={info:s.info,hari:s.days.map((d,i)=>({hari:i+1,tanggal:d.date,rencana:d.plan})),items:s.items.map(it=>{ const o={produk:it.prod+' ('+prodName(it.prod,s)+')'}; visSecs(it).forEach(sec=>visFields(sec,it).forEach(f=>{ if(filled(it.f[f.k])&&f.ty!=='day') o[f.l]=it.f[f.k]+(f.u?' '+f.u:''); })); o['Temuan kondisi']=(P[it.prod]?.fails||[]).filter(x=>it.fail[x]); o['Hasil validasi']=validate(it).filter(v=>v.l!=='ok').map(v=>v.m); o['Data utama kosong']=missing(it).map(c=>c.l); return o; }),catatan:s.notes.map(n=>n.text),perlu_konfirmasi:s.openItems.filter(o=>!o.done).map(o=>o.text)};
   const prompt='Anda adalah application engineer untuk produk sealing & expansion joint (EJR, EJM, EJF, spiral wound gasket, grooved metal gasket, removable thermal insulation, gland packing, die formed graphite). Berdasarkan data survey lapangan berikut (JSON), tulis draf bagian "Ringkasan & rekomendasi" laporan untuk atasan, dalam Bahasa Indonesia yang ringkas dan profesional.\n\nFormat: teks polos tanpa markdown (jangan pakai #, *, atau tabel). Empat bagian berjudul huruf biasa:\n1. Ringkasan temuan (jumlah hari, produk, item, kondisi umum)\n2. Rekomendasi awal per produk dan per item yang penting (material, konstruksi, tipe) beserta alasan singkat berdasarkan kondisi operasi dan hasil validasi\n3. Data yang masih perlu dikonfirmasi\n4. Catatan untuk tim design, BOM, dan estimasi harga\n\nJangan mengarang angka yang tidak ada. Tandai rekomendasi berbasis asumsi dengan kata "asumsi". Maksimal sekitar 550 kata.\n\nDATA:\n'+JSON.stringify(data);
   btn.disabled=true; msg.textContent='Menyusun draf…'; const before=ta.value;
   try{
