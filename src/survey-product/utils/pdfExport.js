@@ -20,8 +20,22 @@ export const mapDataToLegacyState = (stepData = {}, lapanganData = {}, filterPro
   }
 
   const selectedProducts = (stepData.selectedProducts && stepData.selectedProducts.length > 0)
-    ? stepData.selectedProducts
+    ? [...stepData.selectedProducts]
     : [...new Set(rawItems.map(p => p.code).filter(Boolean))];
+
+  // Pastikan produk yang ada di rawItems juga terdaftar
+  rawItems.forEach(p => {
+    if (p.code && !selectedProducts.includes(p.code)) {
+      selectedProducts.push(p.code);
+    }
+  });
+
+  const productNames = {};
+  rawItems.forEach(p => {
+    if (p.code && p.name) {
+      productNames[p.code] = p.name;
+    }
+  });
 
   const info = {
     client: stepData.nama_client || '',
@@ -43,7 +57,7 @@ export const mapDataToLegacyState = (stepData = {}, lapanganData = {}, filterPro
   const days = rawSchedules.length > 0
     ? rawSchedules.map((sch, idx) => ({
         id: `d${sch.hari_ke || sch.hari || (idx + 1)}`,
-        date: sch.tanggal || '',
+        date: sch.tanggal || (idx === 0 ? stepData.tanggal_mulai : '') || '',
         plan: sch.kegiatan || sch.rencana_area || ''
       }))
     : [{ id: 'd1', date: stepData.tanggal_mulai || '', plan: 'Pelaksanaan survey' }];
@@ -91,13 +105,16 @@ export const mapDataToLegacyState = (stepData = {}, lapanganData = {}, filterPro
     .filter(prod => prod && (prod.code || prod.name))
     .map(prod => {
       const normF = normalizeFormData(prod.formData || {}, prod);
-      const photos = prod.formData?.photos || normF.photos || prod.photos || [];
+      const rawPhotos = prod.formData?.photos || prod.photos || normF.photos || prod.formData?.foto || [];
+      const photos = Array.isArray(rawPhotos) ? rawPhotos : (typeof rawPhotos === 'object' && rawPhotos ? Object.values(rawPhotos) : []);
       return {
         id: `i${prod.id || Math.random().toString(36).slice(2, 7)}`,
         prod: prod.code || '',
+        name: prod.name || prod.code || '',
+        percent: prod.percent != null ? prod.percent : null,
         f: normF,
         fail: prod.formData?.fail || normF.fail || {},
-        photos: Array.isArray(photos) ? photos : [],
+        photos: photos,
         gap: prod.formData?.gap || normF.gap || {},
         cref: prod.formData?.custom_refs || normF.custom_refs || []
       };
@@ -162,6 +179,7 @@ export const mapDataToLegacyState = (stepData = {}, lapanganData = {}, filterPro
     items,
     notes,
     openItems,
+    productNames,
     summary: lapanganData.catatan_umum || stepData.summary || stepData.tujuan_survey || ''
   };
 };
