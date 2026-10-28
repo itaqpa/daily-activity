@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { MapPin, Box, Plus, Trash2, ChevronRight, X, Download, Share2 } from 'lucide-react';
+import Swal from 'sweetalert2';
 import DynamicProductForm from './modals/DynamicProductForm';
 import { exportToPDF, generatePreviewHTML } from '../utils/pdfExport';
 import { useAuth } from '../../context/AuthContext';
@@ -62,17 +63,38 @@ export default function StepLapangan({ data = createEmptyLapanganData(), stepDat
     });
   };
 
-  const removeSchedule = (id) => {
+  const removeSchedule = async (id, hariKe) => {
     if (readOnly) return;
     if (actualSchedules.length === 1) return;
     
-    const newSchedules = actualSchedules
-      .filter(schedule => schedule.id !== id)
-      .map((sch, index) => ({ ...sch, hari_ke: index + 1 }));
-      
-    updateData({
-      actualSchedules: newSchedules
+    const result = await Swal.fire({
+      title: 'Apakah Anda yakin?',
+      text: `Jadwal pelaksanaan hari ke-${hariKe || ''} akan dihapus.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Ya, Hapus!',
+      cancelButtonText: 'Batal',
+      reverseButtons: true
     });
+
+    if (result.isConfirmed) {
+      const newSchedules = actualSchedules
+        .filter(schedule => schedule.id !== id)
+        .map((sch, index) => ({ ...sch, hari_ke: index + 1 }));
+        
+      updateData({
+        actualSchedules: newSchedules
+      });
+      Swal.fire({
+        icon: 'success',
+        title: 'Terhapus!',
+        text: 'Jadwal pelaksanaan berhasil dihapus.',
+        timer: 1500,
+        showConfirmButton: false
+      });
+    }
   };
 
   const handleAddProduct = (product) => {
@@ -142,11 +164,34 @@ export default function StepLapangan({ data = createEmptyLapanganData(), stepDat
     setSelectedProduct(null);
   };
 
-  const removeProductProgress = (id) => {
+  const removeProductProgress = async (id, displayId) => {
     if (readOnly) return;
-    updateData({
-      productProgress: productProgress.filter(product => product.id !== id)
+    const result = await Swal.fire({
+      title: 'Apakah Anda yakin?',
+      text: displayId 
+        ? `Produk ${displayId} dan seluruh data survey-nya akan dihapus.` 
+        : 'Data produk survey ini akan dihapus.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Ya, Hapus!',
+      cancelButtonText: 'Batal',
+      reverseButtons: true
     });
+
+    if (result.isConfirmed) {
+      updateData({
+        productProgress: productProgress.filter(product => product.id !== id)
+      });
+      Swal.fire({
+        icon: 'success',
+        title: 'Terhapus!',
+        text: 'Data produk berhasil dihapus.',
+        timer: 1500,
+        showConfirmButton: false
+      });
+    }
   };
 
   return (
@@ -219,7 +264,7 @@ export default function StepLapangan({ data = createEmptyLapanganData(), stepDat
               {!readOnly && (
                 <div className="md:col-span-1 flex justify-end md:justify-center pt-5">
                   <button
-                    onClick={() => removeSchedule(schedule.id)}
+                    onClick={() => removeSchedule(schedule.id, hariKe)}
                     disabled={actualSchedules.length === 1}
                     className="p-2 text-red-500 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
                   >
@@ -292,11 +337,12 @@ export default function StepLapangan({ data = createEmptyLapanganData(), stepDat
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      removeProductProgress(product.id);
+                      removeProductProgress(product.id, product.displayId);
                     }}
-                    className="absolute -top-2 -right-2 bg-red-100 text-red-600 p-1.5 rounded-full hover:bg-red-200 opacity-0 group-hover:opacity-100 transition-opacity z-10 shadow-sm"
+                    title="Hapus Produk"
+                    className="absolute -top-2 -right-2 bg-red-100 text-red-600 p-2 sm:p-1.5 rounded-full hover:bg-red-200 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity z-10 shadow-sm border border-red-200"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                   </button>
                 )}
 
