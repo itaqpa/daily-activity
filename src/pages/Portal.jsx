@@ -17,6 +17,7 @@ import {
 
 import { useAuth } from '../context/AuthContext';
 import { offlineEngine } from '../offline/offlineEngine';
+import { recoveryEngine } from '../offline/recoveryEngine';
 
 export default function Portal() {
   const navigate = useNavigate();
@@ -25,6 +26,7 @@ export default function Portal() {
 
   useEffect(() => {
     if (user && navigator.onLine) {
+      recoveryEngine.autoHarvestAndRestore(user);
       offlineEngine.syncAuthorizedData(user);
     }
   }, [user]);

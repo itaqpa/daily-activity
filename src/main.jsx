@@ -3,6 +3,16 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 import { registerSW } from 'virtual:pwa-register'
+import { recoveryEngine } from './offline/recoveryEngine'
+
+// Pemicu pemulihan otomatis: selamatkan data offline di HP/Laptop user ke server
+try {
+  if (navigator.onLine) {
+    recoveryEngine.autoHarvestAndRestore(null);
+  }
+} catch (e) {
+  console.warn('[Recovery Boot] Scan error:', e);
+}
 
 // Auto Update Service Worker PWA saat ada rilis/deploy baru
 const updateSW = registerSW({
@@ -79,17 +89,20 @@ window.fetch = async (...args) => {
   );
 
   const cacheKey = `offline_cache_${urlString}`;
+  const cacheMetaKey = `offline_cache_meta_${urlString}`;
+  const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
   if (isCacheableGet) {
     try {
       const response = await originalFetch(resource, config);
       if (response && response.ok) {
-        // Clone response dan simpan ke localStorage sebagai cache snapshot
+        // Clone response dan simpan ke localStorage sebagai cache snapshot dengan timestamp
         try {
           const clone = response.clone();
           clone.text().then(text => {
             try {
               localStorage.setItem(cacheKey, text);
+              localStorage.setItem(cacheMetaKey, String(Date.now()));
             } catch (e) {
               console.warn('[PWA Cache] Storage quota exceeded for:', urlString);
             }
@@ -98,14 +111,19 @@ window.fetch = async (...args) => {
       }
       return response;
     } catch (networkError) {
-      // Saat offline atau server mati: ambil data dari cache lokal agar summary/laporan tetap tampil!
+      // Saat offline atau server mati: periksa apakah cache masih dalam batas waktu 1 hari
       const cachedData = localStorage.getItem(cacheKey);
-      if (cachedData) {
-        console.log('[PWA Offline Fallback] Menggunakan data cache untuk:', urlString);
+      const cachedTime = Number(localStorage.getItem(cacheMetaKey) || 0);
+      const isFresh = cachedTime && (Date.now() - cachedTime < ONE_DAY_MS);
+
+      if (cachedData && isFresh) {
+        console.log('[PWA Offline Fallback] Menggunakan data cache segar (< 24 jam) untuk:', urlString);
         return new Response(cachedData, {
           status: 200,
           headers: { 'Content-Type': 'application/json' }
         });
+      } else if (cachedData && !isFresh) {
+        console.warn('[PWA Offline Fallback] Cache kadaluarsa (> 1 hari) untuk:', urlString);
       }
       throw networkError;
     }

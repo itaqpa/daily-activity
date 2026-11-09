@@ -100,6 +100,65 @@ class OfflineEngine {
   }
 
   // =========================================================================
+  // CACHE RETENTION & PURGE (Daily Expiry & Forced Version Wipe)
+  // Menjamin data usang / stuck terhapus otomatis dan digantikan data segar hari ini
+  // =========================================================================
+  async purgeStaleCacheAndRefresh(user, force = false) {
+    if (typeof window === 'undefined') return;
+
+    const CACHE_VERSION = 'v2026_11_fresh_v1';
+    const todayStr = new Date().toISOString().split('T')[0];
+    const savedVersion = localStorage.getItem('aqpa_offline_cache_version');
+    const lastDate = localStorage.getItem('aqpa_offline_cache_date');
+
+    const shouldPurge = force || savedVersion !== CACHE_VERSION || lastDate !== todayStr;
+
+    if (shouldPurge && navigator.onLine) {
+      console.log('[Offline Engine] Menjalankan pembersihan cache usang (Daily / Version Reset)...');
+      try {
+        // 1. Amankan antrean outbox (data yang diinput saat offline tapi belum sempat terkirim)
+        const pendingOutbox = await offlineDb.outbox
+          .where('syncStatus')
+          .equals('pending')
+          .toArray()
+          .catch(() => []);
+        const pendingEntityIds = new Set(pendingOutbox.map(item => String(item.entityId)));
+
+        // 2. Hapus activities yang sudah tersinkronisasi (synced) dan bukan pending outbox
+        await offlineDb.activities
+          .filter(act => act.syncStatus === 'synced' && !pendingEntityIds.has(String(act.id)))
+          .delete()
+          .catch(() => {});
+
+        // 3. Bersihkan cache references lama (customers, projects, survey master)
+        await offlineDb.references.clear().catch(() => {});
+
+        // 4. Bersihkan semua localStorage yang bertipe 'offline_cache_'
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && (k.startsWith('offline_cache_') || k.startsWith('offline_cache_meta_'))) {
+            keysToRemove.push(k);
+          }
+        }
+        keysToRemove.forEach(k => localStorage.removeItem(k));
+
+        // 5. Update metadata cache hari ini
+        localStorage.setItem('aqpa_offline_cache_version', CACHE_VERSION);
+        localStorage.setItem('aqpa_offline_cache_date', todayStr);
+        console.log('[Offline Engine] Pembersihan cache lama selesai. Mengambil data segar dari server...');
+      } catch (err) {
+        console.warn('[Offline Engine] Peringatan saat purge cache:', err);
+      }
+    }
+
+    // Unduh data terbaru jika user tersedia
+    if (user && navigator.onLine) {
+      await this.syncAuthorizedData(user);
+    }
+  }
+
+  // =========================================================================
   // BACKGROUND AUTO-DOWNLOAD & PRE-CACHE SEMUA MODUL SESUAI IZIN/ROLE USER
   // =========================================================================
   async syncAuthorizedData(user) {
