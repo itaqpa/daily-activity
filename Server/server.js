@@ -18,6 +18,7 @@ import reportRoutes from './routes/reportRoutes.js';
 import activityLogsRoutes from './routes/activityLogsRoutes.js';
 import surveyEngineRoutes from './routes/surveyEngineRoutes.js';
 import recoveryRoutes from './routes/recoveryRoutes.js';
+//test
 import { createAuthLogMiddleware } from './middleware/authLogMiddleware.js';
 import { getUserPermissionScope } from './utils/dataScopeHelper.js';
 
@@ -92,7 +93,7 @@ app.post('/api/global-logs/page-view', async (req, res) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'rahasia');
         userId = decoded.id;
         username = decoded.name || decoded.email || 'User';
-      } catch (err) {}
+      } catch (err) { }
     }
 
     if (username === 'Unauthenticated') {
@@ -128,7 +129,7 @@ app.post('/api/global-logs/page-view', async (req, res) => {
 app.get('/api/global-logs', async (req, res) => {
   try {
     const user = req.user; // populated by authLogMiddleware
-    
+
     if (!user) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -162,10 +163,10 @@ app.get('/api/global-logs', async (req, res) => {
         'SELECT u.divisi_id, j.level FROM users u LEFT JOIN jabatans j ON j.id = u.jabatan_id WHERE u.id = $1',
         [user.id]
       );
-      
+
       const divisiId = userRes.rows[0]?.divisi_id;
       const userLevel = userRes.rows[0]?.level || 1;
-      
+
       params.push(user.id, divisiId, userLevel);
     }
 
@@ -179,7 +180,7 @@ app.get('/api/global-logs', async (req, res) => {
 
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
-  
+
   if (!email || !password) {
     return res.status(400).json({ message: 'Email/Username dan Password harus diisi!' });
   }
@@ -188,7 +189,7 @@ app.post('/api/login', async (req, res) => {
     // Check if input is email or username
     const isEmail = email.includes('@');
     let queryText = '';
-    
+
     if (isEmail) {
       queryText = `
         SELECT u.*, d.kode_divisi, d.nama_divisi as divisi, j.nama_jabatan as jabatan,
@@ -352,7 +353,7 @@ app.post('/api/login', async (req, res) => {
     }
 
     const result = await pool.query(queryText, [email]);
-    
+
     if (result.rows.length === 0) {
       return res.status(401).json({ message: 'Email/Username tidak ditemukan!' });
     }
@@ -380,8 +381,8 @@ app.post('/api/login', async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      { id: user.id, name: user.name, email: user.email, jabatan_id: user.jabatan_id }, 
-      JWT_SECRET, 
+      { id: user.id, name: user.name, email: user.email, jabatan_id: user.jabatan_id },
+      JWT_SECRET,
       { expiresIn: '8h' }
     );
 
@@ -405,7 +406,7 @@ app.get('/api/me', async (req, res) => {
   if (!req.user) {
     return res.status(401).json({ message: 'Unauthorized' });
   }
-  
+
   try {
     const queryText = `
         SELECT u.*, d.kode_divisi, d.nama_divisi as divisi, j.nama_jabatan as jabatan,
@@ -487,14 +488,14 @@ app.get('/api/me', async (req, res) => {
         WHERE u.id = $1
     `;
     const result = await pool.query(queryText, [req.user.id]);
-    
+
     if (result.rows.length === 0) {
       return res.status(404).json({ message: 'User tidak ditemukan' });
     }
-    
+
     const user = result.rows[0];
     const { password: _, ...userData } = user;
-    
+
     res.json({ user: userData });
   } catch (error) {
     console.error('Fetch me error:', error);
@@ -552,27 +553,27 @@ app.post('/api/users/bulk', async (req, res) => {
   const users = req.body;
   try {
     await pool.query('BEGIN');
-    
+
     for (const u of users) {
       const { name, username, email, password, is_active, divisi_id, jabatan_id, additional_roles } = u;
-      
+
       if (!username) continue; // Wajib ada username
-      
+
       let userId;
       const existingUser = await pool.query('SELECT id FROM users WHERE username = $1 LIMIT 1', [username]);
-      
+
       if (existingUser.rows.length > 0) {
         // Update user
         const updateParams = [name, email, is_active, divisi_id || null, jabatan_id || null, username];
         let queryStr = 'UPDATE users SET name=$1, email=$2, is_active=$3, divisi_id=$4, jabatan_id=$5';
-        
+
         if (password) {
           queryStr += ', password=$7 WHERE username=$6 RETURNING id';
           updateParams.push(password); // Catatan: Sebaiknya di-hash jika ada sistem hashing (bcrypt)
         } else {
           queryStr += ' WHERE username=$6 RETURNING id';
         }
-        
+
         const updated = await pool.query(queryStr, updateParams);
         userId = updated.rows[0].id;
       } else {
@@ -583,7 +584,7 @@ app.post('/api/users/bulk', async (req, res) => {
         );
         userId = inserted.rows[0].id;
       }
-      
+
       if (additional_roles && Array.isArray(additional_roles) && additional_roles.length > 0) {
         await pool.query('DELETE FROM user_additional_roles WHERE user_id = $1', [userId]);
         for (const roleId of additional_roles) {
@@ -596,7 +597,7 @@ app.post('/api/users/bulk', async (req, res) => {
         }
       }
     }
-    
+
     await pool.query('COMMIT');
     res.status(201).json({ message: 'Bulk import users successful' });
   } catch (err) {
@@ -609,7 +610,7 @@ app.post('/api/users/bulk', async (req, res) => {
 app.get('/api/customers', async (req, res) => {
   try {
     const { sales_id } = req.query;
-    
+
     let query = `
       SELECT c.*, 
              COALESCE(
@@ -644,7 +645,7 @@ app.post('/api/customers', async (req, res) => {
   const { no_akun, nama_customer, site_kota, sales_ids, status, note } = req.body;
   try {
     await pool.query('BEGIN');
-    
+
     const custResult = await pool.query(
       'INSERT INTO customers (no_akun, nama_customer, site_kota, status, note) VALUES ($1, $2, $3, $4, $5) RETURNING *',
       [no_akun, nama_customer, JSON.stringify(site_kota), status || 'pending', note || null]
@@ -659,7 +660,7 @@ app.post('/api/customers', async (req, res) => {
         );
       }
     }
-    
+
     await pool.query('COMMIT');
     res.status(201).json(newCust);
   } catch (err) {
@@ -672,16 +673,16 @@ app.post('/api/customers/bulk', async (req, res) => {
   const customers = req.body;
   try {
     await pool.query('BEGIN');
-    
+
     for (const cust of customers) {
       const { no_akun, nama_customer, site_kota, sales_ids, status, note } = cust;
-      
+
       let custId;
-      
+
       if (no_akun) {
         // Cek apakah no_akun sudah ada
         const existingCust = await pool.query('SELECT id FROM customers WHERE no_akun = $1 LIMIT 1', [no_akun]);
-        
+
         if (existingCust.rows.length > 0) {
           // Update data jika sudah ada
           const updated = await pool.query(
@@ -689,12 +690,12 @@ app.post('/api/customers/bulk', async (req, res) => {
             [nama_customer, JSON.stringify(site_kota || []), status || 'approved', note || null, no_akun]
           );
           custId = updated.rows[0].id;
-          
+
           // Hapus relasi sales lama sebelum insert yang baru
           await pool.query('DELETE FROM sales_customers WHERE customer_id = $1', [custId]);
         }
       }
-      
+
       // Jika no_akun tidak ada / customer belum ada, insert baru
       if (!custId) {
         const inserted = await pool.query(
@@ -714,7 +715,7 @@ app.post('/api/customers/bulk', async (req, res) => {
         }
       }
     }
-    
+
     await pool.query('COMMIT');
     res.status(201).json({ message: 'Bulk insert success' });
   } catch (err) {
@@ -728,7 +729,7 @@ app.put('/api/customers/:id', async (req, res) => {
   const { no_akun, nama_customer, site_kota, sales_ids, note } = req.body;
   try {
     await pool.query('BEGIN');
-    
+
     const custResult = await pool.query(
       'UPDATE customers SET no_akun=$1, nama_customer=$2, site_kota=$3, note=$4, updated_at=CURRENT_TIMESTAMP WHERE id=$5 RETURNING *',
       [no_akun, nama_customer, JSON.stringify(site_kota), note || null, id]
@@ -737,7 +738,7 @@ app.put('/api/customers/:id', async (req, res) => {
 
     // Reset relations
     await pool.query('DELETE FROM sales_customers WHERE customer_id = $1', [id]);
-    
+
     if (sales_ids && sales_ids.length > 0) {
       for (const salesId of sales_ids) {
         await pool.query(
@@ -746,7 +747,7 @@ app.put('/api/customers/:id', async (req, res) => {
         );
       }
     }
-    
+
     await pool.query('COMMIT');
     res.json(updatedCust);
   } catch (err) {
@@ -839,33 +840,33 @@ app.post('/api/activities', async (req, res) => {
   // 2. Cek Permission (aktivitas_create)
   const { scope, userId, divisiId, isSuperAdmin } = await getUserPermissionScope(pool, req.user, 'aktivitas_create');
 
-  const { 
-    user_id, 
-    customer_id, 
-    site_kota, 
-    jenis_aktivitas, 
-    ditemui, 
-    ditemui_lainnya, 
-    tanggal, 
-    catatan, 
-    idempotency_key, 
-    _idempotency_key, 
-    _local_id 
+  const {
+    user_id,
+    customer_id,
+    site_kota,
+    jenis_aktivitas,
+    ditemui,
+    ditemui_lainnya,
+    tanggal,
+    catatan,
+    idempotency_key,
+    _idempotency_key,
+    _local_id
   } = req.body || {};
 
   // Gunakan ID user dari JWT atau izinkan user_id jika Super Admin / scope ALL
   const targetUserId = isSuperAdmin ? (user_id || req.user.id) : req.user.id;
-  
+
   if (!jenis_aktivitas || !tanggal) {
     return res.status(400).json({ error: 'Jenis aktivitas dan tanggal wajib diisi' });
   }
 
   // Idempotency key bisa dikirim dari header 'idempotency-key' atau body
   const finalIdempotencyKey = (
-    req.headers['idempotency-key'] || 
-    idempotency_key || 
-    _idempotency_key || 
-    _local_id || 
+    req.headers['idempotency-key'] ||
+    idempotency_key ||
+    _idempotency_key ||
+    _local_id ||
     null
   );
 
@@ -896,13 +897,13 @@ app.post('/api/activities', async (req, res) => {
          RETURNING *`;
 
     const insertParams = [
-      targetUserId, 
-      customer_id || null, 
-      site_kota || null, 
-      jenis_aktivitas, 
-      ditemui ? JSON.stringify(ditemui) : '[]', 
-      ditemui_lainnya || null, 
-      tanggal, 
+      targetUserId,
+      customer_id || null,
+      site_kota || null,
+      jenis_aktivitas,
+      ditemui ? JSON.stringify(ditemui) : '[]',
+      ditemui_lainnya || null,
+      tanggal,
       catatan || null
     ];
 
@@ -911,7 +912,7 @@ app.post('/api/activities', async (req, res) => {
     }
 
     const result = await pool.query(insertSql, insertParams);
-    
+
     // Status 201 Created
     res.status(201).json(result.rows[0]);
   } catch (error) {
@@ -997,7 +998,7 @@ app.put('/api/activities/:id', async (req, res) => {
       const clientTime = new Date(updated_at).getTime();
       // Toleransi 1000ms untuk clock skew / rounding
       if (serverTime > clientTime + 1000) {
-        return res.status(409).json({ 
+        return res.status(409).json({
           error: 'Konflik data: record ini telah diubah di server oleh pengguna lain.',
           server_updated_at: existing.updated_at
         });
@@ -1134,7 +1135,7 @@ app.get('/api/permissions', async (req, res) => {
 });
 
 // 2. Divisi Permissions (GET & POST)
-app.get('/api/debug-user/:email', async (req, res) => { const result = await pool.query('SELECT u.email, u.divisi_id, u.jabatan_id, j.nama_jabatan, d.nama_divisi, (SELECT json_agg(p.nama_permission) FROM (SELECT permission_id FROM divisi_permissions WHERE divisi_id = u.divisi_id UNION SELECT permission_id FROM jabatan_permissions WHERE jabatan_id = u.jabatan_id AND (divisi_id = u.divisi_id OR divisi_id IS NULL) AND (divisi_id = u.divisi_id OR divisi_id IS NULL) UNION SELECT jp.permission_id FROM user_additional_roles uar JOIN jabatan_permissions jp ON jp.jabatan_id = uar.jabatan_id WHERE uar.user_id = u.id AND (jp.divisi_id = u.divisi_id OR jp.divisi_id IS NULL) UNION SELECT permission_id FROM user_permissions WHERE user_id = u.id) all_perms JOIN permissions p ON p.id = all_perms.permission_id) as perms FROM users u LEFT JOIN jabatans j ON u.jabatan_id = j.id LEFT JOIN divisis d ON u.divisi_id = d.id WHERE u.email = ', [req.params.email]); res.json(result.rows[0]); }); 
+app.get('/api/debug-user/:email', async (req, res) => { const result = await pool.query('SELECT u.email, u.divisi_id, u.jabatan_id, j.nama_jabatan, d.nama_divisi, (SELECT json_agg(p.nama_permission) FROM (SELECT permission_id FROM divisi_permissions WHERE divisi_id = u.divisi_id UNION SELECT permission_id FROM jabatan_permissions WHERE jabatan_id = u.jabatan_id AND (divisi_id = u.divisi_id OR divisi_id IS NULL) AND (divisi_id = u.divisi_id OR divisi_id IS NULL) UNION SELECT jp.permission_id FROM user_additional_roles uar JOIN jabatan_permissions jp ON jp.jabatan_id = uar.jabatan_id WHERE uar.user_id = u.id AND (jp.divisi_id = u.divisi_id OR jp.divisi_id IS NULL) UNION SELECT permission_id FROM user_permissions WHERE user_id = u.id) all_perms JOIN permissions p ON p.id = all_perms.permission_id) as perms FROM users u LEFT JOIN jabatans j ON u.jabatan_id = j.id LEFT JOIN divisis d ON u.divisi_id = d.id WHERE u.email = ', [req.params.email]); res.json(result.rows[0]); });
 app.get('/api/permissions/divisi/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -1182,7 +1183,7 @@ app.get('/api/permissions/jabatan/:id', async (req, res) => {
 
 app.post('/api/permissions/jabatan/:id', async (req, res) => {
   const { id } = req.params;
-  const { permissions, items, divisi_id } = req.body; 
+  const { permissions, items, divisi_id } = req.body;
   // Mendukung items: [{ permission_id, data_scope }] atau fallback permissions: [id]
   try {
     await pool.query('BEGIN');
@@ -1197,14 +1198,14 @@ app.post('/api/permissions/jabatan/:id', async (req, res) => {
         const permId = typeof item === 'object' ? item.permission_id : item;
         const scope = (typeof item === 'object' && item.data_scope) ? item.data_scope : 'ALL';
         await pool.query(
-          'INSERT INTO jabatan_permissions (jabatan_id, permission_id, data_scope, divisi_id) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING', 
+          'INSERT INTO jabatan_permissions (jabatan_id, permission_id, data_scope, divisi_id) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING',
           [id, permId, scope, divisi_id || null]
         );
       }
     } else if (Array.isArray(permissions)) {
       for (let perm_id of permissions) {
         await pool.query(
-          'INSERT INTO jabatan_permissions (jabatan_id, permission_id, data_scope, divisi_id) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING', 
+          'INSERT INTO jabatan_permissions (jabatan_id, permission_id, data_scope, divisi_id) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING',
           [id, perm_id, 'ALL', divisi_id || null]
         );
       }
@@ -1281,7 +1282,7 @@ app.get('/api/permissions/user/:id', async (req, res) => {
 
 app.post('/api/permissions/user/:id', async (req, res) => {
   const { id } = req.params;
-  const { permissions, items } = req.body; 
+  const { permissions, items } = req.body;
   try {
     await pool.query('BEGIN');
     await pool.query('DELETE FROM user_permissions WHERE user_id = $1 AND is_auto_assigned = false', [id]);

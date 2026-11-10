@@ -18,6 +18,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { offlineEngine } from '../offline/offlineEngine';
 import { recoveryEngine } from '../offline/recoveryEngine';
+//test
 
 export default function Portal() {
   const navigate = useNavigate();
@@ -216,11 +217,10 @@ export default function Portal() {
                                 localStorage.setItem("user", JSON.stringify(updatedUser));
                                 window.location.reload();
                               }}
-                              className={`w-full flex items-center justify-between p-2 rounded-xl text-left transition-all border ${
-                                isCurrentActive 
-                                  ? 'bg-blue-50/80 border-blue-200 text-blue-700 font-semibold shadow-sm' 
+                              className={`w-full flex items-center justify-between p-2 rounded-xl text-left transition-all border ${isCurrentActive
+                                  ? 'bg-blue-50/80 border-blue-200 text-blue-700 font-semibold shadow-sm'
                                   : 'bg-white border-slate-100 text-slate-700 hover:bg-slate-50'
-                              }`}
+                                }`}
                             >
                               <div className="flex items-center gap-2 truncate">
                                 <div className={`p-1 rounded-lg shrink-0 ${isCurrentActive ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>
