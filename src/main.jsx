@@ -4,6 +4,7 @@ import './index.css'
 import App from './App.jsx'
 import { registerSW } from 'virtual:pwa-register'
 import { recoveryEngine } from './offline/recoveryEngine'
+//test
 
 // Pemicu pemulihan otomatis: selamatkan data offline di HP/Laptop user ke server
 try {
@@ -47,11 +48,11 @@ const originalFetch = window.fetch;
 window.fetch = async (...args) => {
   let [resource, config] = args;
   const token = localStorage.getItem('token');
-  
+
   if (token) {
     if (!config) config = {};
     if (!config.headers) config.headers = {};
-    
+
     // Menambahkan Authorization header jika belum ada
     if (config.headers instanceof Headers) {
       if (!config.headers.has('Authorization')) {
@@ -107,7 +108,7 @@ window.fetch = async (...args) => {
               console.warn('[PWA Cache] Storage quota exceeded for:', urlString);
             }
           });
-        } catch (_) {}
+        } catch (_) { }
       }
       return response;
     } catch (networkError) {
