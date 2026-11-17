@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Plus, Trash2, CheckCircle, HelpCircle, Layers, Settings, Tag, GitBranch } from 'lucide-react';
+import { X, Plus, Trash2, CheckCircle, HelpCircle, Layers, Settings, Tag, GitBranch, Image as ImageIcon, Upload, AlertCircle, Loader2 } from 'lucide-react';
 import { apiUrl } from '../../../api';
 
 export default function ModalQuestionForm({
@@ -22,6 +22,9 @@ export default function ModalQuestionForm({
     input_type: 'text',
     unit: '',
     helper_instruction: '',
+    instruction_image_url: '',
+    instruction_note: '',
+    repeater_config: { item_type: 'number', prefix: '' },
     is_required: false,
     is_active: true,
     sort_order: 100,
@@ -36,9 +39,59 @@ export default function ModalQuestionForm({
     raw_custom_rule: null
   });
 
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isCustomSection, setIsCustomSection] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  const handleUploadInstructionImage = async (file) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert('Harap pilih file gambar (JPG, PNG, WEBP)');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Ukuran file maksimal 5MB');
+      return;
+    }
+
+    setIsUploadingImage(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64Data = reader.result;
+        try {
+          const res = await fetch(apiUrl('survey-engine/upload-photo'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              data: base64Data,
+              filename: file.name,
+              category: 'instruction',
+              noSurvey: 'instructions',
+              user: 'admin',
+              productCode: 'common'
+            })
+          });
+          const result = await res.json();
+          if (res.ok && result.url) {
+            setFormData(prev => ({ ...prev, instruction_image_url: result.url }));
+          } else {
+            setFormData(prev => ({ ...prev, instruction_image_url: base64Data }));
+          }
+        } catch (uploadErr) {
+          console.warn('Gagal upload ke MinIO, menggunakan data gambar lokal:', uploadErr);
+          setFormData(prev => ({ ...prev, instruction_image_url: base64Data }));
+        } finally {
+          setIsUploadingImage(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error('Error membaca file gambar:', err);
+      setIsUploadingImage(false);
+    }
+  };
 
   // Helper untuk mengambil short key (misal 'EJR.dimensi.koneksi' -> 'koneksi')
   const getShortKey = (qKey) => {
@@ -300,6 +353,9 @@ export default function ModalQuestionForm({
         input_type: questionData.input_type || 'text',
         unit: questionData.unit || '',
         helper_instruction: questionData.helper_instruction || '',
+        instruction_image_url: questionData.instruction_image_url || questionData.note_config?.instruction_image_url || '',
+        instruction_note: questionData.instruction_note || questionData.note_config?.instruction_note || '',
+        repeater_config: questionData.repeater_config || questionData.note_config?.repeater_config || { item_type: 'number', prefix: '' },
         is_required: !!questionData.is_required,
         is_active: questionData.is_active !== undefined ? !!questionData.is_active : true,
         sort_order: questionData.sort_order || 100,
@@ -326,6 +382,9 @@ export default function ModalQuestionForm({
         input_type: 'text',
         unit: '',
         helper_instruction: '',
+        instruction_image_url: '',
+        instruction_note: '',
+        repeater_config: { item_type: 'number', prefix: '' },
         is_required: false,
         is_active: true,
         sort_order: 100,
@@ -503,6 +562,9 @@ export default function ModalQuestionForm({
         input_type: formData.input_type,
         unit: formData.unit ? formData.unit.trim() : '',
         helper_instruction: formData.helper_instruction ? formData.helper_instruction.trim() : '',
+        instruction_image_url: formData.instruction_image_url ? formData.instruction_image_url.trim() : '',
+        instruction_note: formData.instruction_note ? formData.instruction_note.trim() : '',
+        repeater_config: formData.input_type === 'multi_input' ? formData.repeater_config : undefined,
         is_required: formData.is_required,
         is_active: formData.is_active,
         sort_order: Number(formData.sort_order) || 100,
@@ -632,6 +694,7 @@ export default function ModalQuestionForm({
                 >
                   <option value="text">Teks Singkat (Text)</option>
                   <option value="number">Angka / Numerik (Number)</option>
+                  <option value="multi_input">Input Jamak Dinamis / Multi-Input (Repeater: misal Pitch 1, Pitch 2...)</option>
                   <option value="textarea">Teks Panjang / Catatan (Textarea)</option>
                   <option value="select">Pilihan Dropdown (Select)</option>
                   <option value="radio">Pilihan Radio (Radio Button)</option>
@@ -642,6 +705,51 @@ export default function ModalQuestionForm({
                   <option value="file">File / Dokumen Lampiran (File)</option>
                 </select>
               </div>
+
+              {formData.input_type === 'multi_input' && (
+                <div className="col-span-1 md:col-span-2 p-3.5 bg-cyan-50/70 border border-cyan-200 rounded-xl space-y-3">
+                  <div className="flex items-center gap-2 text-cyan-900 font-bold text-xs uppercase tracking-wider">
+                    <Layers className="w-4 h-4 text-cyan-600" />
+                    Konfigurasi Input Jamak (Multi-Input / Repeater)
+                  </div>
+                  <p className="text-xs text-cyan-800 leading-relaxed">
+                    Pertanyaan ini mengizinkan surveyor mengisi <strong>lebih dari 1 nilai</strong> (misal: <em>{formData.label || 'Pitch'} 1, {formData.label || 'Pitch'} 2, dst</em>) dengan fitur auto-generate jumlah otomatis dan tombol tambah baris dinamis di lapangan.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">
+                        Tipe Nilai Tiap Baris
+                      </label>
+                      <select
+                        className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-xs font-medium focus:ring-2 focus:ring-cyan-500 outline-none"
+                        value={formData.repeater_config?.item_type || 'number'}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          repeater_config: { ...prev.repeater_config, item_type: e.target.value }
+                        }))}
+                      >
+                        <option value="number">Angka / Numerik (Ukuran, Pitch, Nilai Ukur)</option>
+                        <option value="text">Teks Singkat (Keterangan, Kode, Serial)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">
+                        Awalan Label Baris (Opsional)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder={`Otomatis mengikuti nama label (${formData.label || 'mis. Pitch'})`}
+                        className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-xs focus:ring-2 focus:ring-cyan-500 outline-none"
+                        value={formData.repeater_config?.prefix || ''}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          repeater_config: { ...prev.repeater_config, prefix: e.target.value }
+                        }))}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">
@@ -726,17 +834,127 @@ export default function ModalQuestionForm({
               </div>
             )}
 
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                Petunjuk Pengisian / Helper (Opsional)
-              </label>
-              <textarea
-                rows={2}
-                placeholder="Instruksi tambahan bagi surveyor saat mengisi form..."
-                className="w-full px-3.5 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                value={formData.helper_instruction}
-                onChange={(e) => setFormData(prev => ({ ...prev, helper_instruction: e.target.value }))}
-              />
+            {/* Bagian Instruksi, Catatan Khusus & Foto Panduan */}
+            <div className="space-y-3 p-3.5 bg-blue-50/50 rounded-xl border border-blue-100">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-blue-900 flex items-center gap-1.5">
+                <HelpCircle className="w-3.5 h-3.5 text-blue-600" />
+                Instruksi & Panduan Pertanyaan (Opsional)
+              </h4>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Petunjuk Pengisian / Helper
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Instruksi tambahan bagi surveyor saat mengisi form..."
+                  className="w-full px-3.5 py-2 rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  value={formData.helper_instruction}
+                  onChange={(e) => setFormData(prev => ({ ...prev, helper_instruction: e.target.value }))}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-amber-800 mb-1 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3 text-amber-600" />
+                  Catatan Khusus / Peringatan Penting
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Peringatan atau catatan khusus (misal: Harap pastikan unit dalam kondisi dingin sebelum ukur)..."
+                  className="w-full px-3.5 py-2 rounded-xl border border-amber-200 bg-amber-50/30 focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm text-gray-800"
+                  value={formData.instruction_note}
+                  onChange={(e) => setFormData(prev => ({ ...prev, instruction_note: e.target.value }))}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1 flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <ImageIcon className="w-3.5 h-3.5 text-blue-600" />
+                    Foto / Diagram Panduan Instruksi
+                  </span>
+                  {formData.instruction_image_url && (
+                    <button
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, instruction_image_url: '' }))}
+                      className="text-[11px] text-red-600 hover:text-red-700 font-medium inline-flex items-center gap-1"
+                    >
+                      <Trash2 className="w-3 h-3" /> Hapus Gambar
+                    </button>
+                  )}
+                </label>
+
+                {formData.instruction_image_url ? (
+                  <div className="space-y-2">
+                    <div className="relative inline-block border border-blue-200 rounded-xl overflow-hidden bg-white shadow-xs">
+                      <img
+                        src={formData.instruction_image_url}
+                        alt="Preview Panduan"
+                        className="max-h-48 max-w-full object-contain rounded-lg p-1"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="px-3 py-1.5 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg text-xs font-medium text-gray-700 cursor-pointer inline-flex items-center gap-1.5 shadow-2xs">
+                        <Upload className="w-3.5 h-3.5 text-gray-500" />
+                        <span>Ganti Gambar</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            if (e.target.files?.[0]) handleUploadInstructionImage(e.target.files[0]);
+                            e.target.value = '';
+                          }}
+                        />
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Atau URL gambar..."
+                        className="flex-1 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs text-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        value={formData.instruction_image_url}
+                        onChange={(e) => setFormData(prev => ({ ...prev, instruction_image_url: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <label className={`flex-1 flex items-center justify-center gap-2 p-3 border-2 border-dashed border-blue-200 hover:border-blue-400 bg-white rounded-xl cursor-pointer text-xs font-semibold text-blue-600 transition-colors ${isUploadingImage ? 'opacity-60 cursor-not-allowed' : ''}`}>
+                      {isUploadingImage ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                          <span>Mengunggah gambar...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-4 h-4 text-blue-600" />
+                          <span>Unggah Foto / Diagram Panduan (PNG, JPG)</span>
+                        </>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={isUploadingImage}
+                        className="hidden"
+                        onChange={(e) => {
+                          if (e.target.files?.[0]) handleUploadInstructionImage(e.target.files[0]);
+                          e.target.value = '';
+                        }}
+                      />
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Atau masukkan URL gambar langsung..."
+                      className="flex-1 px-3.5 py-2 rounded-xl border border-gray-200 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={formData.instruction_image_url}
+                      onChange={(e) => setFormData(prev => ({ ...prev, instruction_image_url: e.target.value }))}
+                    />
+                  </div>
+                )}
+                <p className="text-[11px] text-gray-500 mt-1">
+                  Gambar ini akan ditampilkan ke surveyor di lapangan sebagai acuan visual cara pengukuran atau pengisian.
+                </p>
+              </div>
             </div>
           </div>
 

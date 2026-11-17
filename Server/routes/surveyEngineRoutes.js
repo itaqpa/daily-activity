@@ -110,20 +110,31 @@ export default function (pool) {
       // Format Key: survey-photos/<No Survey>/<user>_<product/code product>/<timestamp>_<random>_<filename>.<ext>
       const key = `survey-photos/${cleanNoSurvey}/${cleanUser}_${cleanProduct}/${timestamp}_${randomStr}_${cleanName}.${ext}`;
 
-      await minioClient.send(new PutObjectCommand({
-        Bucket: BUCKET_NAME,
-        Key: key,
-        Body: buffer,
-        ContentType: contentType,
-      }));
+      try {
+        await minioClient.send(new PutObjectCommand({
+          Bucket: BUCKET_NAME,
+          Key: key,
+          Body: buffer,
+          ContentType: contentType,
+        }));
 
-      // URL publik MinIO (forcePathStyle: true -> endpoint/BUCKET_NAME/key)
-      const fileUrl = `https://bucket.gte.co.id/${BUCKET_NAME}/${key}`;
-      return res.json({
-        success: true,
-        url: fileUrl,
-        key: key
-      });
+        // URL publik MinIO (forcePathStyle: true -> endpoint/BUCKET_NAME/key)
+        const fileUrl = `https://bucket.gte.co.id/${BUCKET_NAME}/${key}`;
+        return res.json({
+          success: true,
+          url: fileUrl,
+          key: key
+        });
+      } catch (uploadErr) {
+        console.warn('MinIO upload failed, fallback to direct data URL for robustness:', uploadErr.message);
+        // Fallback: Jika MinIO gagal atau tidak bisa dijangkau, kembalikan base64 data URL agar foto tetap tersimpan & tampil
+        return res.json({
+          success: true,
+          url: data,
+          key: key,
+          fallback: true
+        });
+      }
     } catch (error) {
       console.error('Error uploading photo to MinIO:', error);
       return res.status(500).json({
@@ -239,17 +250,26 @@ export default function (pool) {
           checklistItems = row.checklist_items;
         }
 
+        const instructionImg = (row.note_config && row.note_config.instruction_image_url) || null;
+        const instructionNote = (row.note_config && row.note_config.instruction_note) || null;
+        const isRepeater = row.input_type === 'multi_input' || !!row.note_config?.is_repeater || row.note_config?.input_type_override === 'multi_input';
+        const effectiveType = isRepeater ? 'multi_input' : row.input_type;
+        const repeaterCfg = row.note_config?.repeater_config || (isRepeater ? { item_type: 'number' } : null);
+
         sectionsMap.get(sectionCode).questions.push({
           template_product_question_id: row.template_product_question_id,
           id:               row.question_id,
           question_key:     row.question_key,
           question_no:      row.question_no,
           label:            row.label,
-          type:             row.input_type,
+          type:             effectiveType,
           unit:             row.unit || null,
           required:         row.effective_required,
           is_visible_default: row.is_visible_default,
           helper_instruction: row.helper_instruction || null,
+          instruction_image_url: instructionImg,
+          instruction_note: instructionNote,
+          repeater_config:  repeaterCfg,
           visibility_rule:  row.effective_visibility_rule || {},
           validation_rule:  row.validation_rule || {},
           note_config:      row.note_config || { enabled: true, required: false },
@@ -1484,7 +1504,7 @@ export default function (pool) {
           tq.question_key,
           tq.question_no,
           tq.label_snapshot              AS label,
-          tq.input_type,
+          COALESCE(tq.note_config->>'input_type_override', tq.input_type) AS input_type,
           tq.unit_snapshot               AS unit,
           tq.section_code_snapshot       AS section_code,
           tq.section_label_snapshot      AS section_name,
@@ -1492,6 +1512,9 @@ export default function (pool) {
           COALESCE(tq.is_active, true)   AS is_active,
           tq.sort_order,
           tq.helper_instruction,
+          COALESCE(tq.note_config->>'instruction_image_url', '') AS instruction_image_url,
+          COALESCE(tq.note_config->>'instruction_note', '')      AS instruction_note,
+          tq.note_config->'repeater_config' AS repeater_config,
           COALESCE(tq.visibility_rule, '{}'::jsonb) AS visibility_rule,
           (
             SELECT json_agg(
@@ -1596,6 +1619,8 @@ export default function (pool) {
         input_type = 'text',
         unit = '',
         helper_instruction = '',
+        instruction_image_url = '',
+        instruction_note = '',
         is_required = false,
         is_active = true,
         sort_order = 100,
@@ -1607,6 +1632,10 @@ export default function (pool) {
       if (!label || !label.trim()) {
         return res.status(400).json({ error: 'Label pertanyaan wajib diisi' });
       }
+
+      const isRepeater = input_type === 'multi_input';
+      const dbInputType = isRepeater ? 'text' : input_type;
+      const repeaterConfig = req.body.repeater_config || (isRepeater ? { item_type: 'number' } : null);
 
       await client.query('BEGIN');
       await client.query('SET search_path TO survey_engine, public');
@@ -1650,7 +1679,7 @@ export default function (pool) {
         VALUES ($1, $2, $3, $4)
         ON CONFLICT (code) DO UPDATE SET default_label = EXCLUDED.default_label
         RETURNING id
-      `, [qCatalogCode, label.trim(), input_type, is_active]);
+      `, [qCatalogCode, label.trim(), dbInputType, is_active]);
       const catalogQuestionId = qRes.rows[0].id;
 
       // Hitung sort order jika tidak diisi
@@ -1672,6 +1701,7 @@ export default function (pool) {
           question_no, question_key, label_snapshot,
           input_type, unit_snapshot, is_required,
           is_visible_default, helper_instruction,
+          note_config,
           sort_order, is_active, visibility_rule
         ) VALUES (
           $1, $2, $3,
@@ -1679,15 +1709,25 @@ export default function (pool) {
           $6, $7, $8,
           $9, $10, $11,
           true, $12,
-          $13, $14, $15
+          $13,
+          $14, $15, $16
         )
         RETURNING id
       `, [
         versionId, catalogQuestionId, sectionId,
         sCode, sName,
         'custom', generatedKey, label.trim(),
-        input_type, unit ? unit.trim() : null, !!is_required,
+        dbInputType, unit ? unit.trim() : null, !!is_required,
         helper_instruction || null,
+        JSON.stringify({
+          enabled: true,
+          required: false,
+          instruction_image_url: instruction_image_url ? instruction_image_url.trim() : null,
+          instruction_note: instruction_note ? instruction_note.trim() : null,
+          is_repeater: isRepeater,
+          input_type_override: isRepeater ? 'multi_input' : null,
+          repeater_config: repeaterConfig
+        }),
         finalSort, !!is_active,
         JSON.stringify(visibility_rule || {})
       ]);
@@ -1768,6 +1808,8 @@ export default function (pool) {
         input_type = 'text',
         unit = '',
         helper_instruction = '',
+        instruction_image_url = '',
+        instruction_note = '',
         is_required = false,
         is_active = true,
         sort_order = 100,
@@ -1779,6 +1821,10 @@ export default function (pool) {
       if (!label || !label.trim()) {
         return res.status(400).json({ error: 'Label pertanyaan wajib diisi' });
       }
+
+      const isRepeater = input_type === 'multi_input';
+      const dbInputType = isRepeater ? 'text' : input_type;
+      const repeaterConfig = req.body.repeater_config || (isRepeater ? { item_type: 'number' } : null);
 
       await client.query('BEGIN');
       await client.query('SET search_path TO survey_engine, public');
@@ -1797,14 +1843,21 @@ export default function (pool) {
           is_active = $7,
           helper_instruction = $8,
           sort_order = $9,
+          note_config = COALESCE(note_config, '{"enabled":true,"required":false}'::jsonb) || jsonb_build_object(
+            'instruction_image_url', $10::text,
+            'instruction_note', $11::text,
+            'is_repeater', $12::boolean,
+            'input_type_override', $13::text,
+            'repeater_config', $14::jsonb
+          ),
           visibility_rule = CASE 
-            WHEN $10::jsonb IS NOT NULL THEN $10::jsonb 
+            WHEN $15::jsonb IS NOT NULL THEN $15::jsonb 
             ELSE visibility_rule 
           END
-        WHERE id = $11
+        WHERE id = $16
       `, [
         label.trim(),
-        input_type,
+        dbInputType,
         unit ? unit.trim() : null,
         section_code || null,
         section_name || null,
@@ -1812,6 +1865,11 @@ export default function (pool) {
         !!is_active,
         helper_instruction || null,
         Number(sort_order) || 100,
+        instruction_image_url ? instruction_image_url.trim() : null,
+        instruction_note ? instruction_note.trim() : null,
+        isRepeater,
+        isRepeater ? 'multi_input' : null,
+        repeaterConfig ? JSON.stringify(repeaterConfig) : null,
         visibility_rule !== undefined ? JSON.stringify(visibility_rule || {}) : null,
         id
       ]);
