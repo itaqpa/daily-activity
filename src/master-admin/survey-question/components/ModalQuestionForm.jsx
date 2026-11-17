@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Plus, Trash2, CheckCircle, HelpCircle, Layers, Settings, Tag, GitBranch, Image as ImageIcon, Upload, AlertCircle, Loader2 } from 'lucide-react';
+import { X, Plus, Trash2, CheckCircle, HelpCircle, Layers, Settings, Tag, GitBranch, Image as ImageIcon, Upload, AlertCircle, Loader2, ZoomIn } from 'lucide-react';
 import { apiUrl } from '../../../api';
+import ImageZoomModal from '../../../survey-product/components/modals/ImageZoomModal';
 
 export default function ModalQuestionForm({
   isOpen,
@@ -40,6 +41,7 @@ export default function ModalQuestionForm({
   });
 
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isZoomOpen, setIsZoomOpen] = useState(false);
   const [isCustomSection, setIsCustomSection] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -887,12 +889,21 @@ export default function ModalQuestionForm({
 
                 {formData.instruction_image_url ? (
                   <div className="space-y-2">
-                    <div className="relative inline-block border border-blue-200 rounded-xl overflow-hidden bg-white shadow-xs">
+                    <div 
+                      onClick={() => setIsZoomOpen(true)}
+                      className="group relative inline-block border border-blue-200 rounded-xl overflow-hidden bg-white shadow-xs cursor-zoom-in hover:border-blue-400 transition-all"
+                      title="Klik untuk memperbesar / zoom foto"
+                    >
                       <img
                         src={formData.instruction_image_url}
                         alt="Preview Panduan"
-                        className="max-h-48 max-w-full object-contain rounded-lg p-1"
+                        className="max-h-48 max-w-full object-contain rounded-lg p-1 group-hover:scale-[1.02] transition-transform"
                       />
+                      <div className="absolute inset-0 bg-blue-900/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <span className="px-2.5 py-1 bg-black/75 text-white rounded-md text-[11px] font-semibold flex items-center gap-1 shadow-sm">
+                          <ZoomIn className="w-3.5 h-3.5" /> Klik untuk Zoom
+                        </span>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <label className="px-3 py-1.5 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg text-xs font-medium text-gray-700 cursor-pointer inline-flex items-center gap-1.5 shadow-2xs">
@@ -1396,6 +1407,14 @@ export default function ModalQuestionForm({
           </button>
         </div>
       </div>
+
+      {/* Modal Zoom & Pan untuk Foto Panduan di Master Admin */}
+      <ImageZoomModal
+        isOpen={isZoomOpen}
+        onClose={() => setIsZoomOpen(false)}
+        imageUrl={formData.instruction_image_url}
+        label={formData.label}
+      />
     </div>
   );
 }

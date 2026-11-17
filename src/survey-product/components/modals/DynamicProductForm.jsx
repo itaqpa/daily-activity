@@ -4,6 +4,7 @@ import { apiUrl } from '../../../api';
 import { useAuth } from '../../../context/AuthContext';
 import { offlineEngine } from '../../../offline/offlineEngine';
 import { offlineDb } from '../../../offline/db';
+import ImageZoomModal from './ImageZoomModal';
 
 export const PHOTO_CATS = [
   'Keseluruhan',
@@ -1812,38 +1813,13 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
         </div>
       </div>
 
-      {/* Lightbox Modal untuk Preview Foto Instruksi */}
-      {previewInstructionModal && (
-        <div
-          className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-4 backdrop-blur-xs animate-in fade-in"
-          onClick={() => setPreviewInstructionModal(null)}
-        >
-          <div
-            className="relative max-w-4xl max-h-[90vh] bg-white rounded-2xl overflow-hidden shadow-2xl flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-4 py-3 bg-gray-900 text-white text-sm font-medium">
-              <span className="truncate pr-4 flex items-center gap-2">
-                <ImageIcon className="w-4 h-4 text-blue-400" />
-                Panduan Instruksi: {previewInstructionModal.label || 'Pertanyaan'}
-              </span>
-              <button
-                onClick={() => setPreviewInstructionModal(null)}
-                className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-2 overflow-auto max-h-[calc(90vh-60px)] flex items-center justify-center bg-gray-950">
-              <img
-                src={previewInstructionModal.url}
-                alt="Foto Panduan Penuh"
-                className="max-h-[80vh] w-auto object-contain rounded"
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Lightbox Modal Interaktif dengan Zoom & Pan untuk Foto Panduan */}
+      <ImageZoomModal
+        isOpen={!!previewInstructionModal}
+        onClose={() => setPreviewInstructionModal(null)}
+        imageUrl={previewInstructionModal?.url}
+        label={previewInstructionModal?.label}
+      />
     </div>
   );
 }
