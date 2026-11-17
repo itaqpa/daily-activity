@@ -18,7 +18,8 @@ import {
   Tag,
   RotateCcw,
   GitBranch,
-  Package
+  Package,
+  Image as ImageIcon
 } from 'lucide-react';
 import MainLayout from '../../components/layouts/MainLayout';
 import { apiUrl } from '../../api';
@@ -608,6 +609,33 @@ export default function SurveyQuestionPage() {
                                   <HelpCircle className="w-3.5 h-3.5" />
                                 </span>
                               )}
+                              {item.instruction_image_url && (
+                                <span
+                                  title="Memiliki Foto/Diagram Panduan Instruksi"
+                                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                >
+                                  <ImageIcon className="w-3 h-3 text-emerald-600" />
+                                  <span>Foto Panduan</span>
+                                </span>
+                              )}
+                              {item.instruction_note && (
+                                <span
+                                  title={`Catatan Khusus: ${item.instruction_note}`}
+                                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200"
+                                >
+                                  <AlertCircle className="w-3 h-3 text-amber-600" />
+                                  <span>Catatan</span>
+                                </span>
+                              )}
+                              {item.input_type === 'multi_input' && (
+                                <span
+                                  title="Pertanyaan ini memiliki banyak isian nilai (Repeater)"
+                                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-cyan-50 text-cyan-700 border border-cyan-200"
+                                >
+                                  <Layers className="w-3 h-3 text-cyan-600" />
+                                  <span>Multi-Input</span>
+                                </span>
+                              )}
                               {/* Badge Bersyarat */}
                               {item.visibility_rule && (item.visibility_rule.depends_on || item.visibility_rule.source_expression?.field_js || item.visibility_rule.source_expression?.section_js) && (
                                 <span
@@ -638,8 +666,15 @@ export default function SurveyQuestionPage() {
                           </td>
 
                           <td className="py-3.5 px-4">
-                            <div className="font-semibold text-gray-700 capitalize">
-                              {item.input_type}
+                            <div className="font-semibold text-gray-700 capitalize flex items-center gap-1.5">
+                              {item.input_type === 'multi_input' ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-cyan-50 text-cyan-700 border border-cyan-200">
+                                  <Layers className="w-3 h-3 text-cyan-600" />
+                                  Multi-Input (Repeater)
+                                </span>
+                              ) : (
+                                item.input_type
+                              )}
                             </div>
                             {item.unit && (
                               <span className="text-[10px] text-gray-500 font-mono">

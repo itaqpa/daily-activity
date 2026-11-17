@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, ChevronRight, CheckCircle2, AlertTriangle, AlertCircle, Save, ArrowLeft, Camera, FileText, Plus, Trash2, Check, Image as ImageIcon, Upload } from 'lucide-react';
+import { X, ChevronRight, CheckCircle2, AlertTriangle, AlertCircle, Save, ArrowLeft, Camera, FileText, Plus, Trash2, Check, Image as ImageIcon, Upload, Info, ZoomIn } from 'lucide-react';
 import { apiUrl } from '../../../api';
 import { useAuth } from '../../../context/AuthContext';
 import { offlineEngine } from '../../../offline/offlineEngine';
@@ -136,6 +136,7 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
   const [matchCandidates, setMatchCandidates] = useState(null);
   const [matchMessage, setMatchMessage] = useState(null);
   const [appliedMessage, setAppliedMessage] = useState(null);
+  const [previewInstructionModal, setPreviewInstructionModal] = useState(null);
 
   // PCD Calculator state
   const [pcdN, setPcdN] = useState('');
@@ -183,7 +184,11 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
             checklist_items: q.checklist_items,
             required: q.required,
             options: q.options || [],
-            visibility_rule: q.visibility_rule
+            visibility_rule: q.visibility_rule,
+            helper_instruction: q.helper_instruction || null,
+            instruction_image_url: q.instruction_image_url || q.note_config?.instruction_image_url || null,
+            instruction_note: q.instruction_note || q.note_config?.instruction_note || null,
+            repeater_config: q.repeater_config || q.note_config?.repeater_config || null,
           }))
         }));
 
@@ -613,6 +618,8 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
     visibleQuestions.forEach(q => {
       const isFilled = q.type === 'photo' 
         ? ((answers.photos || []).length > 0 || (answers[q.id] && answers[q.id].length > 0))
+        : q.type === 'multi_input'
+        ? (Array.isArray(answers[q.id]) ? answers[q.id].some(v => String(v).trim() !== '') : (answers[q.id] !== undefined && answers[q.id] !== ''))
         : (answers[q.id] !== undefined && answers[q.id] !== '');
 
       if (isFilled) filledAll++;
@@ -714,12 +721,55 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
               const isProductTag = isProductTagQuestion(q);
               const isEqTag = isEqTagQuestion(q);
 
+              const instructionBlock = (q.helper_instruction || q.instruction_note || q.instruction_image_url) ? (
+                <div className="my-1.5 p-2.5 sm:p-3 rounded-xl bg-blue-50/70 border border-blue-100 text-xs text-blue-900 space-y-2">
+                  {q.helper_instruction && (
+                    <div className="flex items-start gap-1.5 text-blue-800">
+                      <Info className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+                      <span className="leading-relaxed">{q.helper_instruction}</span>
+                    </div>
+                  )}
+
+                  {q.instruction_note && (
+                    <div className="flex items-start gap-1.5 bg-amber-50/90 border border-amber-200 rounded-lg p-2 text-amber-900">
+                      <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                      <span className="leading-relaxed font-medium">{q.instruction_note}</span>
+                    </div>
+                  )}
+
+                  {q.instruction_image_url && (
+                    <div className="pt-1">
+                      <div className="text-[11px] font-semibold text-blue-900/80 mb-1.5 flex items-center gap-1.5">
+                        <ImageIcon className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Foto / Diagram Panduan (Klik untuk memperbesar):</span>
+                      </div>
+                      <div
+                        onClick={() => setPreviewInstructionModal({ url: q.instruction_image_url, label: q.label })}
+                        className="group relative inline-block cursor-zoom-in rounded-lg overflow-hidden border border-blue-200 bg-white shadow-2xs hover:border-blue-400 transition-all"
+                      >
+                        <img
+                          src={q.instruction_image_url}
+                          alt={`Panduan ${q.label}`}
+                          className="max-h-36 max-w-full sm:max-w-xs object-contain p-1 rounded-lg group-hover:scale-[1.02] transition-transform"
+                        />
+                        <div className="absolute inset-0 bg-blue-900/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <span className="px-2 py-1 bg-black/70 text-white rounded text-[10px] font-medium flex items-center gap-1">
+                            <ZoomIn className="w-3 h-3" /> Perbesar
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : null;
+
               if (isHariSurvey) {
                 return (
                   <div key={q.id} className="space-y-1.5">
                     <label className="block text-sm font-semibold text-gray-700">
                       {q.label} {q.required && <span className="text-red-500">*</span>}
                     </label>
+                    {instructionBlock}
                     <select
                       value={answers[q.id] || ''}
                       onChange={(e) => handleInputChange(q.id, e.target.value)}
@@ -743,6 +793,7 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
                     <label className="block text-sm font-semibold text-gray-700">
                       {q.label} {q.required && <span className="text-red-500">*</span>}
                     </label>
+                    {instructionBlock}
                     <input
                       type="text"
                       value={answers[q.id] !== undefined ? answers[q.id] : getAutoTagValue()}
@@ -761,6 +812,7 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
                     <label className="block text-sm font-semibold text-gray-700">
                       {q.label} {q.required && <span className="text-red-500">*</span>}
                     </label>
+                    {instructionBlock}
                     <input
                       type="text"
                       value={answers[q.id] || ''}
@@ -778,6 +830,7 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
                 <label className="block text-sm font-semibold text-gray-700">
                   {q.label} {q.required && <span className="text-red-500">*</span>}
                 </label>
+                {instructionBlock}
                 
                 {q.type === 'text' || q.type === 'number' || q.type === 'date' ? (
                   <div className="relative">
@@ -886,6 +939,118 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
                         </label>
                       );
                     })}
+                  </div>
+                ) : q.type === 'multi_input' ? (
+                  <div className="space-y-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
+                    {/* Header Input Cepat Jumlah / Auto-generate baris */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-200">
+                      <span className="text-xs text-gray-600 font-medium">
+                        Daftar nilai <strong>{q.label}</strong>:
+                      </span>
+                      <div className="flex items-center gap-1.5 bg-white border border-slate-200 px-2.5 py-1 rounded-lg shadow-2xs">
+                        <span className="text-[11px] text-gray-600 font-semibold whitespace-nowrap">
+                          Jumlah {q.label}:
+                        </span>
+                        <input
+                          type="number"
+                          min="1"
+                          max="50"
+                          disabled={readOnly}
+                          placeholder="Auto"
+                          className="w-14 px-1 py-0.5 bg-slate-50 border border-gray-300 rounded text-center text-xs font-bold text-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          value={Array.isArray(answers[q.id]) ? (answers[q.id].length || '') : (answers[q.id] ? 1 : '')}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10);
+                            if (isNaN(val) || val < 0) return;
+                            const count = Math.min(Math.max(val, 0), 50);
+                            const currentArr = Array.isArray(answers[q.id])
+                              ? [...answers[q.id]]
+                              : (answers[q.id] ? [String(answers[q.id])] : []);
+                            let newArr = [...currentArr];
+                            if (count > newArr.length) {
+                              while (newArr.length < count) newArr.push('');
+                            } else {
+                              newArr = newArr.slice(0, count);
+                            }
+                            handleInputChange(q.id, newArr);
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Daftar Input Nilai Dinamis */}
+                    {(() => {
+                      const currentArr = Array.isArray(answers[q.id])
+                        ? answers[q.id]
+                        : (answers[q.id] ? [String(answers[q.id])] : ['']);
+                      const itemPrefix = q.repeater_config?.prefix?.trim() || q.label;
+                      const isText = q.repeater_config?.item_type === 'text';
+
+                      return (
+                        <div className="space-y-2 pt-1">
+                          {currentArr.map((val, idx) => (
+                            <div key={idx} className="flex items-center gap-2">
+                              <span className="w-24 text-xs font-semibold text-gray-700 shrink-0">
+                                {itemPrefix} {idx + 1} :
+                              </span>
+                              <div className="relative flex-1">
+                                <input
+                                  type={isText ? 'text' : 'number'}
+                                  value={val}
+                                  disabled={readOnly}
+                                  onChange={(e) => {
+                                    const nextArr = [...currentArr];
+                                    nextArr[idx] = e.target.value;
+                                    handleInputChange(q.id, nextArr);
+                                  }}
+                                  className={`w-full px-3.5 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none text-gray-700 text-sm ${q.unit ? 'pr-14' : ''} ${readOnly ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
+                                  placeholder={`Nilai ${itemPrefix.toLowerCase()} ${idx + 1}`}
+                                />
+                                {q.unit && (
+                                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <span className="text-gray-500 text-xs">{q.unit}</span>
+                                  </div>
+                                )}
+                              </div>
+                              {!readOnly && currentArr.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const nextArr = currentArr.filter((_, i) => i !== idx);
+                                    handleInputChange(q.id, nextArr);
+                                  }}
+                                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                  title={`Hapus ${itemPrefix} ${idx + 1}`}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+
+                          {!readOnly && (
+                            <div className="pt-1.5 flex items-center justify-between">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const nextArr = [...currentArr, ''];
+                                  handleInputChange(q.id, nextArr);
+                                }}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-blue-400 text-blue-600 hover:bg-blue-50 text-xs font-semibold transition-colors shadow-2xs"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                                + Tambah {itemPrefix} ({itemPrefix} {currentArr.length + 1})
+                              </button>
+                              {currentArr.filter(v => String(v).trim() !== '').length > 0 && (
+                                <span className="text-[11px] text-gray-500 font-medium">
+                                  Terisi {currentArr.filter(v => String(v).trim() !== '').length} dari {currentArr.length} nilai
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 ) : (q.type === 'photo' || q.type === 'file') ? (
                   <div className="space-y-3 p-4 bg-slate-50 border border-slate-200 rounded-xl">
@@ -1646,6 +1811,39 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
           )}
         </div>
       </div>
+
+      {/* Lightbox Modal untuk Preview Foto Instruksi */}
+      {previewInstructionModal && (
+        <div
+          className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-4 backdrop-blur-xs animate-in fade-in"
+          onClick={() => setPreviewInstructionModal(null)}
+        >
+          <div
+            className="relative max-w-4xl max-h-[90vh] bg-white rounded-2xl overflow-hidden shadow-2xl flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-3 bg-gray-900 text-white text-sm font-medium">
+              <span className="truncate pr-4 flex items-center gap-2">
+                <ImageIcon className="w-4 h-4 text-blue-400" />
+                Panduan Instruksi: {previewInstructionModal.label || 'Pertanyaan'}
+              </span>
+              <button
+                onClick={() => setPreviewInstructionModal(null)}
+                className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-2 overflow-auto max-h-[calc(90vh-60px)] flex items-center justify-center bg-gray-950">
+              <img
+                src={previewInstructionModal.url}
+                alt="Foto Panduan Penuh"
+                className="max-h-[80vh] w-auto object-contain rounded"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
