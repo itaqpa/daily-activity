@@ -25,7 +25,7 @@ export default function ModalQuestionForm({
     helper_instruction: '',
     instruction_image_url: '',
     instruction_note: '',
-    repeater_config: { item_type: 'number', prefix: '' },
+    repeater_config: { item_type: 'number', prefix: '', default_items: [], allow_custom_labels: true },
     is_required: false,
     is_active: true,
     sort_order: 100,
@@ -357,7 +357,20 @@ export default function ModalQuestionForm({
         helper_instruction: questionData.helper_instruction || '',
         instruction_image_url: questionData.instruction_image_url || questionData.note_config?.instruction_image_url || '',
         instruction_note: questionData.instruction_note || questionData.note_config?.instruction_note || '',
-        repeater_config: questionData.repeater_config || questionData.note_config?.repeater_config || { item_type: 'number', prefix: '' },
+        repeater_config: (() => {
+          const raw = questionData.repeater_config || questionData.note_config?.repeater_config || {};
+          const items = Array.isArray(raw.default_items)
+            ? raw.default_items.map(it => typeof it === 'object' && it !== null ? it : { label: String(it) })
+            : (Array.isArray(raw.preset_labels)
+                ? raw.preset_labels.map(l => ({ label: String(l) }))
+                : []);
+          return {
+            item_type: raw.item_type || 'number',
+            prefix: raw.prefix || '',
+            default_items: items,
+            allow_custom_labels: raw.allow_custom_labels !== false
+          };
+        })(),
         is_required: !!questionData.is_required,
         is_active: questionData.is_active !== undefined ? !!questionData.is_active : true,
         sort_order: questionData.sort_order || 100,
@@ -386,7 +399,7 @@ export default function ModalQuestionForm({
         helper_instruction: '',
         instruction_image_url: '',
         instruction_note: '',
-        repeater_config: { item_type: 'number', prefix: '' },
+        repeater_config: { item_type: 'number', prefix: '', default_items: [], allow_custom_labels: true },
         is_required: false,
         is_active: true,
         sort_order: 100,
@@ -709,13 +722,13 @@ export default function ModalQuestionForm({
               </div>
 
               {formData.input_type === 'multi_input' && (
-                <div className="col-span-1 md:col-span-2 p-3.5 bg-cyan-50/70 border border-cyan-200 rounded-xl space-y-3">
+                <div className="col-span-1 md:col-span-2 p-4 bg-cyan-50/70 border border-cyan-200 rounded-xl space-y-3.5">
                   <div className="flex items-center gap-2 text-cyan-900 font-bold text-xs uppercase tracking-wider">
                     <Layers className="w-4 h-4 text-cyan-600" />
                     Konfigurasi Input Jamak (Multi-Input / Repeater)
                   </div>
                   <p className="text-xs text-cyan-800 leading-relaxed">
-                    Pertanyaan ini mengizinkan surveyor mengisi <strong>lebih dari 1 nilai</strong> (misal: <em>{formData.label || 'Pitch'} 1, {formData.label || 'Pitch'} 2, dst</em>) dengan fitur auto-generate jumlah otomatis dan tombol tambah baris dinamis di lapangan.
+                    Pertanyaan ini mengizinkan surveyor mengisi <strong>lebih dari 1 nilai</strong> (misal: <em>{formData.label || 'Pitch'} 1, {formData.label || 'Pitch'} 2, dst</em>). Anda dapat menentukan label awal (default) untuk baris 1, 2, 3... dan surveyor di lapangan dapat langsung mengisi nilai serta menambahkan baris dengan label custom sendiri.
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                     <div>
@@ -748,6 +761,124 @@ export default function ModalQuestionForm({
                           repeater_config: { ...prev.repeater_config, prefix: e.target.value }
                         }))}
                       />
+                    </div>
+                  </div>
+
+                  {/* Pengaturan Label Bawaan (Default Rows 1, 2, 3...) */}
+                  <div className="pt-2 border-t border-cyan-200/80 space-y-2.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                          Daftar Label Bawaan (Default Baris 1, 2, 3...)
+                        </span>
+                        <span className="text-[11px] text-gray-500 block">
+                          Label yang akan otomatis muncul saat surveyor membuka form pertama kali.
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const prefix = formData.repeater_config?.prefix?.trim() || formData.label?.trim() || 'Nilai';
+                            setFormData(prev => ({
+                              ...prev,
+                              repeater_config: {
+                                ...prev.repeater_config,
+                                default_items: [
+                                  { label: `${prefix} 1` },
+                                  { label: `${prefix} 2` },
+                                  { label: `${prefix} 3` }
+                                ]
+                              }
+                            }));
+                          }}
+                          className="px-2.5 py-1 text-[11px] font-semibold bg-white hover:bg-cyan-100 text-cyan-800 border border-cyan-300 rounded-md transition-colors shadow-2xs"
+                          title="Otomatis isi 3 baris default"
+                        >
+                          + Set 3 Baris Cepat
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                      {(formData.repeater_config?.default_items || []).map((item, idx) => (
+                        <div key={idx} className="flex items-center gap-2 bg-white p-2 rounded-lg border border-cyan-200/70 shadow-2xs">
+                          <span className="w-16 text-xs font-bold text-gray-600 shrink-0">
+                            Baris {idx + 1}:
+                          </span>
+                          <input
+                            type="text"
+                            value={item.label || ''}
+                            onChange={(e) => {
+                              const nextItems = [...(formData.repeater_config?.default_items || [])];
+                              nextItems[idx] = { ...nextItems[idx], label: e.target.value };
+                              setFormData(prev => ({
+                                ...prev,
+                                repeater_config: { ...prev.repeater_config, default_items: nextItems }
+                              }));
+                            }}
+                            placeholder={`Label baris ${idx + 1} (mis. ${formData.repeater_config?.prefix || formData.label || 'Pitch'} ${idx + 1})`}
+                            className="flex-1 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs font-medium focus:ring-2 focus:ring-cyan-500 outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const nextItems = (formData.repeater_config?.default_items || []).filter((_, i) => i !== idx);
+                              setFormData(prev => ({
+                                ...prev,
+                                repeater_config: { ...prev.repeater_config, default_items: nextItems }
+                              }));
+                            }}
+                            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Hapus baris default ini"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+
+                      {(!formData.repeater_config?.default_items || formData.repeater_config.default_items.length === 0) && (
+                        <div className="text-center py-3 bg-white/60 border border-dashed border-cyan-200 rounded-lg text-xs text-gray-500">
+                          Belum ada label bawaan. Klik tombol di bawah untuk menambah baris bawaan (misal Jawaban 1, Jawaban 2, Jawaban 3).
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextIdx = (formData.repeater_config?.default_items || []).length + 1;
+                          const prefix = formData.repeater_config?.prefix?.trim() || formData.label?.trim() || 'Nilai';
+                          setFormData(prev => ({
+                            ...prev,
+                            repeater_config: {
+                              ...prev.repeater_config,
+                              default_items: [
+                                ...(prev.repeater_config?.default_items || []),
+                                { label: `${prefix} ${nextIdx}` }
+                              ]
+                            }
+                          }));
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-cyan-400 text-cyan-700 bg-white hover:bg-cyan-50 text-xs font-semibold transition-colors"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        + Tambah Label Baris Bawaan
+                      </button>
+
+                      <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-700 font-medium select-none">
+                        <input
+                          type="checkbox"
+                          className="rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
+                          checked={formData.repeater_config?.allow_custom_labels !== false}
+                          onChange={(e) => setFormData(prev => ({
+                            ...prev,
+                            repeater_config: { ...prev.repeater_config, allow_custom_labels: e.target.checked }
+                          }))}
+                        />
+                        <span>Izinkan surveyor menambah / mengubah label sendiri di lapangan</span>
+                      </label>
                     </div>
                   </div>
                 </div>

@@ -21,14 +21,14 @@ const SHAPES = ['Bulat','Kotak (rectangular)','Reducer konsentris','Reducer ekse
 const CUSTOM = 'Custom (spesifikasi / drawing client)';
 
 /* ---------- conditions ---------- */
-const isKotak = f => /Kotak|Oval|Rectangular/.test(f.bentuk||'');
+const isKotak = f => /Kotak|Oval|Rectangular/i.test(f.bentuk||'');
 const isRound = f => !isKotak(f);
-const isRed = f => /Reducer/.test(f.bentuk||'');
-const isFl = f => f.koneksi==='Flange';
-const isAsme = f => /^ASME/.test(f.fl_std||'');
-const hasInner = f => /CGI|RIR/.test(f.g_type||'');
-const hasOuter = f => /^CG/.test(f.g_type||'');
-const isCustom = f => f.acuan===CUSTOM;
+const isRed = f => /Reducer/i.test(f.bentuk||'');
+const isFl = f => /^Flange$/i.test(String(f.koneksi||'').trim());
+const isAsme = f => /^ASME/i.test(f.fl_std||'');
+const hasInner = f => /CGI|RIR/i.test(f.g_type||'');
+const hasOuter = f => /^CG/i.test(f.g_type||'');
+const isCustom = f => String(f.acuan||'').trim().toLowerCase()===CUSTOM.toLowerCase();
 
 /* ---------- section builders ---------- */
 const sel = (k,l,o,x) => Object.assign({k,l,ty:'sel',o},x||{});
@@ -330,7 +330,23 @@ const fmt = (x,d) => { if(x==null) return ''; let r=Math.round(x*Math.pow(10,d||
 const sgn = (x,d) => { const r=Math.round(x*Math.pow(10,d||1))/Math.pow(10,d||1); return (r>0?'+':'')+fmt(r,d||1); };
 const plain = (x,d) => fmt(x,d).replace(/\./g,'');
 const today = () => { const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
-const filled = v => v!=null && String(v).trim()!=='';
+const filled = v => v!=null && (Array.isArray(v) ? v.length > 0 && v.some(x => x != null && (typeof x === 'object' ? String(x.value ?? '').trim() !== '' : String(x).trim() !== '')) : String(v).trim()!=='');
+function formatVal(v) {
+  if (v == null) return '';
+  if (Array.isArray(v)) {
+    return v
+      .filter(x => x != null && (typeof x === 'object' ? String(x.value ?? '').trim() !== '' : String(x).trim() !== ''))
+      .map((x, i) => {
+        if (typeof x === 'object' && x !== null) {
+          const l = x.label ? `${x.label}: ` : '';
+          return `${l}${x.value ?? ''}`;
+        }
+        return String(x);
+      })
+      .join(', ');
+  }
+  return String(v);
+}
 const inScope = (list,s) => list===ALL || list.some(p=>scope(s).indexOf(p)>=0);
 function toast(){}
 function keepScroll(fn){ fn(); }
@@ -824,7 +840,7 @@ function renderReport(s){
 function reportBody(s,photoMap){
   const I=s.info, sc=scope(s).filter(c=>s.items.some(i=>i.prod===c));
   const kv=arr=>'<table class="kv">'+arr.map(r=>'<tr'+(r[2]?' class="missing"':'')+'><td>'+esc(r[0])+'</td><td>'+(r[1]===''?'—':esc(r[1]))+'</td></tr>').join('')+'</table>';
-  const val=(it,fd)=>{ const v=it.f[fd.k]; if(!filled(v)) return ''; if(fd.ty==='day') return dayLabel(s,v); return v+(fd.u?' '+fd.u:''); };
+  const val=(it,fd)=>{ const v=it.f[fd.k]; if(!filled(v)) return ''; if(fd.ty==='day') return dayLabel(s,v); return formatVal(v)+(fd.u?' '+fd.u:''); };
   const period=s.days.length?(fmtDate(s.days[0].date)+(s.days.length>1?' s.d. '+fmtDate(s.days[s.days.length-1].date):'')):'';
   let n=0, h='<h1>Laporan Survey Produk GTE</h1><p class="sub">'+esc(I.client||'—')+(I.plant?', '+esc(I.plant):'')+' · '+esc(period)+' · '+s.days.length+' hari</p>';
   h+='<h2>'+(++n)+'. Informasi survey</h2>'+kv(INFO.map(f=>[f.l,I[f.k]||'']).concat([['Produk yang disurvey',sc.map(c=>c+' ('+prodName(c,s)+')').join(', ')||'']]));
@@ -837,7 +853,7 @@ function reportBody(s,photoMap){
     if (P[c]) {
       const cols=(P[c].cols||[]).map(k=>P[c].fmap?.[k]).filter(Boolean);
       h+='<h2>'+(++n)+'. '+c+' — '+esc(pName)+'</h2><div class="tw"><table><thead><tr><th>No</th>'+cols.map(f=>'<th>'+esc(f.l)+(f.u?' ('+esc(f.u)+')':'')+'</th>').join('')+'<th>Lengkap</th><th>Validasi</th></tr></thead><tbody>'+
-        its.map((it,i)=>{ const vc=vcount(it); return '<tr><td>'+(i+1)+'</td>'+cols.map(f=>'<td>'+esc(filled(it.f[f.k])?it.f[f.k]:'')+'</td>').join('')+'<td>'+pct(it)+'%</td><td>'+(vc.err?vc.err+' error ':'')+(vc.warn?vc.warn+' peringatan':'')+(!vc.err&&!vc.warn?'OK':'')+'</td></tr>'; }).join('')+'</tbody></table></div>';
+        its.map((it,i)=>{ const vc=vcount(it); return '<tr><td>'+(i+1)+'</td>'+cols.map(f=>'<td>'+esc(filled(it.f[f.k])?formatVal(it.f[f.k]):'')+'</td>').join('')+'<td>'+pct(it)+'%</td><td>'+(vc.err?vc.err+' error ':'')+(vc.warn?vc.warn+' peringatan':'')+(!vc.err&&!vc.warn?'OK':'')+'</td></tr>'; }).join('')+'</tbody></table></div>';
       its.forEach((it,i)=>{
         h+='<div class="itemblock"><h3>'+n+'.'+(i+1)+' '+esc(it.f.tag||'(tanpa tag)')+'</h3>';
         visSecs(it).forEach(sec=>{
@@ -869,14 +885,32 @@ function reportBody(s,photoMap){
         h+='<div class="itemblock"><h3>'+n+'.'+(i+1)+' '+esc(it.f.tag||it.name||('Item '+(i+1)))+'</h3>';
         const rows = [];
         const excludedKeys = new Set(['photos','fail','gap','cref','custom_refs','status','id']);
+        const seenLabels = new Set();
         const seenKeys = new Set();
+
+        const itBentuk = it.f.bentuk || '';
+        const itIsKotak = /Kotak|Oval|Rectangular/i.test(itBentuk);
+        const itIsRound = !itIsKotak && /Bulat|Round/i.test(itBentuk);
+        const roundOnlyKeys = new Set(['f_od', 'pcd', 'n_bolt', 'bolt_n', 'hole', 'hole_dia', 'd_id', 'd_od', 'id1', 'size1', 'std']);
+        const kotakOnlyKeys = new Set(['dim_p', 'dim_l', 'dim_2', 'ukuran_luar_exj', 'fr_w', 'fr_np', 'fr_nl', 'fr_hole', 'fr_pitch', 'fr_bc', 'g_p', 'g_l']);
+
         Object.entries(it.f || {}).forEach(([k, v]) => {
-          if (excludedKeys.has(k) || seenKeys.has(k) || !filled(v)) return;
-          seenKeys.add(k);
-          if (k === 'day') {
-            rows.push([keyToLabel(k), dayLabel(s, v), false]);
+          const shortK = k.split('.').pop();
+          if (excludedKeys.has(k) || excludedKeys.has(shortK) || !filled(v)) return;
+          if (itIsKotak && roundOnlyKeys.has(shortK)) return;
+          if (itIsRound && kotakOnlyKeys.has(shortK)) return;
+
+          const label = keyToLabel(k);
+          if (!label) return;
+          const labelNorm = label.toLowerCase().trim();
+          if (seenKeys.has(shortK) || seenLabels.has(labelNorm)) return;
+
+          seenKeys.add(shortK);
+          seenLabels.add(labelNorm);
+          if (shortK === 'day' || k === 'day') {
+            rows.push([label, dayLabel(s, v), false]);
           } else {
-            rows.push([keyToLabel(k), String(v), false]);
+            rows.push([label, formatVal(v), false]);
           }
         });
         if (rows.length) {
