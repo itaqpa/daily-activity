@@ -96,10 +96,16 @@ export default function SurveyQuestionPage() {
         const secRes = await fetch(url);
         if (secRes.ok) {
           const data = await secRes.json();
-          setSections(data);
+          const cleanSections = (data || []).map(s => {
+            if (s.name === 'EXJF.BULAT' && s.code === 'gte.ejf.dimensi') {
+              return { ...s, code: 'sec_exjf_bulat' };
+            }
+            return s;
+          });
+          setSections(cleanSections);
           // Jika section yang sedang dipilih tidak ada di produk yang baru dipilih, reset ke 'ALL'
           setFilterSection(current => {
-            if (current !== 'ALL' && !data.some(s => s.name === current)) {
+            if (current !== 'ALL' && !cleanSections.some(s => s.name === current)) {
               return 'ALL';
             }
             return current;
