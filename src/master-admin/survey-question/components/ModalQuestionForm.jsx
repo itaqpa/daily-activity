@@ -923,7 +923,7 @@ export default function ModalQuestionForm({
               <div className="flex gap-2">
                 <select
                   className="flex-1 px-3.5 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
-                  value={formData.section_code}
+                  value={formData.section_code === 'gte.ejf.dimensi' && formData.section_name === 'EXJF.BULAT' ? 'sec_exjf_bulat' : formData.section_code}
                   onChange={(e) => {
                     const selSec = sections.find(s => s.code === e.target.value);
                     setFormData(prev => ({
@@ -933,11 +933,14 @@ export default function ModalQuestionForm({
                     }));
                   }}
                 >
-                  {sections.map(s => (
-                    <option key={s.code} value={s.code}>
-                      {s.name} ({s.code})
-                    </option>
-                  ))}
+                  {sections.map(s => {
+                    const finalCode = (s.name === 'EXJF.BULAT' && s.code === 'gte.ejf.dimensi') ? 'sec_exjf_bulat' : s.code;
+                    return (
+                      <option key={`${s.name}_${finalCode}`} value={finalCode}>
+                        {s.name} ({finalCode})
+                      </option>
+                    );
+                  })}
                 </select>
                 <button
                   type="button"

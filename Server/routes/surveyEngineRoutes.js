@@ -1458,7 +1458,7 @@ export default function (pool) {
       const { product_code } = req.query;
       let query = `
         SELECT
-          MIN(COALESCE(s.code, tq.section_code_snapshot, 'general')) AS code,
+          MIN(COALESCE(tq.section_code_snapshot, s.code, 'general')) AS code,
           COALESCE(tq.section_label_snapshot, s.name, 'General') AS name,
           COUNT(tq.id)::int AS total_questions
         FROM survey_engine.template_questions tq
