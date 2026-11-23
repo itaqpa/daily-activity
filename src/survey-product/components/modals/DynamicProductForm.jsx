@@ -528,13 +528,13 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
       });
       const CUSTOM = 'Custom (spesifikasi / drawing client)';
       const conditions = {
-        isKotak: (fObj) => /Kotak|Oval|Rectangular/.test(fObj.bentuk || ''),
-        isRed: (fObj) => /Reducer/.test(fObj.bentuk || ''),
-        isFl: (fObj) => fObj.koneksi === 'Flange',
-        isAsme: (fObj) => /^ASME/.test(fObj.fl_std || ''),
-        hasInner: (fObj) => /CGI|RIR/.test(fObj.g_type || ''),
-        hasOuter: (fObj) => /^CG/.test(fObj.g_type || ''),
-        isCustom: (fObj) => fObj.acuan === CUSTOM
+        isKotak: (fObj) => /Kotak|Oval|Rectangular/i.test(fObj.bentuk || ''),
+        isRed: (fObj) => /Reducer/i.test(fObj.bentuk || ''),
+        isFl: (fObj) => /^Flange$/i.test(String(fObj.koneksi || '').trim()),
+        isAsme: (fObj) => /^ASME/i.test(fObj.fl_std || ''),
+        hasInner: (fObj) => /CGI|RIR/i.test(fObj.g_type || ''),
+        hasOuter: (fObj) => /^CG/i.test(fObj.g_type || ''),
+        isCustom: (fObj) => String(fObj.acuan || '').trim().toLowerCase() === CUSTOM.toLowerCase()
       };
       conditions.isRound = (fObj) => !conditions.isKotak(fObj);
 
@@ -560,7 +560,8 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
           // Match regex test: /pattern/.test(f.field || '')
           const regexMatch = part.match(/^\/((?:\\\/|[^/])+)\/([a-z]*)\.test\(f\.([a-zA-Z0-9_]+)/);
           if (regexMatch) {
-            const regex = new RegExp(regexMatch[1], regexMatch[2]);
+            const flags = (regexMatch[2] || '').includes('i') ? regexMatch[2] : (regexMatch[2] || '') + 'i';
+            const regex = new RegExp(regexMatch[1], flags);
             const fieldName = regexMatch[3];
             const val = f[fieldName] || '';
             const res = regex.test(val);
@@ -573,7 +574,7 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
             const fieldName = neqMatch[1];
             let val = neqMatch[2].replace(/['"]/g, '').trim();
             if (val === 'CUSTOM') val = CUSTOM;
-            const res = (f[fieldName] !== val);
+            const res = String(f[fieldName] || '').trim().toLowerCase() !== String(val).trim().toLowerCase();
             return isNot ? !res : res;
           }
 
@@ -583,7 +584,7 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
             const fieldName = eqMatch[1];
             let val = eqMatch[2].replace(/['"]/g, '').trim();
             if (val === 'CUSTOM') val = CUSTOM;
-            const res = (f[fieldName] === val);
+            const res = String(f[fieldName] || '').trim().toLowerCase() === String(val).trim().toLowerCase();
             return isNot ? !res : res;
           }
           
@@ -620,7 +621,7 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
       const isFilled = q.type === 'photo' 
         ? ((answers.photos || []).length > 0 || (answers[q.id] && answers[q.id].length > 0))
         : q.type === 'multi_input'
-        ? (Array.isArray(answers[q.id]) ? answers[q.id].some(v => String(v).trim() !== '') : (answers[q.id] !== undefined && answers[q.id] !== ''))
+        ? (Array.isArray(answers[q.id]) ? answers[q.id].some(v => typeof v === 'object' && v !== null ? String(v.value ?? '').trim() !== '' : String(v ?? '').trim() !== '') : (answers[q.id] !== undefined && answers[q.id] !== ''))
         : (answers[q.id] !== undefined && answers[q.id] !== '');
 
       if (isFilled) filledAll++;
@@ -680,9 +681,34 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
     return Math.round((filledAll / totalAll) * 100);
   };
 
+  const cleanInvisibleAnswers = (answersObj) => {
+    if (!sections || sections.length === 0 || !answersObj) return answersObj;
+    const cleaned = { ...answersObj };
+    sections.forEach(sec => {
+      (sec.questions || []).forEach(q => {
+        if (!evaluateVisibility(q, answersObj)) {
+          delete cleaned[q.id];
+          delete cleaned[`${q.id}_lainnya`];
+          const shortK = q.id.split('.').pop();
+          if (shortK && shortK !== q.id) {
+            delete cleaned[shortK];
+            delete cleaned[`${shortK}_lainnya`];
+          }
+        }
+      });
+    });
+    return cleaned;
+  };
+
+  const handleSave = () => {
+    const cleaned = cleanInvisibleAnswers(answers);
+    setAnswers(cleaned);
+    onSave(cleaned, getOverallPercent());
+  };
+
   useEffect(() => {
     if (!readOnly && onChangeRef.current && sections.length > 0) {
-      onChangeRef.current(answers, getOverallPercent());
+      onChangeRef.current(cleanInvisibleAnswers(answers), getOverallPercent());
     }
   }, [answers, sections, readOnly]);
 
@@ -943,113 +969,180 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
                   </div>
                 ) : q.type === 'multi_input' ? (
                   <div className="space-y-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
-                    {/* Header Input Cepat Jumlah / Auto-generate baris */}
-                    <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-200">
-                      <span className="text-xs text-gray-600 font-medium">
-                        Daftar nilai <strong>{q.label}</strong>:
-                      </span>
-                      <div className="flex items-center gap-1.5 bg-white border border-slate-200 px-2.5 py-1 rounded-lg shadow-2xs">
-                        <span className="text-[11px] text-gray-600 font-semibold whitespace-nowrap">
-                          Jumlah {q.label}:
-                        </span>
-                        <input
-                          type="number"
-                          min="1"
-                          max="50"
-                          disabled={readOnly}
-                          placeholder="Auto"
-                          className="w-14 px-1 py-0.5 bg-slate-50 border border-gray-300 rounded text-center text-xs font-bold text-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                          value={Array.isArray(answers[q.id]) ? (answers[q.id].length || '') : (answers[q.id] ? 1 : '')}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value, 10);
-                            if (isNaN(val) || val < 0) return;
-                            const count = Math.min(Math.max(val, 0), 50);
-                            const currentArr = Array.isArray(answers[q.id])
-                              ? [...answers[q.id]]
-                              : (answers[q.id] ? [String(answers[q.id])] : []);
-                            let newArr = [...currentArr];
-                            if (count > newArr.length) {
-                              while (newArr.length < count) newArr.push('');
-                            } else {
-                              newArr = newArr.slice(0, count);
-                            }
-                            handleInputChange(q.id, newArr);
-                          }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Daftar Input Nilai Dinamis */}
                     {(() => {
-                      const currentArr = Array.isArray(answers[q.id])
-                        ? answers[q.id]
-                        : (answers[q.id] ? [String(answers[q.id])] : ['']);
-                      const itemPrefix = q.repeater_config?.prefix?.trim() || q.label;
+                      const itemPrefix = q.repeater_config?.prefix?.trim() || q.label || 'Item';
+                      const defaultItems = Array.isArray(q.repeater_config?.default_items)
+                        ? q.repeater_config.default_items
+                        : (Array.isArray(q.repeater_config?.preset_labels) ? q.repeater_config.preset_labels.map(l => ({ label: l })) : []);
                       const isText = q.repeater_config?.item_type === 'text';
+                      const allowCustomLabels = q.repeater_config?.allow_custom_labels !== false;
+
+                      const rawVal = answers[q.id];
+                      let currentArr = [];
+                      if (Array.isArray(rawVal) && rawVal.length > 0) {
+                        currentArr = rawVal.map((item, idx) => {
+                          if (typeof item === 'object' && item !== null) {
+                            return {
+                              label: item.label !== undefined ? String(item.label) : (defaultItems[idx]?.label || `${itemPrefix} ${idx + 1}`),
+                              value: item.value !== undefined ? String(item.value) : ''
+                            };
+                          }
+                          return {
+                            label: defaultItems[idx]?.label || `${itemPrefix} ${idx + 1}`,
+                            value: String(item ?? '')
+                          };
+                        });
+                      } else if (rawVal !== undefined && rawVal !== null && rawVal !== '') {
+                        currentArr = [{
+                          label: defaultItems[0]?.label || `${itemPrefix} 1`,
+                          value: String(rawVal)
+                        }];
+                      } else if (defaultItems.length > 0) {
+                        currentArr = defaultItems.map((d, idx) => ({
+                          label: typeof d === 'object' && d?.label ? String(d.label) : (typeof d === 'string' ? d : `${itemPrefix} ${idx + 1}`),
+                          value: ''
+                        }));
+                      } else {
+                        currentArr = [{ label: `${itemPrefix} 1`, value: '' }];
+                      }
+
+                      const updateRowValue = (idx, nextVal) => {
+                        const next = [...currentArr];
+                        next[idx] = { ...next[idx], value: nextVal };
+                        handleInputChange(q.id, next);
+                      };
+
+                      const updateRowLabel = (idx, nextLabel) => {
+                        const next = [...currentArr];
+                        next[idx] = { ...next[idx], label: nextLabel };
+                        handleInputChange(q.id, next);
+                      };
+
+                      const addRow = () => {
+                        const nextIdx = currentArr.length;
+                        const defaultLabel = defaultItems[nextIdx]?.label || `${itemPrefix} ${nextIdx + 1}`;
+                        const next = [...currentArr, { label: defaultLabel, value: '' }];
+                        handleInputChange(q.id, next);
+                      };
+
+                      const deleteRow = (idx) => {
+                        const next = currentArr.filter((_, i) => i !== idx);
+                        handleInputChange(q.id, next.length > 0 ? next : [{ label: `${itemPrefix} 1`, value: '' }]);
+                      };
+
+                      const setRowCount = (count) => {
+                        let next = [...currentArr];
+                        if (count > next.length) {
+                          while (next.length < count) {
+                            const nextIdx = next.length;
+                            const defaultLabel = defaultItems[nextIdx]?.label || `${itemPrefix} ${nextIdx + 1}`;
+                            next.push({ label: defaultLabel, value: '' });
+                          }
+                        } else {
+                          next = next.slice(0, count);
+                        }
+                        handleInputChange(q.id, next);
+                      };
+
+                      const filledCount = currentArr.filter(v => String(v.value || '').trim() !== '').length;
 
                       return (
-                        <div className="space-y-2 pt-1">
-                          {currentArr.map((val, idx) => (
-                            <div key={idx} className="flex items-center gap-2">
-                              <span className="w-24 text-xs font-semibold text-gray-700 shrink-0">
-                                {itemPrefix} {idx + 1} :
+                        <>
+                          {/* Header Input Cepat Jumlah / Auto-generate baris */}
+                          <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-200">
+                            <span className="text-xs text-gray-600 font-medium">
+                              Daftar nilai <strong>{q.label}</strong>:
+                            </span>
+                            <div className="flex items-center gap-1.5 bg-white border border-slate-200 px-2.5 py-1 rounded-lg shadow-2xs">
+                              <span className="text-[11px] text-gray-600 font-semibold whitespace-nowrap">
+                                Jumlah {q.label}:
                               </span>
-                              <div className="relative flex-1">
-                                <input
-                                  type={isText ? 'text' : 'number'}
-                                  value={val}
-                                  disabled={readOnly}
-                                  onChange={(e) => {
-                                    const nextArr = [...currentArr];
-                                    nextArr[idx] = e.target.value;
-                                    handleInputChange(q.id, nextArr);
-                                  }}
-                                  className={`w-full px-3.5 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none text-gray-700 text-sm ${q.unit ? 'pr-14' : ''} ${readOnly ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
-                                  placeholder={`Nilai ${itemPrefix.toLowerCase()} ${idx + 1}`}
-                                />
-                                {q.unit && (
-                                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                    <span className="text-gray-500 text-xs">{q.unit}</span>
-                                  </div>
+                              <input
+                                type="number"
+                                min="1"
+                                max="50"
+                                disabled={readOnly}
+                                placeholder="Auto"
+                                className="w-14 px-1 py-0.5 bg-slate-50 border border-gray-300 rounded text-center text-xs font-bold text-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                value={currentArr.length || ''}
+                                onChange={(e) => {
+                                  const val = parseInt(e.target.value, 10);
+                                  if (isNaN(val) || val < 0) return;
+                                  const count = Math.min(Math.max(val, 0), 50);
+                                  setRowCount(count);
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Daftar Input Nilai Dinamis */}
+                          <div className="space-y-2 pt-1">
+                            {currentArr.map((item, idx) => (
+                              <div key={idx} className="flex flex-col sm:flex-row sm:items-center gap-2 p-2 bg-white rounded-lg border border-slate-200 shadow-2xs">
+                                <div className="flex items-center gap-1.5 sm:w-44 md:w-52 shrink-0">
+                                  <span className="text-[11px] font-bold text-slate-400 select-none min-w-[1.2rem]">#{idx + 1}</span>
+                                  {allowCustomLabels && !readOnly ? (
+                                    <input
+                                      type="text"
+                                      value={item.label}
+                                      onChange={(e) => updateRowLabel(idx, e.target.value)}
+                                      placeholder={`Label ${idx + 1}`}
+                                      className="w-full px-2.5 py-1.5 text-xs font-semibold text-gray-800 bg-slate-50 border border-slate-200 rounded-md focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                      title="Klik untuk mengubah label baris ini"
+                                    />
+                                  ) : (
+                                    <span className="text-xs font-semibold text-gray-700 px-1 py-1 truncate" title={item.label}>
+                                      {item.label} :
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="relative flex-1">
+                                  <input
+                                    type={isText ? 'text' : 'number'}
+                                    value={item.value}
+                                    disabled={readOnly}
+                                    onChange={(e) => updateRowValue(idx, e.target.value)}
+                                    className={`w-full px-3 py-1.5 rounded-md border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none text-gray-700 text-sm ${q.unit ? 'pr-14' : ''} ${readOnly ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
+                                    placeholder={`Nilai ${item.label || `${itemPrefix} ${idx + 1}`}`}
+                                  />
+                                  {q.unit && (
+                                    <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none">
+                                      <span className="text-gray-500 text-xs font-medium">{q.unit}</span>
+                                    </div>
+                                  )}
+                                </div>
+                                {!readOnly && currentArr.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => deleteRow(idx)}
+                                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors self-end sm:self-center"
+                                    title={`Hapus baris ${item.label}`}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
                                 )}
                               </div>
-                              {!readOnly && currentArr.length > 1 && (
+                            ))}
+
+                            {!readOnly && (
+                              <div className="pt-1.5 flex flex-wrap items-center justify-between gap-2">
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    const nextArr = currentArr.filter((_, i) => i !== idx);
-                                    handleInputChange(q.id, nextArr);
-                                  }}
-                                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                  title={`Hapus ${itemPrefix} ${idx + 1}`}
+                                  onClick={addRow}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-blue-400 text-blue-600 hover:bg-blue-50 text-xs font-semibold transition-colors shadow-2xs"
                                 >
-                                  <Trash2 className="w-4 h-4" />
+                                  <Plus className="w-3.5 h-3.5" />
+                                  + Tambah {itemPrefix} ({defaultItems[currentArr.length]?.label || `${itemPrefix} ${currentArr.length + 1}`})
                                 </button>
-                              )}
-                            </div>
-                          ))}
-
-                          {!readOnly && (
-                            <div className="pt-1.5 flex items-center justify-between">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const nextArr = [...currentArr, ''];
-                                  handleInputChange(q.id, nextArr);
-                                }}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-blue-400 text-blue-600 hover:bg-blue-50 text-xs font-semibold transition-colors shadow-2xs"
-                              >
-                                <Plus className="w-3.5 h-3.5" />
-                                + Tambah {itemPrefix} ({itemPrefix} {currentArr.length + 1})
-                              </button>
-                              {currentArr.filter(v => String(v).trim() !== '').length > 0 && (
-                                <span className="text-[11px] text-gray-500 font-medium">
-                                  Terisi {currentArr.filter(v => String(v).trim() !== '').length} dari {currentArr.length} nilai
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </div>
+                                {filledCount > 0 && (
+                                  <span className="text-[11px] text-gray-500 font-medium">
+                                    Terisi {filledCount} dari {currentArr.length} nilai
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </>
                       );
                     })()}
                   </div>
@@ -1796,7 +1889,7 @@ export default function DynamicProductForm({ product, onClose, onSave, onChange,
           </div>
           {!readOnly ? (
             <button 
-              onClick={() => onSave(answers, getOverallPercent())}
+              onClick={handleSave}
               className="flex items-center justify-center w-full sm:w-auto gap-2 bg-blue-600 text-white px-5 sm:px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 active:bg-blue-800 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save className="w-4 h-4 sm:w-5 sm:h-5" />

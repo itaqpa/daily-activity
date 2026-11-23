@@ -66,21 +66,35 @@ export const mapDataToLegacyState = (stepData = {}, lapanganData = {}, filterPro
   // Sedangkan LegacyReportLogic membaca field key langsung (mis. "tag", "qty", "posisi", dll).
   const normalizeFormData = (formData = {}, prod = {}) => {
     const raw = formData || {};
-    const normalized = { ...raw };
+    const normalized = {};
 
     for (const [key, val] of Object.entries(raw)) {
       if (!key) continue;
       const parts = key.split('.');
       const shortKey = parts[parts.length - 1];
-      if (shortKey && (normalized[shortKey] === undefined || normalized[shortKey] === '')) {
+      if (!shortKey) continue;
+      // Jangan duplikasi compound key dan shortKey bersamaan
+      if (normalized[shortKey] === undefined || normalized[shortKey] === '' || (normalized[shortKey] == null && val != null)) {
         normalized[shortKey] = val;
       }
+    }
+
+    // Filter mutually exclusive shape fields agar data bulat vs kotak tidak saling bocor
+    const bentuk = normalized.bentuk || '';
+    const isKotakShape = /Kotak|Oval|Rectangular/i.test(bentuk);
+    const isRoundShape = !isKotakShape && /Bulat|Round/i.test(bentuk);
+    if (isKotakShape) {
+      const roundFields = ['f_od', 'pcd', 'n_bolt', 'bolt_n', 'hole', 'hole_dia', 'd_id', 'd_od', 'id1', 'size1', 'std'];
+      roundFields.forEach(rf => delete normalized[rf]);
+    } else if (isRoundShape) {
+      const kotakFields = ['dim_p', 'dim_l', 'dim_2', 'ukuran_luar_exj', 'fr_w', 'fr_np', 'fr_nl', 'fr_hole', 'fr_pitch', 'fr_bc', 'g_p', 'g_l'];
+      kotakFields.forEach(kf => delete normalized[kf]);
     }
 
     // Normalisasi 'day' agar cocok dengan id di days (mis. "d1", "d2")
     if (normalized.day) {
       if (typeof normalized.day === 'string') {
-        const match = normalized.day.match(/Hari ke\s*(\d+)/i);
+        const match = normalized.day.match(/Hari ke\s*(\d+)/i) || normalized.day.match(/Hari\s*(\d+)/i);
         if (match) {
           normalized.day = `d${match[1]}`;
         } else if (!normalized.day.startsWith('d')) {
