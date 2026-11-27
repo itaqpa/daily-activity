@@ -3,12 +3,14 @@ import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import tailwindcss from '@tailwindcss/vite'
 
+const apiProxyTarget = process.env.VITE_PROXY_TARGET || 'http://localhost:8400'
+
 // https://vite.dev/config/
 export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:8400',
+        target: apiProxyTarget,
         changeOrigin: true,
       },
     },
