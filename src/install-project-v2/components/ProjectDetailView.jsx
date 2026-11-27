@@ -292,7 +292,8 @@ export default function ProjectDetailView({
     };
   }, [project, days, date]);
 
-  const isLocked = Boolean(days[date]?.savedAt && date !== todayStr() && !revOpen[date]);
+  const isClosed = project?.status === 'closed';
+  const isLocked = isClosed || Boolean(days[date]?.savedAt && date !== todayStr() && !revOpen[date]);
 
   // S-Curve & KPIs
   const asOf = project?.status === 'closed' && isDate(project.closedAt) ? project.closedAt : todayStr();
@@ -345,6 +346,7 @@ export default function ProjectDetailView({
   if (!project || !curDay) return null;
 
   const saveDayUpdate = async (nextDay) => {
+    if (isClosed) return;
     const ok = await onSaveDay(project.id, date, nextDay);
     if (!ok) return;
     const nextDays = { ...(days || {}), [date]: nextDay };
@@ -381,6 +383,7 @@ export default function ProjectDetailView({
   };
 
   const handleLockDay = () => {
+    if (isClosed) return;
     const nextDay = clone(curDay);
     if (revOpen[date]) {
       const snap = clone(curDay);
@@ -753,8 +756,9 @@ export default function ProjectDetailView({
                   )}
                   <button
                     type="button"
-                    disabled={statusBusy}
+                    disabled={statusBusy || isClosed}
                     onClick={async () => {
+                      if (isClosed) return;
                       await persistStatusChange({
                         reg: {
                           ...regDraft,
@@ -772,7 +776,7 @@ export default function ProjectDetailView({
                 </div>
               </div>
 
-              <div className="grid">
+              <div className={`grid ${isClosed ? 'aqpa-readonly-lock' : ''}`}>
                 <label className="f">
                   Nama Sales
                   <input
@@ -1065,6 +1069,7 @@ export default function ProjectDetailView({
           dateStrip={dateStrip}
           curDay={curDay}
           isLocked={isLocked}
+          isClosed={isClosed}
           revOpen={revOpen}
           setRevOpen={setRevOpen}
           todayInfo={todayInfo}
@@ -1305,18 +1310,23 @@ export default function ProjectDetailView({
             </div>
 
             {/* Catat biaya */}
-            <div className="panel">
-              <h2>Catat biaya</h2>
+            <div className={`panel ${isClosed ? 'aqpa-readonly-lock' : ''}`}>
+              <div className="ph">
+                <h2>Catat biaya</h2>
+                {isClosed && <span className="pill">🔒 Terkunci (Closed)</span>}
+              </div>
               <div className="grid" style={{ marginTop: 10 }}>
-                <label className="f">Tanggal<input type="date" value={costForm.date} onChange={(e) => setCostForm({ ...costForm, date: e.target.value })} /></label>
-                <label className="f">Kategori<select value={costForm.kategori} onChange={(e) => setCostForm({ ...costForm, kategori: e.target.value })}>{KATEGORI.map((k) => <option key={k} value={k}>{k}</option>)}</select></label>
-                <label className="f">Deskripsi<input type="text" placeholder="cth: Sewa chain block 2 ton" value={costForm.desc} onChange={(e) => setCostForm({ ...costForm, desc: e.target.value })} /></label>
-                <label className="f">Qty<input type="number" min="0" value={costForm.qty} onChange={(e) => setCostForm({ ...costForm, qty: e.target.value })} /></label>
-                <label className="f">Harga satuan (Rp)<input type="number" min="0" placeholder="0" value={costForm.price} onChange={(e) => setCostForm({ ...costForm, price: e.target.value })} /></label>
+                <label className="f">Tanggal<input type="date" disabled={isClosed} value={costForm.date} onChange={(e) => setCostForm({ ...costForm, date: e.target.value })} /></label>
+                <label className="f">Kategori<select disabled={isClosed} value={costForm.kategori} onChange={(e) => setCostForm({ ...costForm, kategori: e.target.value })}>{KATEGORI.map((k) => <option key={k} value={k}>{k}</option>)}</select></label>
+                <label className="f">Deskripsi<input type="text" disabled={isClosed} placeholder="cth: Sewa chain block 2 ton" value={costForm.desc} onChange={(e) => setCostForm({ ...costForm, desc: e.target.value })} /></label>
+                <label className="f">Qty<input type="number" disabled={isClosed} min="0" value={costForm.qty} onChange={(e) => setCostForm({ ...costForm, qty: e.target.value })} /></label>
+                <label className="f">Harga satuan (Rp)<input type="number" disabled={isClosed} min="0" placeholder="0" value={costForm.price} onChange={(e) => setCostForm({ ...costForm, price: e.target.value })} /></label>
                 <div className="f" style={{ justifyContent: 'flex-end' }}>
                   <button
                     type="button"
+                    disabled={isClosed}
                     onClick={() => {
+                      if (isClosed) return;
                       const pr = num(costForm.price);
                       if (!(pr > 0)) return;
                       const targetDate = costForm.date || todayStr();
@@ -1374,6 +1384,8 @@ export default function ProjectDetailView({
                           <td className="n">
                             {auto ? (
                               <span title="Dihitung otomatis dari kehadiran & jam lembur di Input Harian">🔒</span>
+                            ) : isClosed ? (
+                              <span title="Project berstatus Closed (read-only)">🔒</span>
                             ) : locked ? (
                               <span title="Terkunci – ubah lewat revisi di Input Harian">🔒</span>
                             ) : (

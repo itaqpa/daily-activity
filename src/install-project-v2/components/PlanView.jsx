@@ -252,7 +252,10 @@ function PlanViewInner({ inline = false, onClose, onSavedBaseline, dark, project
     }
   }, [onUpdateProject, showToast]);
 
+  const isPlanLocked = p?.status === 'running' || p?.status === 'closed';
+
   const persistProject = useCallback((nextP, toastMsg, { debounce = false } = {}) => {
+    if (isPlanLocked) return Promise.resolve(false);
     setP(nextP);
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     if (debounce) {
@@ -262,7 +265,7 @@ function PlanViewInner({ inline = false, onClose, onSavedBaseline, dark, project
       return Promise.resolve(true);
     }
     return sendProjectPut(nextP, toastMsg);
-  }, [sendProjectPut]);
+  }, [isPlanLocked, sendProjectPut]);
 
   const regStart = p.reg?.estStart;
   const regDays = p.reg?.estDays;
@@ -388,7 +391,7 @@ function PlanViewInner({ inline = false, onClose, onSavedBaseline, dark, project
 
   // Save Baseline
   const handleSaveBaseline = async () => {
-    if (!isBobotValid || !p.lines.length || saving) return;
+    if (isPlanLocked || !isBobotValid || !p.lines.length || saving) return;
     const nextP = {
       ...p,
       status: p.status === 'registered' ? 'planned' : p.status,
@@ -490,8 +493,22 @@ function PlanViewInner({ inline = false, onClose, onSavedBaseline, dark, project
           </div>
         </header>
 
+        {/* Lock Banner when Running / Closed */}
+        {isPlanLocked && (
+          <div className={`rounded-xl border px-4 py-2.5 mb-4 flex items-center gap-2 text-xs font-medium ${
+            dark ? 'bg-amber-500/10 border-amber-500/30 text-amber-300' : 'bg-amber-50 border-amber-200 text-amber-800'
+          }`}>
+            <Lock className="w-4 h-4 shrink-0" />
+            <span>
+              {p.status === 'closed'
+                ? 'Project berstatus Closed. Plan Awal & Baseline terkunci (read-only) untuk menjaga keakuratan laporan akhir.'
+                : 'Project berstatus Running. Plan Awal & Baseline terkunci (read-only) agar target Kurva S tidak berubah selama pelaksanaan.'}
+            </span>
+          </div>
+        )}
+
         {/* Stacked Content (All sections on one page, matching HTML) */}
-        <div className={inline ? 'space-y-4' : 'flex-1 min-h-0 overflow-y-auto px-4 sm:px-5 pb-5 space-y-4'}>
+        <div className={`${inline ? 'space-y-4' : 'flex-1 min-h-0 overflow-y-auto px-4 sm:px-5 pb-5 space-y-4'} ${isPlanLocked ? 'aqpa-readonly-lock' : ''}`}>
           {/* 1. JADWAL & ITEM */}
               {/* Compact Periode & Bobot Strip */}
               <div className={`rounded-xl border p-3 grid grid-cols-2 sm:grid-cols-4 gap-3 divide-y sm:divide-y-0 sm:divide-x ${dark ? 'divide-slate-800' : 'divide-slate-200'} ${innerCardCls}`}>
@@ -545,6 +562,7 @@ function PlanViewInner({ inline = false, onClose, onSavedBaseline, dark, project
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
+                      data-allow-readonly="true"
                       onClick={() => setOpenSec((s) => ({ ...s, items: !s.items }))}
                       className="flex items-center gap-1.5 text-left cursor-pointer"
                     >
@@ -912,6 +930,7 @@ function PlanViewInner({ inline = false, onClose, onSavedBaseline, dark, project
                                 <td className="py-2 px-1.5 whitespace-nowrap">
                                   <button
                                     type="button"
+                                    data-allow-readonly="true"
                                     onClick={() => setOpenJobs({ ...openJobs, [l.id]: !isOpen })}
                                     className={`px-2 py-1 rounded-md text-[11px] font-medium border cursor-pointer ${
                                       isOpen
@@ -1117,6 +1136,7 @@ function PlanViewInner({ inline = false, onClose, onSavedBaseline, dark, project
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <button
                     type="button"
+                    data-allow-readonly="true"
                     onClick={() => setOpenSec((s) => ({ ...s, mp: !s.mp }))}
                     className="flex items-start gap-2 text-left cursor-pointer"
                   >
@@ -1354,6 +1374,7 @@ function PlanViewInner({ inline = false, onClose, onSavedBaseline, dark, project
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <button
                     type="button"
+                    data-allow-readonly="true"
                     onClick={() => setOpenSec((s) => ({ ...s, cost: !s.cost }))}
                     className="flex items-start gap-2 text-left cursor-pointer"
                   >
@@ -1710,7 +1731,7 @@ function PlanViewInner({ inline = false, onClose, onSavedBaseline, dark, project
 
           <button
             type="button"
-            disabled={!isBobotValid || !(p.lines || []).length}
+            disabled={isPlanLocked || !isBobotValid || !(p.lines || []).length}
             onClick={handleSaveBaseline}
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold cursor-pointer disabled:opacity-40 ${
               dark
@@ -1718,8 +1739,14 @@ function PlanViewInner({ inline = false, onClose, onSavedBaseline, dark, project
                 : 'bg-sky-600 text-white hover:bg-sky-700'
             }`}
           >
-            {p.baseline ? <Save className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
-            <span>{p.baseline ? 'Perbarui Baseline' : 'Simpan & Kunci Baseline'}</span>
+            {isPlanLocked ? <Lock className="w-4 h-4" /> : p.baseline ? <Save className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+            <span>
+              {isPlanLocked
+                ? `Terkunci (${p.status === 'closed' ? 'Closed' : 'Running'})`
+                : p.baseline
+                  ? 'Perbarui Baseline'
+                  : 'Simpan & Kunci Baseline'}
+            </span>
           </button>
         </footer>
       </section>

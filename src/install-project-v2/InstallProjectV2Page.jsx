@@ -37,9 +37,9 @@ export default function InstallProjectV2Page() {
   const [dark, setDark] = useState(() => {
     try {
       const saved = localStorage.getItem('install_v2_theme');
-      return saved ? saved === 'dark' : true;
+      return saved ? saved === 'dark' : false;
     } catch {
-      return true;
+      return false;
     }
   });
 
@@ -148,9 +148,10 @@ export default function InstallProjectV2Page() {
         dark={dark}
         onToggleDark={() => setDark((d) => !d)}
         showOnMobile
+        paddingClass="px-3 sm:px-12"
       />
 
-      {/* Main Content (Pure HTML concept: no sidebar, full-width max-w-[1360px]) */}
+      {/* Main Content (Pure HTML concept: no sidebar, full-width) */}
       <main className="aqpa-main flex-1">
         {!perms.canView ? (
           <div className={`rounded-xl border p-8 text-center ${dark ? 'bg-[#0d1520] border-[#1e3a5a] text-slate-300' : 'bg-white border-slate-200 text-slate-600'}`}>

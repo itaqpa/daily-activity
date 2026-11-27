@@ -271,6 +271,7 @@ CREATE TABLE IF NOT EXISTS install_v2_audit_logs (
   category TEXT NOT NULL,
   action TEXT NOT NULL,
   summary TEXT NOT NULL,
+  actor_name TEXT DEFAULT 'System',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

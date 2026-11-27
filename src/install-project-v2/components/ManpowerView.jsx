@@ -53,7 +53,10 @@ export default function ManpowerView({ dark, project, master, days, onUpdateProj
       .catch(() => {});
   }, []);
 
+  const isClosed = project?.status === 'closed';
+
   const persistProject = async (nextP) => {
+    if (isClosed) return;
     setP(nextP);
     setSaving(true);
     try {
@@ -157,6 +160,7 @@ export default function ManpowerView({ dark, project, master, days, onUpdateProj
   };
 
   const updateDayAndSave = async (nextDay) => {
+    if (isClosed) return;
     await onSaveDay(p.id, date, nextDay);
   };
 
@@ -215,7 +219,14 @@ export default function ManpowerView({ dark, project, master, days, onUpdateProj
   }
 
   return (
-    <div className="stack">
+    <div className={`stack ${isClosed ? 'aqpa-readonly-lock' : ''}`}>
+      {isClosed && (
+        <div className={`rounded-xl border px-4 py-2.5 flex items-center gap-2 text-xs font-medium ${
+          dark ? 'bg-amber-500/10 border-amber-500/30 text-amber-300' : 'bg-amber-50 border-amber-200 text-amber-800'
+        }`}>
+          <span>🔒 Project berstatus Closed. Data Manpower &amp; Tim terkunci (read-only).</span>
+        </div>
+      )}
       {/* Header */}
       <div className="ph">
         <div>
