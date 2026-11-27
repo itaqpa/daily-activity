@@ -933,6 +933,14 @@ function reportBody(s,photoMap){
   h+='<h2>'+(++n)+'. Perlu dikonfirmasi ke client</h2>'+(s.openItems.length?'<table><thead><tr><th>Status</th><th>Item</th></tr></thead><tbody>'+s.openItems.map(o=>'<tr><td>'+(o.done?'Selesai':'Terbuka')+'</td><td>'+esc(o.text)+'</td></tr>').join('')+'</tbody></table>':'<p><i>Tidak ada.</i></p>');
   const miss=s.items.map(it=>[it.prod+' '+(it.f.tag||'(tanpa tag)'),missing(it).map(c=>c.l)]).filter(x=>x[1].length);
   h+='<h2>'+(++n)+'. Data utama yang belum lengkap</h2>'+(miss.length?'<table><thead><tr><th>Item</th><th>Data kosong</th></tr></thead><tbody>'+miss.map(m=>'<tr class="missing"><td>'+esc(m[0])+'</td><td>'+esc(m[1].join(', '))+'</td></tr>').join('')+'</tbody></table>':'<p>Semua data utama sudah terisi.</p>');
+  const surveyors = (I.surveyor || '').split(',').map(x => x.trim()).filter(Boolean);
+  const leaderName = surveyors[0] || '';
+  const marketingName = I.nama_marketing || I.marketing || '';
+  h+='<div class="sig-block"><div class="sig-date">Tanggal dilaporkan :</div><div class="sig-grid">'+
+    '<div class="sig-col"><div class="sig-role">Dibuat Oleh</div><div class="sig-space"></div><div class="sig-name">( '+(leaderName?esc(leaderName):'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;')+' )</div><div class="sig-title">Leader Project</div></div>'+
+    '<div class="sig-col"><div class="sig-role">Mengetahui</div><div class="sig-space"></div><div class="sig-name">( '+(marketingName?esc(marketingName):'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;')+' )</div><div class="sig-title">Marketing</div></div>'+
+    '<div class="sig-col"><div class="sig-role">Mengetahui</div><div class="sig-space"></div><div class="sig-name">( &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; )</div><div class="sig-title">Engineer</div></div>'+
+  '</div></div>';
   h+='<div class="foot">Disusun oleh '+esc(I.surveyor||'surveyor')+' · dibuat '+new Date().toLocaleString('id-ID',{dateStyle:'long',timeStyle:'short'})+'. Tabel standar pada validasi adalah referensi awal; verifikasi ke dokumen standar resmi sebelum design final.</div>';
   return h;
 }

@@ -44,6 +44,7 @@ import Laporan from './marketing/pages/reports/Laporan';
 import Settings from './marketing/pages/Settings';
 import Portal from './pages/Portal';
 import ListInstallPage from './install-project/ListInstallPage';
+import InstallProjectV2Page from './install-project-v2/InstallProjectV2Page';
 import ShowInstallPage from './install-project/components/ShowInstallPage';
 import FormDailyInputPage from './install-project/components/DailyProgress/FormDailyInputPage';
 import ListCostMPPage from './install-project/ListCostMPPage';
@@ -98,6 +99,10 @@ function App() {
               <Route path="reports" element={<Laporan />} />
               <Route path="settings" element={<Settings />} />
             </Route>
+          </Route>
+
+          <Route path="/installation-project-v2" element={<ProtectedRoute />}>
+            <Route index element={<InstallProjectV2Page />} />
           </Route>
 
           <Route path="/installation-project" element={<ProtectedRoute />}>

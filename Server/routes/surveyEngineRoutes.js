@@ -1875,11 +1875,25 @@ export default function (pool) {
       ]);
 
       // Ambil version_id
-      const vRes = await client.query('SELECT version_id FROM survey_engine.template_questions WHERE id = $1', [id]);
+      const vRes = await client.query('SELECT version_id, section_code_snapshot FROM survey_engine.template_questions WHERE id = $1', [id]);
       if (vRes.rows.length === 0) {
         throw new Error('Pertanyaan tidak ditemukan');
       }
       const versionId = vRes.rows[0].version_id;
+      const effectiveSectionCode = section_code || vRes.rows[0].section_code_snapshot;
+
+      // Jika user memilih untuk menerapkan pemicu ke seluruh pertanyaan di section ini
+      if (req.body.apply_to_section && effectiveSectionCode) {
+        await client.query(`
+          UPDATE survey_engine.template_questions
+          SET visibility_rule = $1::jsonb
+          WHERE section_code_snapshot = $2 AND version_id = $3
+        `, [
+          visibility_rule !== undefined ? JSON.stringify(visibility_rule || {}) : null,
+          effectiveSectionCode,
+          versionId
+        ]);
+      }
 
       // Update produk relasi
       const isAllProducts = !product_codes || product_codes.length === 0 || product_codes.includes('ALL');

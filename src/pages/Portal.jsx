@@ -83,13 +83,13 @@ export default function Portal() {
       hasAccess: hasDailyActivitySalesAccess
     },
     {
-      title: 'Dinas Luar',
-      description: 'Manajemen proyek dinas luar, progress harian, dan pelaporan lapangan',
-      icon: <Wrench className="w-7 h-7 text-orange-600" />,
-      bgClass: 'bg-orange-50/80',
-      borderClass: 'border-orange-100',
-      shadowClass: 'shadow-orange-500/20',
-      path: dinasLuarPath,
+      title: 'Installation Project',
+      description: 'Manajemen proyek instalasi (Plan, Kurva S, Manpower, Biaya & Laporan)',
+      icon: <Wrench className="w-7 h-7 text-sky-700" />,
+      bgClass: 'bg-sky-50/80',
+      borderClass: 'border-sky-100',
+      shadowClass: 'shadow-sky-500/20',
+      path: '/installation-project-v2',
       hasAccess: hasDinasLuarAccess
     },
     {

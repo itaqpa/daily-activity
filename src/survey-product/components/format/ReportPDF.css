@@ -167,6 +167,8 @@ details.sec>summary h3{font-size:20px;flex:1}
 .rpt .sub{color:#51606A;margin:0 0 16px}
 .rpt table{border-collapse:collapse;width:100%;margin:6px 0 10px;font-size:13.5px}
 .rpt th,.rpt td{border:1px solid #C9D0D4;padding:5px 7px;text-align:left;vertical-align:top}
+.rpt .tw table{table-layout:fixed;width:100%;font-size:10.5px}
+.rpt .tw th,.rpt .tw td{padding:4px 5px;overflow-wrap:anywhere;word-break:break-word}
 .rpt th{background:#EEF1F2;font-weight:600}
 .rpt .kv td:first-child{width:38%;color:#51606A}
 .rpt .missing{background:#FFF6D6}
@@ -176,6 +178,12 @@ details.sec>summary h3{font-size:20px;flex:1}
 .rpt figcaption{font-size:12.5px;padding:4px 6px}
 .rpt .sum{white-space:pre-wrap}
 .rpt .foot{margin-top:28px;font-size:12px;color:#51606A;border-top:1px solid #C9D0D4;padding-top:8px}
+.rpt .sig-block{margin-top:26px;font-size:13.5px;break-inside:avoid-page}
+.rpt .sig-date{margin-bottom:10px}
+.rpt .sig-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;text-align:center}
+.rpt .sig-space{height:64px}
+.rpt .sig-name{font-weight:500}
+.rpt .sig-title{margin-top:2px}
 .rpt .tw{overflow-x:auto}
 .rpt .itemblock{break-inside:avoid-page}
 @media print{
