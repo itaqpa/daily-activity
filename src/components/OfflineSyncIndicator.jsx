@@ -22,44 +22,38 @@ export default function OfflineSyncIndicator() {
       {/* Badge Button */}
       <button
         onClick={() => setShowDetail(!showDetail)}
-        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all border shadow-xs ${
+        className={`flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full transition-all border shadow-xs cursor-pointer ${
           !isOnline
-            ? 'bg-rose-50 text-rose-700 border-rose-200/80 hover:bg-rose-100'
+            ? 'bg-rose-50 text-rose-600 border-rose-200/80 hover:bg-rose-100'
             : isSyncing
-            ? 'bg-blue-50 text-blue-700 border-blue-200/80 animate-pulse'
-            : failedCount > 0
-            ? 'bg-amber-50 text-amber-700 border-amber-200/80 hover:bg-amber-100'
-            : totalPending > 0
-            ? 'bg-sky-50 text-sky-700 border-sky-200/80 hover:bg-sky-100'
-            : 'bg-emerald-50/90 text-emerald-700 border-emerald-200/80 hover:bg-emerald-100'
+            ? 'bg-amber-50 text-amber-600 border-amber-200/80 animate-pulse'
+            : failedCount > 0 || totalPending > 0
+            ? 'bg-amber-50 text-amber-600 border-amber-200/80 hover:bg-amber-100'
+            : 'bg-emerald-50/90 text-emerald-600 border-emerald-200/80 hover:bg-emerald-100'
         }`}
-        title="Status Koneksi & Sinkronisasi Offline"
+        title={
+          !isOnline
+            ? 'Offline'
+            : isSyncing
+            ? `Sinkronisasi (${syncingCount || totalPending})`
+            : failedCount > 0
+            ? `Error (${failedCount})`
+            : totalPending > 0
+            ? `Pending (${totalPending})`
+            : 'Online'
+        }
+        aria-label="Status Koneksi & Sinkronisasi Offline"
       >
         {!isOnline ? (
-          <>
-            <WifiOff className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-            <span className="tracking-tight">Offline</span>
-          </>
+          <WifiOff className="w-4 h-4 text-rose-600 shrink-0" />
         ) : isSyncing ? (
-          <>
-            <RefreshCw className="w-3.5 h-3.5 text-blue-600 animate-spin shrink-0" />
-            <span className="tracking-tight">Sync ({syncingCount || totalPending})</span>
-          </>
+          <RefreshCw className="w-4 h-4 text-amber-600 animate-spin shrink-0" />
         ) : failedCount > 0 ? (
-          <>
-            <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-            <span className="tracking-tight">Error ({failedCount})</span>
-          </>
+          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
         ) : totalPending > 0 ? (
-          <>
-            <RefreshCw className="w-3.5 h-3.5 text-sky-600 shrink-0" />
-            <span className="tracking-tight">Pending ({totalPending})</span>
-          </>
+          <Wifi className="w-4 h-4 text-amber-600 shrink-0" />
         ) : (
-          <>
-            <Wifi className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-            <span className="tracking-tight font-medium">Online</span>
-          </>
+          <Wifi className="w-4 h-4 text-emerald-600 shrink-0" />
         )}
       </button>
 

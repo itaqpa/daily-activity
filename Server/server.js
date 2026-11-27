@@ -11,6 +11,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import userRoutes from './routes/userRoutes.js';
 import installationProjectsRoutes from './routes/installationProjectsRoutes.js';
+import installProjectV2Routes from './routes/installProjectV2Routes.js';
 import manpowerRoutes from './routes/manpowerRoutes.js';
 import dailyProgressRoutes from './routes/dailyProgressRoutes.js';
 import costProjectRoutes from './routes/costProjectRoutes.js';
@@ -1315,6 +1316,7 @@ app.post('/api/permissions/user/:id', async (req, res) => {
   }
 });
 app.use('/api/install-projects', installationProjectsRoutes);
+app.use('/api/install-project-v2', installProjectV2Routes);
 app.use('/api/manpower', manpowerRoutes(pool));
 app.use('/api/install-projects/manpower', manpowerRoutes(pool));
 app.use('/api/daily-progress', dailyProgressRoutes(pool));

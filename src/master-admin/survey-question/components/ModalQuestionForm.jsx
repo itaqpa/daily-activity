@@ -35,6 +35,7 @@ export default function ModalQuestionForm({
     condition_parent_key: '',
     condition_operator: 'eq',
     condition_value: '',
+    apply_to_section: false,
     preserved_section_js: null,
     preserved_field_js: null,
     raw_custom_rule: null
@@ -380,6 +381,7 @@ export default function ModalQuestionForm({
         condition_parent_key: condParent,
         condition_operator: condOp,
         condition_value: condVal,
+        apply_to_section: false,
         preserved_section_js: pSecJs,
         preserved_field_js: pFieldJs,
         raw_custom_rule: rawRule
@@ -409,6 +411,7 @@ export default function ModalQuestionForm({
         condition_parent_key: '',
         condition_operator: 'eq',
         condition_value: '',
+        apply_to_section: false,
         preserved_section_js: null,
         preserved_field_js: null,
         raw_custom_rule: null
@@ -542,9 +545,12 @@ export default function ModalQuestionForm({
           const cleanVal = formData.condition_value.trim();
           const targetExpr = `f => f.${formData.condition_parent_key} ${opSymbol} '${cleanVal}'`;
 
-          // Jika pertanyaan ini bagian dari section yang bergantung pada koneksi/parent (seperti section Flange/Clamp/Weld),
+          // Jika pertanyaan ini bagian dari section yang bergantung pada koneksi/bentuk/parent,
           // set section_js agar modul card di DynamicProductForm juga terpengaruh.
-          const isSectionTrigger = formData.condition_parent_key === 'koneksi' || !!formData.preserved_section_js;
+          const isSectionTrigger = formData.condition_parent_key === 'koneksi' ||
+            formData.condition_parent_key === 'bentuk' ||
+            !!formData.preserved_section_js ||
+            !!formData.apply_to_section;
 
           visibilityRulePayload = {
             ...(formData.raw_custom_rule || {}),
@@ -553,7 +559,7 @@ export default function ModalQuestionForm({
             value: cleanVal,
             source_expression: {
               section_js: isSectionTrigger ? targetExpr : (formData.preserved_section_js || null),
-              field_js: !isSectionTrigger ? targetExpr : (formData.preserved_field_js || null)
+              field_js: targetExpr
             }
           };
         } else if (formData.raw_custom_rule) {
@@ -585,7 +591,8 @@ export default function ModalQuestionForm({
         sort_order: Number(formData.sort_order) || 100,
         product_codes: isAllProductsSelected ? ['ALL'] : formData.product_codes,
         options: cleanedOptions,
-        visibility_rule: visibilityRulePayload
+        visibility_rule: visibilityRulePayload,
+        apply_to_section: !!formData.apply_to_section
       };
 
       const url = isEdit
@@ -1454,6 +1461,21 @@ export default function ModalQuestionForm({
                     <strong>"{formData.condition_value || '...'}"</strong>.
                   </span>
                 </div>
+
+                {isEdit && formData.has_condition && (
+                  <label className="flex items-start gap-2.5 p-2.5 rounded-lg bg-purple-50 border border-purple-200 cursor-pointer hover:bg-purple-100/60 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={formData.apply_to_section || false}
+                      onChange={(e) => setFormData(prev => ({ ...prev, apply_to_section: e.target.checked }))}
+                      className="mt-0.5 rounded text-purple-600 focus:ring-purple-500 cursor-pointer"
+                    />
+                    <div className="text-[11px] text-purple-900 leading-tight">
+                      <span className="font-bold">Terapkan syarat pemicu ini ke seluruh pertanyaan di section "{formData.section_name || formData.section_code}"</span>
+                      <p className="text-[10px] text-purple-700 mt-0.5">Semua pertanyaan lain dalam section yang sama akan otomatis disembunyikan / ditampilkan serentak mengikuti syarat pemicu ini.</p>
+                    </div>
+                  </label>
+                )}
 
                 {(formData.preserved_field_js || formData.preserved_section_js) && (
                   <div className="text-[10px] text-purple-700/80 font-mono bg-white/80 p-2 rounded border border-purple-200">
