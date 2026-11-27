@@ -5,7 +5,7 @@ import { Search, Bell, ChevronDown, LayoutDashboard, Wrench, Shield, LogOut, Set
 
 import OfflineSyncIndicator from '../OfflineSyncIndicator';
 
-export default function Topbar({ currentModule, dark = false, onToggleDark = null, showOnMobile = false, rightSlot = null }) {
+export default function Topbar({ currentModule, dark = false, onToggleDark = null, showOnMobile = false, rightSlot = null, paddingClass = 'px-3 sm:px-6' }) {
   const navigate = useNavigate();
   const { user, logout, hasPermission } = useAuth();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -42,7 +42,7 @@ export default function Topbar({ currentModule, dark = false, onToggleDark = nul
   const currentMod = modules.find(m => m.name === currentModule) || modules[0] || allModules[0];
 
   return (
-    <header className={`${dark ? 'bg-[#0d1520] border-[#1e3a5a] text-slate-100' : 'bg-white border-gray-100 text-gray-800'} border-b px-3 sm:px-6 py-2.5 sm:py-3 items-center justify-between gap-2 sm:gap-4 sticky top-0 z-30 ${showOnMobile ? 'flex' : 'hidden md:flex'}`}>
+    <header className={`${dark ? 'bg-[#0d1520] border-[#1e3a5a] text-slate-100' : 'bg-white border-gray-100 text-gray-800'} border-b ${paddingClass} py-2.5 sm:py-3 items-center justify-between gap-2 sm:gap-4 sticky top-0 z-30 ${showOnMobile ? 'flex' : 'hidden md:flex'}`}>
       <div className="flex items-center gap-2 sm:gap-5 min-w-0">
         <img src="/logo/aqpa-indonesia-logo.png" alt="AQPA Logo" className="h-5 sm:h-8 w-auto object-contain cursor-pointer shrink-0" onClick={() => navigate('/portal')} />
         

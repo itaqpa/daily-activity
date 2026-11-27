@@ -130,10 +130,9 @@
 }
 
 .aqpa-v2 .aqpa-main {
-  max-width: 1360px;
   width: 100%;
   margin: 0 auto;
-  padding: 20px max(3vw, 16px) 60px;
+  padding: 21px 48px 60px;
 }
 
 .aqpa-v2 .stack {
@@ -856,5 +855,17 @@
   .aqpa-v2 .prow .ttl {
     grid-column: 1 / -1;
   }
+}
+
+.aqpa-v2 .aqpa-readonly-lock input,
+.aqpa-v2 .aqpa-readonly-lock select,
+.aqpa-v2 .aqpa-readonly-lock textarea {
+  pointer-events: none;
+  opacity: 0.72;
+}
+
+.aqpa-v2 .aqpa-readonly-lock button:not([data-allow-readonly="true"]) {
+  pointer-events: none;
+  opacity: 0.5;
 }
 }

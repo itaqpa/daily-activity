@@ -51,6 +51,7 @@ export default function DailyInput({
   dateStrip,
   curDay,
   isLocked,
+  isClosed = false,
   revOpen,
   setRevOpen,
   todayInfo,
@@ -306,15 +307,20 @@ export default function DailyInput({
         {isLocked && (
           <div className={`rounded-xl border p-3 flex flex-wrap items-center justify-between gap-2 text-xs ${dark ? 'bg-amber-500/10 border-amber-500/30 text-amber-300' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
             <span className="flex items-center gap-1.5 font-medium">
-              <Lock className="w-3.5 h-3.5" /> Laporan {fmtDate(date)} sudah tersimpan & terkunci{curDay.rev ? ` (Rev${curDay.rev})` : ''}.
+              <Lock className="w-3.5 h-3.5" />
+              {isClosed
+                ? 'Project sudah berstatus Closed. Input harian terkunci (read-only).'
+                : `Laporan ${fmtDate(date)} sudah tersimpan & terkunci${curDay.rev ? ` (Rev${curDay.rev})` : ''}.`}
             </span>
-            <button
-              type="button"
-              onClick={() => setRevOpen({ ...revOpen, [date]: true })}
-              className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-semibold cursor-pointer transition-colors"
-            >
-              Buat Revisi Rev{num(curDay.rev) + 1}
-            </button>
+            {!isClosed && (
+              <button
+                type="button"
+                onClick={() => setRevOpen({ ...revOpen, [date]: true })}
+                className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-semibold cursor-pointer transition-colors"
+              >
+                Buat Revisi Rev{num(curDay.rev) + 1}
+              </button>
+            )}
           </div>
         )}
 
