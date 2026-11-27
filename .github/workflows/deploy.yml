@@ -250,6 +250,7 @@ jobs:
               --network postgres_database \
               --env-file "$DEPLOY_ENV_FILE" \
               -v "$DEPLOY_ENV_FILE:/app/.env:ro" \
+              -e VITE_PROXY_TARGET=http://daily-activity-backend:8400 \
               -p "${FRONTEND_PORT}:4173" \
               "$GHCR_REPO/frontend:latest"
 
